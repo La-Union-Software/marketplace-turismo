@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, CreditCard, Calendar, MapPin, User } from 'lucide-react';
@@ -9,7 +9,7 @@ import { firebaseDB } from '@/services/firebaseService';
 import { mobbexService } from '@/services/mobbexService';
 import { Booking } from '@/types';
 
-export default function PaymentCompletePage() {
+function PaymentCompleteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
@@ -310,5 +310,20 @@ export default function PaymentCompletePage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentCompletePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <PaymentCompleteContent />
+    </Suspense>
   );
 }
