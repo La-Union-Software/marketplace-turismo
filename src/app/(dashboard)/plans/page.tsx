@@ -86,36 +86,17 @@ export default function PlansPage() {
         return;
       }
 
-      // Initialize Mobbex service
-      await mobbexService.initialize();
-
-      // If plan has Mobbex subscription ID, sync with Mobbex
-      if (plan.mobbexSubscriptionId && mobbexService.isServiceConfigured()) {
-        try {
-          if (currentStatus) {
-            // Deactivating - suspend in Mobbex
-            await mobbexService.deactivateSubscription(plan.mobbexSubscriptionId);
-            console.log('✅ Mobbex subscription suspended');
-          } else {
-            // Activating - activate in Mobbex
-            await mobbexService.activateSubscription(plan.mobbexSubscriptionId);
-            console.log('✅ Mobbex subscription activated');
-          }
-        } catch (mobbexError) {
-          console.error('❌ Failed to sync with Mobbex:', mobbexError);
-          setMessage({ 
-            type: 'error', 
-            text: `Failed to sync with Mobbex: ${mobbexError instanceof Error ? mobbexError.message : 'Unknown error'}. Plan status was not changed.` 
-          });
-          return;
-        }
+      // Note: Mobbex subscription management methods are not implemented yet
+      // For now, we only update the local plan status
+      if (plan.mobbexSubscriptionId) {
+        console.log('Plan has Mobbex subscription ID, but Mobbex sync methods are not implemented yet');
       }
 
       // Update local plan status
       await firebaseDB.plans.toggleActive(planId, !currentStatus, user.id);
       setMessage({ 
         type: 'success', 
-        text: `Plan ${currentStatus ? 'deactivated' : 'activated'} successfully${plan.mobbexSubscriptionId ? ' and synced with Mobbex' : ''}` 
+        text: `Plan ${currentStatus ? 'deactivated' : 'activated'} successfully` 
       });
       await loadPlans();
     } catch (error) {
