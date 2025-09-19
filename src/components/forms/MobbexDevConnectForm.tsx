@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   CreditCard, 
@@ -24,14 +24,14 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
   const [isLoading, setIsLoading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [credentials, setCredentials] = useState<any>(null);
+  const [credentials, setCredentials] = useState<Record<string, unknown> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     loadCredentials();
-  }, []);
+  }, [loadCredentials]);
 
-  const loadCredentials = async () => {
+  const loadCredentials = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -46,7 +46,7 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   const handleConnect = async () => {
     if (!user) return;
@@ -278,10 +278,10 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
                 How it works
               </h4>
               <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                <li>• Click "Connect with Mobbex" to open the connection page</li>
+                <li>• Click &quot;Connect with Mobbex&quot; to open the connection page</li>
                 <li>• Log in to your Mobbex account</li>
                 <li>• Authorize the connection to our platform</li>
-                <li>• You'll be redirected back with your credentials</li>
+                <li>• You&apos;ll be redirected back with your credentials</li>
                 <li>• Your account will be ready to process payments</li>
               </ul>
             </div>

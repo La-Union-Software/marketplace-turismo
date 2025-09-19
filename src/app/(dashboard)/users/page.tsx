@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -53,7 +53,7 @@ function UsersManagement() {
 
   useEffect(() => {
     filterUsers();
-  }, [users, searchTerm, roleFilter, statusFilter]);
+  }, [filterUsers]);
 
   const loadUsers = async () => {
     try {
@@ -68,7 +68,7 @@ function UsersManagement() {
     }
   };
 
-  const filterUsers = () => {
+  const filterUsers = useCallback(() => {
     let filtered = users;
 
     // Search filter
@@ -95,7 +95,7 @@ function UsersManagement() {
     }
 
     setFilteredUsers(filtered);
-  };
+  }, [users, searchTerm, roleFilter, statusFilter]);
 
   const handleAssignRole = async () => {
     if (!selectedUser || !selectedRole) return;
@@ -113,9 +113,10 @@ function UsersManagement() {
       setShowRoleModal(false);
       setSelectedUser(null);
       setSelectedRole('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning role:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to assign role' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to assign role';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsProcessing(false);
     }
@@ -130,9 +131,10 @@ function UsersManagement() {
       
       // Refresh users list
       await loadUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error removing role:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to remove role' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove role';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsProcessing(false);
     }

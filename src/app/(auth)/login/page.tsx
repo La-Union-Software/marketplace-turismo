@@ -40,20 +40,21 @@ export default function LoginPage() {
       } else {
         setError('Invalid email or password. Please try again.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
       
       // Handle Firebase auth errors
-      if (error.code === 'auth/user-not-found') {
-        setError('No account found with this email address.');
-      } else if (error.code === 'auth/wrong-password') {
-        setError('Incorrect password. Please try again.');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('Invalid email address format.');
-      } else if (error.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
-      } else if (error.code === 'auth/user-disabled') {
-        setError('This account has been disabled.');
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string };
+        if (firebaseError.code === 'auth/user-not-found') {
+          setError('No account found with this email address.');
+        } else if (firebaseError.code === 'auth/wrong-password') {
+          setError('Incorrect password. Please try again.');
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          setError('Invalid email address format.');
+        } else if (firebaseError.code === 'auth/too-many-requests') {
+          setError('Too many failed attempts. Please try again later.');
+        }
       } else {
         setError('An error occurred during login. Please try again.');
       }
@@ -218,7 +219,7 @@ export default function LoginPage() {
           {/* Sign Up Link */}
           <div className="mt-8 text-center">
             <p className="text-gray-600 dark:text-gray-300">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link
                 href="/register"
                 className="text-primary-brown hover:text-secondary-brown font-semibold transition-colors"

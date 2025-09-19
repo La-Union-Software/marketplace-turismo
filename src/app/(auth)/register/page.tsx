@@ -61,18 +61,23 @@ export default function RegisterPage() {
       } else {
         setError('Failed to create account. Please try again.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       
       // Handle Firebase auth errors
-      if (error.code === 'auth/email-already-in-use') {
-        setError('An account with this email already exists.');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('Invalid email address format.');
-      } else if (error.code === 'auth/weak-password') {
-        setError('Password is too weak. Please choose a stronger password.');
-      } else if (error.code === 'auth/operation-not-allowed') {
-        setError('Email/password accounts are not enabled. Please contact support.');
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string };
+        if (firebaseError.code === 'auth/email-already-in-use') {
+          setError('An account with this email already exists.');
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          setError('Invalid email address format.');
+        } else if (firebaseError.code === 'auth/weak-password') {
+          setError('Password is too weak. Please choose a stronger password.');
+        } else if (firebaseError.code === 'auth/operation-not-allowed') {
+          setError('Email/password accounts are not enabled. Please contact support.');
+        } else {
+          setError('An error occurred during registration. Please try again.');
+        }
       } else {
         setError('An error occurred during registration. Please try again.');
       }
@@ -151,7 +156,7 @@ export default function RegisterPage() {
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Content and Intellectual Property</h4>
                   <p>
                     You retain ownership of the content you post, but grant us a license to use, display, and distribute your 
-                    content in connection with our service. You must not post content that infringes on others' intellectual property rights.
+                    content in connection with our service. You must not post content that infringes on others&apos; intellectual property rights.
                   </p>
                 </section>
 
@@ -166,7 +171,7 @@ export default function RegisterPage() {
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Limitation of Liability</h4>
                   <p>
-                    Marketplace Turismo is provided "as is" without warranties of any kind. We are not liable for any 
+                    Marketplace Turismo is provided &quot;as is&quot; without warranties of any kind. We are not liable for any 
                     damages arising from your use of our service, including but not limited to direct, indirect, or consequential damages.
                   </p>
                 </section>
@@ -297,7 +302,7 @@ export default function RegisterPage() {
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">9. Children's Privacy</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">9. Children&apos;s Privacy</h4>
                   <p>
                     Our service is not intended for children under 13 years of age. We do not knowingly collect 
                     personal information from children under 13. If we become aware of such collection, we will delete the information.
@@ -550,7 +555,7 @@ export default function RegisterPage() {
                   className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                 />
               ) : (
-                'Create account'
+                &apos;Create account&apos;
               )}
             </button>
           </form>

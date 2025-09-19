@@ -229,7 +229,7 @@ class MobbexService {
   /**
    * Handle webhook verification and processing
    */
-  async processWebhook(webhookData: any): Promise<{
+  async processWebhook(webhookData: Record<string, unknown>): Promise<{
     bookingId: string;
     status: 'approved' | 'rejected' | 'pending';
     transactionId?: string;

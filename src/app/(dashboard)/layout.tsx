@@ -30,7 +30,7 @@ import { useUserPlan } from '@/hooks/useUserPlan';
 interface NavigationItem {
   name: string;
   href: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
 }
 
@@ -98,7 +98,7 @@ export default function DashboardLayout({
         router.push('/dashboard');
       }
     }
-  }, [user, pathname, hasRole]);
+  }, [user, pathname, hasRole, canAccessCurrentPage, router]);
 
   return (
     <ProtectedRoute requiredRoles={['publisher', 'superadmin', 'client']}>
@@ -170,7 +170,7 @@ export default function DashboardLayout({
                     <div className="flex flex-wrap gap-1 mt-1">
                       {user?.roles
                         .filter(role => role.isActive)
-                        .map((role, index) => (
+                        .map((role) => (
                           <span
                             key={role.roleId}
                             className={`px-1.5 py-0.5 text-xs font-medium rounded-full border ${
@@ -310,7 +310,7 @@ export default function DashboardLayout({
                     <div className="flex flex-wrap gap-1 mt-1">
                       {user?.roles
                         .filter(role => role.isActive)
-                        .map((role, index) => (
+                        .map((role) => (
                           <span
                             key={role.roleId}
                             className={`px-1.5 py-0.5 text-xs font-medium rounded-full border ${

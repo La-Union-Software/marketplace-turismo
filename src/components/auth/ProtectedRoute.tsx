@@ -62,7 +62,7 @@ export default function ProtectedRoute({
               Access Denied
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              You don't have the required permissions to access this page.
+              You don&apos;t have the required permissions to access this page.
             </p>
             <button
               onClick={() => router.back()}
@@ -79,7 +79,7 @@ export default function ProtectedRoute({
   // Check required roles
   if (requiredRoles.length > 0) {
     const hasAnyRequiredRole = requiredRoles.some(role => 
-      hasRole(role as any)
+      hasRole(role as UserRole)
     );
     
     if (!hasAnyRequiredRole) {
@@ -91,7 +91,7 @@ export default function ProtectedRoute({
               Access Denied
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              You don't have the required role to access this page.
+              You don&apos;t have the required role to access this page.
             </p>
             <button
               onClick={() => router.back()}

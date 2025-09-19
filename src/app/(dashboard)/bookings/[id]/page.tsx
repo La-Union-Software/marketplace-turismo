@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
   Calendar, 
-  Clock, 
   MapPin, 
   DollarSign, 
   User, 

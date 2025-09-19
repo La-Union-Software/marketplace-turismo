@@ -51,7 +51,7 @@ interface PostFormData {
   images: string[]; // Multiple additional images
   
   // Specific Information (varies by category)
-  specificFields: Record<string, any>;
+  specificFields: Record<string, unknown>;
   
   // Pricing Information
   pricing: Pricing | null;
@@ -161,11 +161,11 @@ export default function PostFormWizard({
     if (editMode && postData) {
       // Determine main category from post category
       let mainCategory = '';
-      if (mainCategoryMapping['alojamiento']?.includes(postData.category as any)) {
+      if (mainCategoryMapping['alojamiento']?.includes(postData.category as ServiceCategory)) {
         mainCategory = 'alojamiento';
-      } else if (mainCategoryMapping['alquiler-vehiculos']?.includes(postData.category as any)) {
+      } else if (mainCategoryMapping['alquiler-vehiculos']?.includes(postData.category as ServiceCategory)) {
         mainCategory = 'alquiler-vehiculos';
-      } else if (mainCategoryMapping['clases-instructorados']?.includes(postData.category as any)) {
+      } else if (mainCategoryMapping['clases-instructorados']?.includes(postData.category as ServiceCategory)) {
         mainCategory = 'clases-instructorados';
       }
 
@@ -350,7 +350,7 @@ export default function PostFormWizard({
   };
 
   // Address selection handler
-  const handleAddressSelect = (address: any) => {
+  const handleAddressSelect = (address: { address: string; lat: number; lng: number }) => {
     updateFormData({
       location: address.display_name,
       locationData: {
@@ -748,7 +748,7 @@ export default function PostFormWizard({
               ))}
 
               {/* Características y Servicios Checkboxes */}
-              {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as any) && (
+              {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                     Características y Servicios
@@ -985,7 +985,7 @@ export default function PostFormWizard({
                   No hay temporadas configuradas
                 </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500">
-                  Haz clic en "Agregar Temporada" para comenzar
+                  Haz clic en &quot;Agregar Temporada&quot; para comenzar
                 </p>
               </div>
             ) : (
@@ -1109,7 +1109,7 @@ export default function PostFormWizard({
               No hay políticas de cancelación configuradas
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-500">
-              Haz clic en "Agregar Política" para comenzar
+              Haz clic en &quot;Agregar Política&quot; para comenzar
             </p>
           </div>
         ) : (
@@ -1444,7 +1444,7 @@ export default function PostFormWizard({
           </div>
           
           {/* Características y Servicios for Alojamiento categories */}
-          {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as any) && (
+          {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
             <div className="mt-6">
               <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
                 Características y Servicios

@@ -79,7 +79,7 @@ export interface BasePost {
   currency: string;
   location: string;
   images: string[]; // Array of image IDs from the subcollection
-  specificFields: Record<string, any>; // Specific information fields based on category
+  specificFields: Record<string, unknown>; // Specific information fields based on category
   isActive: boolean;
   userId: string;
   publisherId: string; // The user who published this post
@@ -429,7 +429,7 @@ export interface Notification {
     bookingId?: string;
     postId?: string;
     checkoutUrl?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   isRead: boolean;
   createdAt: Date;

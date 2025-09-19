@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Update booking status based on payment result
     let newStatus: 'paid' | 'cancelled' | 'pending_payment';
-    let additionalData: any = {};
+    let additionalData: Record<string, unknown> = {};
 
     switch (status) {
       case 'approved':

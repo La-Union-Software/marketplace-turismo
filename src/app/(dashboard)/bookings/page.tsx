@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
@@ -8,7 +8,6 @@ import {
   MapPin, 
   DollarSign, 
   Search, 
-  Filter, 
   Eye,
   X,
   CheckCircle,
@@ -88,9 +87,9 @@ export default function BookingsPage() {
 
   useEffect(() => {
     filterBookings();
-  }, [bookings, searchTerm, statusFilter, viewMode]);
+  }, [filterBookings]);
 
-  const filterBookings = () => {
+  const filterBookings = useCallback(() => {
     let filtered = bookings;
 
     // Filter by view mode (client vs owner)
@@ -115,7 +114,7 @@ export default function BookingsPage() {
     }
 
     setFilteredBookings(filtered);
-  };
+  }, [bookings, searchTerm, statusFilter, viewMode, user?.id]);
 
   const handleAcceptBooking = async (bookingId: string) => {
     try {

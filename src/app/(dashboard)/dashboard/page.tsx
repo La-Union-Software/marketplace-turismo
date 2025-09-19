@@ -9,9 +9,7 @@ import {
   DollarSign, 
   FileText,
   Users,
-  MapPin,
   Clock,
-  BarChart3,
   Settings,
   Heart,
   User

@@ -114,7 +114,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setFormData(prev => ({

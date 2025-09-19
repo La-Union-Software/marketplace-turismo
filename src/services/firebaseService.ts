@@ -1121,10 +1121,10 @@ export const firebaseDB = {
       }
     },
 
-    async updateStatus(bookingId: string, status: BookingStatus, additionalData?: any): Promise<void> {
+    async updateStatus(bookingId: string, status: BookingStatus, additionalData?: Record<string, unknown>): Promise<void> {
       try {
         const docRef = doc(db, 'bookings', bookingId);
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           status,
           updatedAt: serverTimestamp(),
         };
@@ -1275,7 +1275,7 @@ export const firebaseDB = {
 
   // User Mobbex Credentials
   userMobbexCredentials: {
-    async save(userId: string, credentials: any): Promise<void> {
+    async save(userId: string, credentials: Record<string, unknown>): Promise<void> {
       try {
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, {
@@ -1292,7 +1292,7 @@ export const firebaseDB = {
       }
     },
 
-    async get(userId: string): Promise<any> {
+    async get(userId: string): Promise<Record<string, unknown> | null> {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
         if (userDoc.exists()) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Heart, 
@@ -132,9 +132,9 @@ function FavoritesManagement() {
 
   useEffect(() => {
     filterFavorites();
-  }, [favorites, searchTerm, categoryFilter, availabilityFilter]);
+  }, [filterFavorites]);
 
-  const filterFavorites = () => {
+  const filterFavorites = useCallback(() => {
     let filtered = favorites;
 
     // Search filter
@@ -159,7 +159,7 @@ function FavoritesManagement() {
     }
 
     setFilteredFavorites(filtered);
-  };
+  }, [favorites, searchTerm, categoryFilter, availabilityFilter]);
 
   const removeFavorite = (favoriteId: string) => {
     setFavorites(favorites.filter(f => f.id !== favoriteId));
@@ -315,7 +315,7 @@ function FavoritesManagement() {
             <div className="md:w-40">
               <select
                 value={availabilityFilter}
-                onChange={(e) => setAvailabilityFilter(e.target.value as any)}
+                onChange={(e) => setAvailabilityFilter(e.target.value as 'all' | 'available' | 'unavailable')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
               >
                 <option value="all">Todas</option>

@@ -22,19 +22,21 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Check if user has permission to manage roles
+  useEffect(() => {
+    if (hasPermission('users:assign_roles')) {
+      loadUsers();
+    }
+  }, [hasPermission]);
+
   if (!hasPermission('users:assign_roles')) {
     return (
       <div className="p-6 text-center">
         <Shield className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold text-gray-600">Access Denied</h3>
-        <p className="text-gray-500">You don't have permission to manage user roles.</p>
+        <p className="text-gray-500">You don&apos;t have permission to manage user roles.</p>
       </div>
     );
   }
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
 
   const loadUsers = async () => {
     try {
@@ -64,9 +66,10 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
       // Reset selection
       setSelectedUser(null);
       setSelectedRole('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning role:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to assign role' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to assign role';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsProcessing(false);
     }
@@ -81,9 +84,10 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
       
       // Refresh users list
       await loadUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error removing role:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to remove role' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove role';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsProcessing(false);
     }
