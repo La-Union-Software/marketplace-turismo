@@ -143,7 +143,7 @@ export default function BookingsPage() {
         clientEmail: booking.client.email,
         returnUrl: `${window.location.origin}/payment/complete?booking=${bookingId}`,
         webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
-        userCredentials: userCredentials
+        userCredentials: userCredentials || undefined
       });
 
       // Update booking status to pending payment

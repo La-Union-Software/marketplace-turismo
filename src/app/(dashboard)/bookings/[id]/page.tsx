@@ -90,7 +90,7 @@ export default function BookingDetailPage() {
         clientEmail: booking.client.email,
         returnUrl: `${window.location.origin}/payment/complete?booking=${booking.id}`,
         webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
-        userCredentials: userCredentials
+        userCredentials: userCredentials || undefined
       });
 
       // Update booking status to pending payment
