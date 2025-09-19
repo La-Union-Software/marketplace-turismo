@@ -401,6 +401,7 @@ export interface Booking {
     notes?: string;
   };
   mobbexCheckoutId?: string;
+  mobbexCheckoutUrl?: string;
   mobbexTransactionId?: string;
   paymentData?: {
     method: string;

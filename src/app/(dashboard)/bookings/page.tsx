@@ -148,7 +148,8 @@ export default function BookingsPage() {
 
       // Update booking status to pending payment
       await firebaseDB.bookings.updateStatus(bookingId, 'pending_payment', {
-        mobbexCheckoutId: checkout.id
+        mobbexCheckoutId: checkout.id,
+        mobbexCheckoutUrl: checkout.url
       });
 
       // Create notification for client
@@ -202,20 +203,26 @@ export default function BookingsPage() {
   };
 
   const handlePaymentClick = async (booking: Booking) => {
-    if (booking.mobbexCheckoutId) {
-      // Get checkout status and redirect to payment
-      try {
+    if (!booking.mobbexCheckoutUrl) {
+      alert('No hay enlace de pago disponible. Contacta al propietario.');
+      return;
+    }
+
+    try {
+      // Check if checkout is still valid
+      if (booking.mobbexCheckoutId) {
         const checkoutStatus = await mobbexService.getCheckoutStatus(booking.mobbexCheckoutId);
         if (checkoutStatus.status.code === 200) {
-          // Checkout is still active, redirect to payment
-          window.open(checkoutStatus.url, '_blank');
+          window.open(booking.mobbexCheckoutUrl, '_blank');
         } else {
           alert('El enlace de pago ha expirado. Contacta al propietario.');
         }
-      } catch (err) {
-        console.error('Error getting checkout status:', err);
-        alert('Error al acceder al pago');
+      } else {
+        window.open(booking.mobbexCheckoutUrl, '_blank');
       }
+    } catch (err) {
+      console.error('Error getting checkout status:', err);
+      alert('Error al acceder al pago');
     }
   };
 

@@ -268,7 +268,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
               </label>
               <select
                 value={formData.billingCycle}
-                onChange={(e) => handleInputChange('billingCycle', e.target.value as any)}
+                onChange={(e) => handleInputChange('billingCycle', e.target.value as 'monthly' | 'yearly' | 'weekly' | 'daily')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
                 required
               >
