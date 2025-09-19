@@ -130,10 +130,6 @@ function FavoritesManagement() {
     setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    filterFavorites();
-  }, [filterFavorites]);
-
   const filterFavorites = useCallback(() => {
     let filtered = favorites;
 
@@ -160,6 +156,10 @@ function FavoritesManagement() {
 
     setFilteredFavorites(filtered);
   }, [favorites, searchTerm, categoryFilter, availabilityFilter]);
+
+  useEffect(() => {
+    filterFavorites();
+  }, [filterFavorites]);
 
   const removeFavorite = (favoriteId: string) => {
     setFavorites(favorites.filter(f => f.id !== favoriteId));

@@ -27,10 +27,6 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
   const [credentials, setCredentials] = useState<Record<string, unknown> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    loadCredentials();
-  }, [loadCredentials]);
-
   const loadCredentials = useCallback(async () => {
     if (!user) return;
 
@@ -47,6 +43,10 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
       setIsLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    loadCredentials();
+  }, [loadCredentials]);
 
   const handleConnect = async () => {
     if (!user) return;

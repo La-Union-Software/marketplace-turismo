@@ -85,10 +85,6 @@ export default function BookingsPage() {
     }
   }, [user, hasRole]);
 
-  useEffect(() => {
-    filterBookings();
-  }, [filterBookings]);
-
   const filterBookings = useCallback(() => {
     let filtered = bookings;
 
@@ -115,6 +111,10 @@ export default function BookingsPage() {
 
     setFilteredBookings(filtered);
   }, [bookings, searchTerm, statusFilter, viewMode, user?.id]);
+
+  useEffect(() => {
+    filterBookings();
+  }, [filterBookings]);
 
   const handleAcceptBooking = async (bookingId: string) => {
     try {

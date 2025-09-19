@@ -51,10 +51,6 @@ function UsersManagement() {
     loadUsers();
   }, []);
 
-  useEffect(() => {
-    filterUsers();
-  }, [filterUsers]);
-
   const loadUsers = async () => {
     try {
       setIsLoading(true);
@@ -96,6 +92,10 @@ function UsersManagement() {
 
     setFilteredUsers(filtered);
   }, [users, searchTerm, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    filterUsers();
+  }, [filterUsers]);
 
   const handleAssignRole = async () => {
     if (!selectedUser || !selectedRole) return;
