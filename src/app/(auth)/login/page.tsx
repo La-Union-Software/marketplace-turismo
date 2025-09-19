@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, AlertCircle } from 'lucide-react';
@@ -9,12 +9,31 @@ import { useAuth } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
+
+  // Handle redirect after successful login
+  useEffect(() => {
+    if (loginSuccess && user) {
+      if (user.roles) {
+        const hasPublisherRole = user.roles.some(role => 
+          (role.roleName === 'publisher' || role.roleName === 'superadmin') && role.isActive
+        );
+        if (hasPublisherRole) {
+          router.push('/dashboard');
+        } else {
+          router.push('/bookings');
+        }
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [loginSuccess, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,21 +41,9 @@ export default function LoginPage() {
     setError('');
     
     try {
-      const user = await login(email, password);
-      if (user) {
-        // Redirect based on user role
-        if (user.roles) {
-          const hasPublisherRole = user.roles.some(role => 
-            (role.roleName === 'publisher' || role.roleName === 'superadmin') && role.isActive
-          );
-          if (hasPublisherRole) {
-            router.push('/dashboard');
-          } else {
-            router.push('/bookings');
-          }
-        } else {
-          router.push('/dashboard');
-        }
+      const success = await login(email, password);
+      if (success) {
+        setLoginSuccess(true);
       } else {
         setError('Invalid email or password. Please try again.');
       }

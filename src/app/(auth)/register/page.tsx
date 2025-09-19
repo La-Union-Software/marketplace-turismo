@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, User, Phone, AlertCircle, CheckCircle, X } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signup } = useAuth();
+  const { signup, user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,8 +22,20 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Handle redirect after successful signup
+  useEffect(() => {
+    if (signupSuccess && user) {
+      setSuccess('Account created successfully! Redirecting...');
+      setTimeout(() => {
+        // New users are clients by default, redirect to bookings
+        router.push('/bookings');
+      }, 2000);
+    }
+  }, [signupSuccess, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,13 +63,9 @@ export default function RegisterPage() {
         phone: formData.phone,
       };
 
-      const user = await signup(formData.email, formData.password, userData);
-      if (user) {
-        setSuccess('Account created successfully! Redirecting...');
-        setTimeout(() => {
-          // New users are clients by default, redirect to bookings
-          router.push('/bookings');
-        }, 2000);
+      const success = await signup(formData.email, formData.password, userData);
+      if (success) {
+        setSignupSuccess(true);
       } else {
         setError('Failed to create account. Please try again.');
       }
