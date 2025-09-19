@@ -62,7 +62,7 @@ export default function ProtectedRoute({
               Access Denied
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              You don&apos;t have the required permissions to access this page.
+              You don't have the required permissions to access this page.
             </p>
             <button
               onClick={() => router.back()}
@@ -91,7 +91,7 @@ export default function ProtectedRoute({
               Access Denied
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              You don&apos;t have the required role to access this page.
+              You don't have the required role to access this page.
             </p>
             <button
               onClick={() => router.back()}

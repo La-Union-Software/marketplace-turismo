@@ -278,10 +278,10 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
                 How it works
               </h4>
               <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                <li>• Click &quot;Connect with Mobbex&quot; to open the connection page</li>
+                <li>• Click "Connect with Mobbex" to open the connection page</li>
                 <li>• Log in to your Mobbex account</li>
                 <li>• Authorize the connection to our platform</li>
-                <li>• You&apos;ll be redirected back with your credentials</li>
+                <li>• You'll be redirected back with your credentials</li>
                 <li>• Your account will be ready to process payments</li>
               </ul>
             </div>

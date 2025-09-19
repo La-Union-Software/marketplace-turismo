@@ -985,7 +985,7 @@ export default function PostFormWizard({
                   No hay temporadas configuradas
                 </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500">
-                  Haz clic en &quot;Agregar Temporada&quot; para comenzar
+                  Haz clic en "Agregar Temporada" para comenzar
                 </p>
               </div>
             ) : (
@@ -1109,7 +1109,7 @@ export default function PostFormWizard({
               No hay políticas de cancelación configuradas
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-500">
-              Haz clic en &quot;Agregar Política&quot; para comenzar
+              Haz clic en "Agregar Política" para comenzar
             </p>
           </div>
         ) : (

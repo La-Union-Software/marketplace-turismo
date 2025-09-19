@@ -33,7 +33,7 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
       <div className="p-6 text-center">
         <Shield className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold text-gray-600">Access Denied</h3>
-        <p className="text-gray-500">You don&apos;t have permission to manage user roles.</p>
+        <p className="text-gray-500">You don't have permission to manage user roles.</p>
       </div>
     );
   }
