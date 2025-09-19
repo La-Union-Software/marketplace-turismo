@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         type: 'payment_completed',
         title: 'Pago confirmado',
         message: `Tu pago para "${booking.post.title}" ha sido procesado exitosamente`,
+        isRead: false,
         data: {
           bookingId,
           postId: booking.postId
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
         type: 'payment_completed',
         title: 'Pago recibido',
         message: `Se ha confirmado el pago de ${booking.client.name} para "${booking.post.title}"`,
+        isRead: false,
         data: {
           bookingId,
           postId: booking.postId
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
         type: 'payment_pending',
         title: 'Pago rechazado',
         message: `Tu pago para "${booking.post.title}" fue rechazado. Por favor, intenta nuevamente`,
+        isRead: false,
         data: {
           bookingId,
           postId: booking.postId

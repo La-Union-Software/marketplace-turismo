@@ -104,6 +104,7 @@ export default function BookingDetailPage() {
         type: 'payment_pending',
         title: 'Reserva aceptada - Pago pendiente',
         message: `Tu reserva para "${booking.post.title}" ha sido aceptada. Completa el pago para confirmar.`,
+        isRead: false,
         data: {
           bookingId: booking.id,
           postId: booking.postId,
@@ -131,6 +132,7 @@ export default function BookingDetailPage() {
         type: 'booking_declined',
         title: 'Reserva rechazada',
         message: `Tu reserva para "${booking.post.title}" ha sido rechazada`,
+        isRead: false,
         data: {
           bookingId: booking.id,
           postId: booking.postId

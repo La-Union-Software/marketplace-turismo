@@ -99,6 +99,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
         type: 'booking_request',
         title: 'Nueva solicitud de reserva',
         message: `${user.name} ha solicitado una reserva para "${post.title}"`,
+        isRead: false,
         data: {
           bookingId,
           postId: post.id
