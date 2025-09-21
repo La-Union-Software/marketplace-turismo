@@ -133,7 +133,11 @@ export default function BookingsPage() {
         };
       }
 
-      // Create Mobbex checkout
+      // Get publisher's CUIT for split payment
+      const publisherCuit = user?.mobbexCredentials?.cuit;
+      console.log('💰 [Bookings] Publisher CUIT for split payment:', publisherCuit);
+      
+      // Create Mobbex checkout with split payment
       const checkout = await mobbexService.createBookingCheckout({
         bookingId: booking.id,
         postTitle: booking.post.title,
@@ -143,6 +147,8 @@ export default function BookingsPage() {
         clientEmail: booking.client.email,
         returnUrl: `${window.location.origin}/payment/complete?booking=${bookingId}`,
         webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
+        publisherCuit: publisherCuit, // Add publisher CUIT for split payment
+        marketplaceFee: 10, // 10% marketplace fee
         userCredentials: userCredentials || undefined
       });
 

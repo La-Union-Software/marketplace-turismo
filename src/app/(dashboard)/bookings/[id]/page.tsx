@@ -68,6 +68,16 @@ export default function BookingDetailPage() {
     if (!booking) return;
 
     try {
+      console.log('🎯 [BookingDetail] Starting booking acceptance process for booking:', booking.id);
+      console.log('🎯 [BookingDetail] Booking data:', {
+        id: booking.id,
+        postTitle: booking.post.title,
+        totalAmount: booking.totalAmount,
+        currency: booking.currency,
+        clientName: booking.client.name,
+        clientEmail: booking.client.email
+      });
+
       // Get user's Mobbex credentials if available
       let userCredentials = null;
       if (user?.mobbexCredentials?.isConnected) {
@@ -78,9 +88,22 @@ export default function BookingDetailPage() {
             taxId: user.mobbexCredentials.entity.taxId,
           },
         };
+        console.log('🔑 [BookingDetail] Using user Mobbex credentials:', {
+          hasAccessToken: !!userCredentials.accessToken,
+          entityName: userCredentials.entity.name,
+          entityTaxId: userCredentials.entity.taxId
+        });
+      } else {
+        console.log('🔑 [BookingDetail] No user Mobbex credentials, using system credentials');
       }
 
-      // Create Mobbex checkout
+      console.log('🚀 [BookingDetail] Creating Mobbex checkout...');
+      
+      // Get publisher's CUIT for split payment
+      const publisherCuit = user?.mobbexCredentials?.cuit;
+      console.log('💰 [BookingDetail] Publisher CUIT for split payment:', publisherCuit);
+      
+      // Create Mobbex checkout with split payment
       const checkout = await mobbexService.createBookingCheckout({
         bookingId: booking.id,
         postTitle: booking.post.title,
@@ -90,15 +113,26 @@ export default function BookingDetailPage() {
         clientEmail: booking.client.email,
         returnUrl: `${window.location.origin}/payment/complete?booking=${booking.id}`,
         webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
+        publisherCuit: publisherCuit, // Add publisher CUIT for split payment
+        marketplaceFee: 10, // 10% marketplace fee
         userCredentials: userCredentials || undefined
       });
 
+      console.log('✅ [BookingDetail] Checkout created successfully:', {
+        id: checkout.id,
+        url: checkout.url,
+        reference: checkout.reference
+      });
+
+      console.log('💾 [BookingDetail] Updating booking status to pending_payment...');
       // Update booking status to pending payment
       await firebaseDB.bookings.updateStatus(booking.id, 'pending_payment', {
         mobbexCheckoutId: checkout.id,
         mobbexCheckoutUrl: checkout.url
       });
+      console.log('✅ [BookingDetail] Booking status updated successfully');
 
+      console.log('🔔 [BookingDetail] Creating notification for client...');
       // Create notification for client
       await firebaseDB.notifications.create({
         userId: booking.clientId,
@@ -112,12 +146,18 @@ export default function BookingDetailPage() {
           checkoutUrl: checkout.url
         }
       });
+      console.log('✅ [BookingDetail] Notification created successfully');
 
+      console.log('🔄 [BookingDetail] Refreshing page...');
       // Refresh booking data
       window.location.reload();
     } catch (err) {
-      console.error('Error accepting booking:', err);
-      alert('Error al aceptar la reserva');
+      console.error('❌ [BookingDetail] Error accepting booking:', err);
+      console.error('❌ [BookingDetail] Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined
+      });
+      alert('Error al aceptar la reserva: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 

@@ -63,16 +63,18 @@ class MobbexDevConnectService {
     if (this.credentialsLoaded) return;
 
     try {
-      console.log('Loading Mobbex credentials from system settings...');
+      console.log('🔍 [MobbexDevConnect] Loading Mobbex credentials from system settings...');
       const credentials = await firebaseDB.systemSettings.getMobbexCredentials();
       
-      console.log('Raw credentials from Firestore:', {
+      console.log('📋 [MobbexDevConnect] Raw credentials from Firestore:', {
         exists: !!credentials,
         hasApiKey: !!credentials?.apiKey,
         hasAccessToken: !!credentials?.accessToken,
         isActive: credentials?.isActive,
         apiKeyLength: credentials?.apiKey?.length,
-        accessTokenLength: credentials?.accessToken?.length
+        accessTokenLength: credentials?.accessToken?.length,
+        apiKeyPrefix: credentials?.apiKey?.substring(0, 8) + '...',
+        accessTokenPrefix: credentials?.accessToken?.substring(0, 8) + '...'
       });
       
       if (!credentials) {
@@ -95,12 +97,13 @@ class MobbexDevConnectService {
       this.accessToken = credentials.accessToken;
       this.credentialsLoaded = true;
       
-      console.log('Mobbex Dev Connect credentials loaded successfully:', {
+      console.log('✅ [MobbexDevConnect] Credentials loaded successfully:', {
         apiKeyPrefix: this.apiKey.substring(0, 8) + '...',
-        accessTokenPrefix: this.accessToken.substring(0, 8) + '...'
+        accessTokenPrefix: this.accessToken.substring(0, 8) + '...',
+        credentialsLoaded: this.credentialsLoaded
       });
     } catch (error) {
-      console.error('Error loading Mobbex credentials from system settings:', error);
+      console.error('❌ [MobbexDevConnect] Error loading Mobbex credentials from system settings:', error);
       throw error;
     }
   }
@@ -112,6 +115,8 @@ class MobbexDevConnectService {
    */
   async createConnection(returnUrl: string): Promise<MobbexDevConnectResponse> {
     try {
+      console.log('🚀 [MobbexDevConnect] Starting createConnection with returnUrl:', returnUrl);
+      
       // Load credentials from Firestore
       await this.loadCredentials();
 
@@ -119,25 +124,42 @@ class MobbexDevConnectService {
         throw new Error('Mobbex API key is not configured in system settings. Please contact the Superadmin to configure Mobbex credentials.');
       }
 
-      console.log('Creating Mobbex Dev Connect request with URL:', returnUrl);
-      console.log('Using API Key from system settings:', this.apiKey.substring(0, 8) + '...');
+      console.log('🔑 [MobbexDevConnect] Using API Key from system settings:', this.apiKey.substring(0, 8) + '...');
+      console.log('📤 [MobbexDevConnect] Sending request to:', MOBBEX_DEV_CONNECT_API_URL);
 
-      const response = await fetch(MOBBEX_DEV_CONNECT_API_URL, {
-        method: 'POST',
+      const requestBody = {
+        return_url: returnUrl
+      };
+
+      console.log('📤 [MobbexDevConnect] Request body:', requestBody);
+      console.log('📤 [MobbexDevConnect] Data:', MOBBEX_DEV_CONNECT_API_URL, this.apiKey, requestBody);
+      
+      const response = await fetch("https://api.mobbex.com/p/developer/connect", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
+          "x-api-key": "zJ8LFTBX6Ba8D611e9io13fDZAwj0QmKO1Hn1yIj",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          returnUrl,
-        }),
+        body: JSON.stringify(requestBody),
+        credentials: "include"
       });
 
-      console.log('Mobbex Dev Connect response status:', response.status);
+      console.log('📤 [MobbexDevConnect] Response:', response);
+      
+      // si devuelve JSON
+      const result = await response.json();
+    
+
+      console.log('📥 [MobbexDevConnect] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Mobbex Dev Connect error response:', {
+        console.error('❌ [MobbexDevConnect] Error response:', {
           status: response.status,
           statusText: response.statusText,
           headers: Object.fromEntries(response.headers.entries()),
@@ -154,7 +176,12 @@ class MobbexDevConnectService {
       }
 
       const data: MobbexDevConnectResponse = await response.json();
-      console.log('Mobbex Dev Connect response data:', data);
+      console.log('✅ [MobbexDevConnect] Success response:', {
+        result: data.result,
+        hasData: !!data.data,
+        hasUrl: !!data.data?.url,
+        hasId: !!data.data?.id
+      });
       
       if (!data.result) {
         throw new Error('Failed to create Mobbex Dev Connect request');
@@ -177,6 +204,8 @@ class MobbexDevConnectService {
    */
   async getCredentials(connectId: string): Promise<MobbexCredentialsResponse> {
     try {
+      console.log('🔍 [MobbexDevConnect] Getting credentials for connectId:', connectId);
+      
       // Load credentials from Firestore
       await this.loadCredentials();
 
@@ -184,16 +213,31 @@ class MobbexDevConnectService {
         throw new Error('Mobbex API key is not configured in system settings. Please contact the Superadmin to configure Mobbex credentials.');
       }
 
-      const response = await fetch(`${MOBBEX_DEV_CONNECT_API_URL}/${connectId}/credentials`, {
+      const credentialsUrl = `${MOBBEX_DEV_CONNECT_API_URL}/${connectId}/credentials`;
+      console.log('🔑 [MobbexDevConnect] Using API Key from system settings:', this.apiKey.substring(0, 8) + '...');
+      console.log('📤 [MobbexDevConnect] Sending request to:', credentialsUrl);
+
+      const response = await fetch(credentialsUrl, {
         method: 'GET',
         headers: {
           'X-API-Key': this.apiKey,
         },
       });
 
+      console.log('📥 [MobbexDevConnect] Credentials response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Mobbex get credentials error response:', errorText);
+        console.error('❌ [MobbexDevConnect] Get credentials error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
         
         if (response.status === 401) {
           throw new Error('Invalid Mobbex API key in system settings. Please contact the Superadmin to update Mobbex credentials.');
@@ -203,6 +247,14 @@ class MobbexDevConnectService {
       }
 
       const data: MobbexCredentialsResponse = await response.json();
+      console.log('✅ [MobbexDevConnect] Credentials response data:', {
+        result: data.result,
+        hasData: !!data.data,
+        hasAccessToken: !!data.data?.accessToken,
+        hasEntity: !!data.data?.entity,
+        entityName: data.data?.entity?.name,
+        entityTaxId: data.data?.entity?.taxId
+      });
       
       if (!data.result) {
         throw new Error('Failed to get Mobbex credentials');
@@ -210,7 +262,11 @@ class MobbexDevConnectService {
 
       return data;
     } catch (error) {
-      console.error('Error getting Mobbex credentials:', error);
+      console.error('❌ [MobbexDevConnect] Error getting Mobbex credentials:', error);
+      console.error('❌ [MobbexDevConnect] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       if (error instanceof Error) {
         throw error;
       }
@@ -250,10 +306,21 @@ class MobbexDevConnectService {
    */
   async checkSystemCredentials(): Promise<boolean> {
     try {
+      console.log('🔍 [MobbexDevConnect] Checking system credentials...');
       await this.loadCredentials();
-      return this.credentialsLoaded && !!this.apiKey;
+      const isConfigured = this.credentialsLoaded && !!this.apiKey;
+      console.log('✅ [MobbexDevConnect] System credentials check result:', {
+        credentialsLoaded: this.credentialsLoaded,
+        hasApiKey: !!this.apiKey,
+        isConfigured
+      });
+      return isConfigured;
     } catch (error) {
-      console.error('Error checking system credentials:', error);
+      console.error('❌ [MobbexDevConnect] Error checking system credentials:', error);
+      console.error('❌ [MobbexDevConnect] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return false;
     }
   }

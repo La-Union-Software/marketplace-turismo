@@ -58,12 +58,13 @@ export interface User {
   lastLoginAt?: Date;
   profileCompleted: boolean;
   mobbexCredentials?: {
-    accessToken: string;
-    entity: {
+    accessToken?: string;
+    entity?: {
       name: string;
       logo?: string;
       taxId: string;
     };
+    cuit?: string; // CUIT for marketplace split payments
     isConnected: boolean;
     connectedAt: Date;
   };

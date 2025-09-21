@@ -22,9 +22,9 @@ interface MobbexDevConnectFormProps {
 export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormProps) {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [credentials, setCredentials] = useState<Record<string, unknown> | null>(null);
+  const [cuit, setCuit] = useState('');
   const [isConnected, setIsConnected] = useState(false);
 
   const loadCredentials = useCallback(async () => {
@@ -33,9 +33,9 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
     try {
       setIsLoading(true);
       const userCredentials = await firebaseDB.userMobbexCredentials.get(user.id);
-      if (userCredentials) {
-        setCredentials(userCredentials);
-        setIsConnected(userCredentials.isConnected);
+      if (userCredentials && userCredentials.cuit) {
+        setCuit(userCredentials.cuit);
+        setIsConnected(true);
       }
     } catch (error) {
       console.error('Error loading credentials:', error);
@@ -48,46 +48,44 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
     loadCredentials();
   }, [loadCredentials]);
 
-  const handleConnect = async () => {
+  const handleSaveCuit = async () => {
     if (!user) return;
 
-    try {
-      setIsConnecting(true);
-      setMessage(null);
-
-      // Check if service is configured
-      const isConfigured = await mobbexDevConnectService.checkSystemCredentials();
-      if (!isConfigured) {
-        setMessage({ 
-          type: 'error', 
-          text: 'Mobbex credentials are not configured in system settings. Please contact the Superadmin to configure Mobbex credentials.' 
-        });
-        return;
-      }
-
-      // Create return URL for this user
-      const returnUrl = `${window.location.origin}/api/mobbex/dev-connect-callback?userId=${user.id}`;
-      console.log('Creating Mobbex Dev Connect with return URL:', returnUrl);
-      
-      // Create Dev Connect request
-      const connection = await mobbexDevConnectService.createConnection(returnUrl);
-      
-      if (connection.result && connection.data.url) {
-        console.log('Redirecting to Mobbex Dev Connect:', connection.data.url);
-        // Redirect to Mobbex Dev Connect
-        window.location.href = connection.data.url;
-      } else {
-        throw new Error('Failed to create connection request');
-      }
-    } catch (error) {
-      console.error('Error connecting to Mobbex:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error connecting to Mobbex. Please try again.';
+    // Validate CUIT format (11 numeric digits)
+    const cuitRegex = /^\d{11}$/;
+    if (!cuitRegex.test(cuit)) {
       setMessage({ 
         type: 'error', 
-        text: errorMessage
+        text: 'El CUIT debe contener exactamente 11 dígitos numéricos' 
+      });
+      return;
+    }
+
+    try {
+      console.log('🎯 [MobbexDevConnectForm] Saving CUIT for user:', user.id, 'CUIT:', cuit);
+      setIsSaving(true);
+      setMessage(null);
+
+      // Save CUIT to user document
+      await firebaseDB.userMobbexCredentials.save(user.id, {
+        cuit: cuit,
+        isConnected: true,
+        connectedAt: new Date()
+      });
+
+      setIsConnected(true);
+      setMessage({ 
+        type: 'success', 
+        text: 'CUIT guardado exitosamente. Ahora podrás recibir pagos cuando apruebes reservas.' 
+      });
+    } catch (error) {
+      console.error('❌ [MobbexDevConnectForm] Error saving CUIT:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Error al guardar el CUIT. Por favor, intenta nuevamente.' 
       });
     } finally {
-      setIsConnecting(false);
+      setIsSaving(false);
     }
   };
 
@@ -97,17 +95,17 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
     try {
       setIsLoading(true);
       await firebaseDB.userMobbexCredentials.disconnect(user.id);
-      setCredentials(null);
+      setCuit('');
       setIsConnected(false);
       setMessage({ 
         type: 'success', 
-        text: 'Successfully disconnected from Mobbex' 
+        text: 'CUIT eliminado exitosamente' 
       });
     } catch (error) {
       console.error('Error disconnecting from Mobbex:', error);
       setMessage({ 
         type: 'error', 
-        text: 'Error disconnecting from Mobbex' 
+        text: 'Error al eliminar el CUIT' 
       });
     } finally {
       setIsLoading(false);
@@ -166,26 +164,26 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
           </button>
         </div>
 
-        {/* Connection Status */}
-        {isConnected && credentials ? (
+        {/* CUIT Configuration */}
+        {isConnected ? (
           <div className="space-y-6">
             {/* Connected Status */}
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex items-center space-x-2 mb-2">
                 <CheckCircle className="w-5 h-5 text-green-500" />
                 <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                  Connected to Mobbex
+                  CUIT Configurado
                 </span>
               </div>
               <p className="text-xs text-green-700 dark:text-green-400">
-                Your account is successfully connected and ready to process payments.
+                Tu CUIT está configurado y podrás recibir pagos cuando apruebes reservas.
               </p>
             </div>
 
-            {/* Entity Information */}
+            {/* CUIT Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Account Information
+                Información del CUIT
               </h3>
               
               <div className="space-y-3">
@@ -193,34 +191,10 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
                   <Building2 className="w-4 h-4 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {credentials.entity.name}
+                      {cuit}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Business Name
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {credentials.entity.taxId}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Tax ID
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <CheckCircle className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatDate(credentials.connectedAt)}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Connected At
+                      CUIT Registrado
                     </p>
                   </div>
                 </div>
@@ -238,7 +212,7 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
               ) : (
                 <Unlink className="w-4 h-4" />
               )}
-              <span>Disconnect Account</span>
+              <span>Eliminar CUIT</span>
             </button>
           </div>
         ) : (
@@ -248,41 +222,65 @@ export default function MobbexDevConnectForm({ onClose }: MobbexDevConnectFormPr
               <div className="flex items-center space-x-2 mb-2">
                 <AlertCircle className="w-5 h-5 text-yellow-500" />
                 <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                  Not Connected
+                  CUIT No Configurado
                 </span>
               </div>
               <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                Connect your Mobbex account to process payments for your bookings.
+                Configura tu CUIT para recibir pagos cuando apruebes reservas.
               </p>
             </div>
 
-            {/* Connect Button */}
-            <button
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isConnecting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <ExternalLink className="w-5 h-5" />
-              )}
-              <span>
-                {isConnecting ? 'Connecting...' : 'Connect with Mobbex'}
-              </span>
-            </button>
+            {/* CUIT Input */}
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="cuit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  CUIT (11 dígitos)
+                </label>
+                <input
+                  type="text"
+                  id="cuit"
+                  value={cuit}
+                  onChange={(e) => {
+                    // Only allow numeric input and limit to 11 digits
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setCuit(value);
+                  }}
+                  placeholder="12345678901"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white"
+                  maxLength={11}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Ingresa tu CUIT de 11 dígitos para recibir pagos
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveCuit}
+                disabled={isSaving || cuit.length !== 11}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-5 h-5" />
+                )}
+                <span>
+                  {isSaving ? 'Guardando...' : 'Guardar CUIT'}
+                </span>
+              </button>
+            </div>
 
             {/* Info Box */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-                How it works
+                Cómo funciona
               </h4>
               <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                <li>• Click "Connect with Mobbex" to open the connection page</li>
-                <li>• Log in to your Mobbex account</li>
-                <li>• Authorize the connection to our platform</li>
-                <li>• You'll be redirected back with your credentials</li>
-                <li>• Your account will be ready to process payments</li>
+                <li>• Ingresa tu CUIT de 11 dígitos</li>
+                <li>• Cuando apruebes una reserva, se creará un pago</li>
+                <li>• El pago se dividirá entre la plataforma y tu cuenta</li>
+                <li>• Recibirás tu parte del pago automáticamente</li>
               </ul>
             </div>
           </div>
