@@ -36,6 +36,8 @@ const getNotificationColor = (type: NotificationType) => {
       return 'text-green-600 dark:text-green-400';
     case 'booking_declined':
     case 'booking_cancelled':
+    case 'booking_cancelled_by_client':
+    case 'booking_cancelled_by_owner':
       return 'text-red-600 dark:text-red-400';
     case 'payment_pending':
       return 'text-yellow-600 dark:text-yellow-400';

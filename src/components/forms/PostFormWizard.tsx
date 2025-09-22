@@ -16,7 +16,7 @@ import {
   Trash2,
   X
 } from 'lucide-react';
-import { ServiceCategory, BasePost, Pricing, FixedPricing, DynamicPricing, DynamicPricingSeason, Weekday, PostImage } from '@/types';
+import { ServiceCategory, BasePost, Pricing, FixedPricing, DynamicPricing, DynamicPricingSeason, Weekday, PostImage, CancellationPolicy } from '@/types';
 import { serviceCategories, categoryFields, mainCategoryMapping, categoryAmenities } from '@/services/dummyData';
 import { generateId } from '@/lib/utils';
 import AddressSearch from '@/components/ui/AddressSearch';
@@ -25,12 +25,6 @@ import { firebaseDB } from '@/services/firebaseService';
 import { useAuth } from '@/lib/auth';
 import PostImages from '@/components/ui/PostImages';
 
-interface CancellationPolicy {
-  id: string;
-  days_quantity: number;
-  cancellation_type: 'Fijo' | 'Porcentaje';
-  cancellation_amount: number;
-}
 
 interface PostFormData {
   // Main Category
@@ -174,7 +168,7 @@ export default function PostFormWizard({
       const mainImage = sortedImages[0]?.data || '';
       const additionalImages = sortedImages.slice(1).map(img => img.data);
 
-      setFormData({
+      const initialFormData = {
         mainCategory,
         title: postData.title,
         description: postData.description,
@@ -191,14 +185,35 @@ export default function PostFormWizard({
         cancellationPolicies: [], // This would need to be populated from postData if we store it
         termsAccepted: true,
         isActive: postData.isActive,
-      });
+      };
 
+
+      setFormData(initialFormData);
       setCreatedPostId(postData.id);
     }
   }, [editMode, postData, images]);
 
+
   const updateFormData = (updates: Partial<PostFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
+  };
+
+  // Handle main category changes (only in create mode)
+  const handleMainCategoryChange = (categoryId: string) => {
+    if (editMode) {
+      return; // Disable category changes in edit mode
+    }
+    
+    // Always update the main category
+    const updates: Partial<PostFormData> = { mainCategory: categoryId };
+    
+    // Only reset category and specific fields if changing to a different main category
+    if (formData.mainCategory !== categoryId) {
+      updates.category = ''; // Reset category when main category changes
+      updates.specificFields = {}; // Reset specific fields
+    }
+    
+    updateFormData(updates);
   };
 
   const getFilteredCategories = (): ServiceCategory[] => {
@@ -350,7 +365,7 @@ export default function PostFormWizard({
   };
 
   // Address selection handler
-  const handleAddressSelect = (address: { address: string; lat: number; lng: number }) => {
+  const handleAddressSelect = (address: { display_name: string; lat: string; lon: string; place_id: string }) => {
     updateFormData({
       location: address.display_name,
       locationData: {
@@ -400,6 +415,7 @@ export default function PostFormWizard({
         category: formData.category as ServiceCategory,
         location: formData.location,
         specificFields: formData.specificFields, // Include specific fields
+        cancellationPolicies: formData.cancellationPolicies, // Include cancellation policies
         isActive: formData.isActive,
         status: editMode ? (postData?.status || 'published') : 'published' as const,
         publisherId: user.id,
@@ -475,14 +491,34 @@ export default function PostFormWizard({
   };
 
   const renderMainCategoryStep = () => (
-    <div className="space-y-6">
+    <div key={`main-category-${formData.mainCategory}`} className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          ¿Qué tipo de servicio quieres publicar?
+          {editMode ? '¿Qué tipo de servicio quieres actualizar?' : '¿Qué tipo de servicio quieres publicar?'}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Selecciona la categoría principal que mejor describa tu servicio
+          {editMode 
+            ? 'La categoría principal no se puede modificar en modo edición'
+            : 'Selecciona la categoría principal que mejor describa tu servicio'
+          }
         </p>
+        {formData.mainCategory && (
+          <div className={`mt-4 p-3 border rounded-lg ${
+            editMode 
+              ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
+              : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+          }`}>
+            <p className={`text-sm ${
+              editMode 
+                ? 'text-gray-600 dark:text-gray-400' 
+                : 'text-green-700 dark:text-green-300'
+            }`}>
+              <strong>
+                {editMode ? 'Categoría actual (no modificable):' : 'Categoría seleccionada:'}
+              </strong> {mainCategories.find(cat => cat.id === formData.mainCategory)?.title}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -491,17 +527,17 @@ export default function PostFormWizard({
           const isSelected = formData.mainCategory === category.id;
           
           return (
-            <button
+            <div
               key={category.id}
-              onClick={() => updateFormData({ 
-                mainCategory: category.id,
-                category: '', // Reset category when main category changes
-                specificFields: {} // Reset specific fields
-              })}
+              onClick={editMode ? undefined : () => handleMainCategoryChange(category.id)}
               className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left ${
+                editMode 
+                  ? 'cursor-not-allowed opacity-60' 
+                  : 'cursor-pointer hover:border-primary-brown/50 hover:shadow-md'
+              } ${
                 isSelected
                   ? 'border-primary-brown bg-gradient-to-br from-primary-brown/10 to-primary-green/10 shadow-lg'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-brown/50 hover:shadow-md'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
               }`}
             >
               <div className="flex flex-col items-center text-center space-y-4">
@@ -534,7 +570,7 @@ export default function PostFormWizard({
                   </div>
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -728,7 +764,7 @@ export default function PostFormWizard({
                     {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} *
                   </label>
                   <select
-                    value={formData.specificFields[fieldName] || ''}
+                    value={String(formData.specificFields[fieldName] || '')}
                     onChange={(e) => updateFormData({
                       specificFields: {
                         ...formData.specificFields,
@@ -758,7 +794,7 @@ export default function PostFormWizard({
                       <label key={amenity} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.specificFields[amenity] || false}
+                          checked={Boolean(formData.specificFields[amenity])}
                           onChange={(e) => updateFormData({
                             specificFields: {
                               ...formData.specificFields,
@@ -782,7 +818,7 @@ export default function PostFormWizard({
                   Incluye
                 </label>
                 <textarea
-                  value={formData.specificFields.includes || ''}
+                  value={String(formData.specificFields.includes || '')}
                   onChange={(e) => updateFormData({
                     specificFields: {
                       ...formData.specificFields,
@@ -800,7 +836,7 @@ export default function PostFormWizard({
                   Requisitos
                 </label>
                 <textarea
-                  value={formData.specificFields.requirements || ''}
+                  value={String(formData.specificFields.requirements || '')}
                   onChange={(e) => updateFormData({
                     specificFields: {
                       ...formData.specificFields,
@@ -1437,7 +1473,7 @@ export default function PostFormWizard({
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     {key.charAt(0).toUpperCase() + key.slice(1)}:
                   </span>
-                  <p className="text-gray-900 dark:text-white">{value}</p>
+                  <p className="text-gray-900 dark:text-white">{String(value)}</p>
                 </div>
               );
             })}
@@ -1675,7 +1711,7 @@ export default function PostFormWizard({
       <div className="glass rounded-xl p-8">
         <AnimatePresence mode="wait">
           <motion.div
-            key={currentStep}
+            key={`step-${currentStep}-${formData.mainCategory}`}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}

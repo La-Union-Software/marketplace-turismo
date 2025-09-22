@@ -70,6 +70,14 @@ export interface User {
   };
 }
 
+// Cancellation Policy interface
+export interface CancellationPolicy {
+  id: string;
+  days_quantity: number;
+  cancellation_type: 'Fijo' | 'Porcentaje';
+  cancellation_amount: number;
+}
+
 // Enhanced Post interface with role-based access
 export interface BasePost {
   id: string;
@@ -81,6 +89,7 @@ export interface BasePost {
   location: string;
   images: string[]; // Array of image IDs from the subcollection
   specificFields: Record<string, unknown>; // Specific information fields based on category
+  cancellationPolicies: CancellationPolicy[]; // Cancellation policies for the post
   isActive: boolean;
   userId: string;
   publisherId: string; // The user who published this post
@@ -419,7 +428,7 @@ export interface Booking {
 }
 
 // Notification Types
-export type NotificationType = 'booking_request' | 'booking_accepted' | 'booking_declined' | 'payment_pending' | 'payment_completed' | 'booking_cancelled';
+export type NotificationType = 'booking_request' | 'booking_accepted' | 'booking_declined' | 'payment_pending' | 'payment_completed' | 'booking_cancelled' | 'booking_cancelled_by_client' | 'booking_cancelled_by_owner';
 
 export interface Notification {
   id: string;

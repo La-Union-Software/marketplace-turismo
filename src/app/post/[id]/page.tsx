@@ -68,6 +68,12 @@ export default function PostDetailPage() {
       return;
     }
     
+    // Prevent users from booking their own services
+    if (user.id === post?.userId) {
+      alert('No puedes reservar tu propio servicio. Solo puedes reservar servicios de otros usuarios.');
+      return;
+    }
+    
     setShowBookingForm(true);
   };
 
@@ -263,12 +269,18 @@ export default function PostDetailPage() {
                 </div>
 
                 {/* Booking Button */}
-                <button
-                  onClick={handleBookingClick}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 font-semibold"
-                >
-                  Solicitar Reserva
-                </button>
+                {user && user.id === post.userId ? (
+                  <div className="w-full py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg text-center font-semibold">
+                    Este es tu servicio
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleBookingClick}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 font-semibold"
+                  >
+                    Solicitar Reserva
+                  </button>
+                )}
 
                 {/* Additional Info */}
                 <div className="mt-6 space-y-3 text-sm text-gray-600 dark:text-gray-300">

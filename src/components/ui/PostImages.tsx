@@ -66,7 +66,7 @@ export default function PostImages({
 
   return (
     <>
-      <div className={`space-y-4 ${className}`}>
+      <div className={`space-y-4 ${className} overflow-hidden`}>
         {/* Main Image Display */}
         <div className="relative">
           <img

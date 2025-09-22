@@ -52,6 +52,12 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
       return;
     }
 
+    // Prevent users from booking their own services/posts
+    if (user.id === post.userId) {
+      setError('No puedes reservar tu propio servicio. Solo puedes reservar servicios de otros usuarios.');
+      return;
+    }
+
     if (!formData.startDate || !formData.endDate) {
       setError('Por favor selecciona las fechas de inicio y fin');
       return;

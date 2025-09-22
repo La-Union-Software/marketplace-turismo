@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
-  Clock, 
   MapPin, 
   DollarSign, 
   Search, 
@@ -15,13 +15,16 @@ import {
   Clock as ClockIcon,
   Check,
   User,
-  CreditCard
+  CreditCard,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
-import { Booking, BookingStatus } from '@/types';
-import { useRouter } from 'next/navigation';
+import { Booking, BookingStatus, CancellationPenalty } from '@/types';
+import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
+import CancellationModal from '@/components/booking/CancellationModal';
+import PostImages from '@/components/ui/PostImages';
 
 export default function BookingsPage() {
   const { user, hasRole } = useAuth();
@@ -32,6 +35,10 @@ export default function BookingsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'client' | 'owner'>('client');
   const [error, setError] = useState<string | null>(null);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationPenalty, setCancellationPenalty] = useState<CancellationPenalty | null>(null);
+  const [selectedBookingForCancellation, setSelectedBookingForCancellation] = useState<Booking | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -133,32 +140,12 @@ export default function BookingsPage() {
         };
       }
 
-      // Get publisher's CUIT for split payment
-      const publisherCuit = user?.mobbexCredentials?.cuit;
-      console.log('💰 [Bookings] Publisher CUIT for split payment:', publisherCuit);
+      console.log('🚀 [Bookings] Approving booking without checkout creation...');
       
-      // Create Mobbex checkout with split payment
-      const checkout = await mobbexService.createBookingCheckout({
-        bookingId: booking.id,
-        postTitle: booking.post.title,
-        totalAmount: booking.totalAmount,
-        currency: booking.currency,
-        clientName: booking.client.name,
-        clientEmail: booking.client.email,
-        returnUrl: `${window.location.origin}/payment/complete?booking=${bookingId}`,
-        webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
-        publisherCuit: publisherCuit, // Add publisher CUIT for split payment
-        marketplaceFee: 10, // 10% marketplace fee
-        userCredentials: userCredentials || undefined
-      });
+      // Update booking status to pending payment (without checkout)
+      await firebaseDB.bookings.updateStatus(bookingId, 'pending_payment');
 
-      // Update booking status to pending payment
-      await firebaseDB.bookings.updateStatus(bookingId, 'pending_payment', {
-        mobbexCheckoutId: checkout.id,
-        mobbexCheckoutUrl: checkout.url
-      });
-
-      // Create notification for client
+      // Create notification for client with mock checkout link
       await firebaseDB.notifications.create({
         userId: booking.clientId,
         type: 'payment_pending',
@@ -168,7 +155,7 @@ export default function BookingsPage() {
         data: {
           bookingId,
           postId: booking.postId,
-          checkoutUrl: checkout.url
+          checkoutUrl: `${window.location.origin}/checkout/${booking.id}`
         }
       });
 
@@ -209,26 +196,65 @@ export default function BookingsPage() {
   };
 
   const handlePaymentClick = async (booking: Booking) => {
-    if (!booking.mobbexCheckoutUrl) {
-      alert('No hay enlace de pago disponible. Contacta al propietario.');
+    if (!booking) {
+      alert('No hay información de reserva disponible.');
       return;
     }
 
+    // Redirect to mock checkout page
+    router.push(`/checkout/${booking.id}`);
+  };
+
+  const handleCancelBooking = (booking: Booking) => {
+    if (!booking) return;
+
+    // Calculate cancellation penalty
+    const penalty = calculateCancellationPenalty(
+      booking.post.cancellationPolicies || [],
+      booking.totalAmount,
+      new Date(booking.startDate)
+    );
+
+    setSelectedBookingForCancellation(booking);
+    setCancellationPenalty(penalty);
+    setShowCancellationModal(true);
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!selectedBookingForCancellation || !user) return;
+
+    setIsCancelling(true);
+
     try {
-      // Check if checkout is still valid
-      if (booking.mobbexCheckoutId) {
-        const checkoutStatus = await mobbexService.getCheckoutStatus(booking.mobbexCheckoutId);
-        if (checkoutStatus.status.code === 200) {
-          window.open(booking.mobbexCheckoutUrl, '_blank');
-        } else {
-          alert('El enlace de pago ha expirado. Contacta al propietario.');
-        }
-      } else {
-        window.open(booking.mobbexCheckoutUrl, '_blank');
+      const response = await fetch(`/api/bookings/${selectedBookingForCancellation.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cancelledBy: selectedBookingForCancellation.clientId === user.id ? 'client' : 'owner'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al cancelar la reserva');
       }
+
+      const result = await response.json();
+      
+      // Show success message
+      alert(`Reserva cancelada exitosamente${result.penaltyAmount > 0 ? ` (Penalización: ${result.penaltyAmount} ${selectedBookingForCancellation.currency})` : ''}`);
+      
+      // Close modal and refresh page
+      setShowCancellationModal(false);
+      setSelectedBookingForCancellation(null);
+      window.location.reload();
     } catch (err) {
-      console.error('Error getting checkout status:', err);
-      alert('Error al acceder al pago');
+      console.error('Error cancelling booking:', err);
+      alert('Error al cancelar la reserva: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -512,9 +538,12 @@ export default function BookingsPage() {
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Service Image */}
                 <div className="lg:w-48 lg:h-32 flex-shrink-0">
-                  <div className="w-full h-32 lg:h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">Imagen del servicio</span>
-                  </div>
+                  <PostImages 
+                    postId={booking.postId} 
+                    className="w-full h-32 lg:h-full rounded-lg"
+                    showMainImageOnly={true}
+                    showGallery={false}
+                  />
                 </div>
 
                 {/* Service Details */}
@@ -546,7 +575,7 @@ export default function BookingsPage() {
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
+                          <ClockIcon className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             Servicio: {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
                           </span>
@@ -566,6 +595,36 @@ export default function BookingsPage() {
                           </p>
                         </div>
                       )}
+
+                      {/* Publisher Information - Only show to clients when booking is paid */}
+                      {viewMode === 'client' && booking.status === 'paid' && booking.owner && (
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 mb-4 border border-green-200 dark:border-green-800">
+                          <div className="flex items-start space-x-2 mb-2">
+                            <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-1" />
+                            <div>
+                              <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">
+                                Información del Proveedor
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                            <div className="flex items-center space-x-2">
+                              <User className="w-3 h-3 text-green-600 dark:text-green-400" />
+                              <span className="text-green-700 dark:text-green-400">{booking.owner.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Mail className="w-3 h-3 text-green-600 dark:text-green-400" />
+                              <span className="text-green-700 dark:text-green-400">{booking.owner.email}</span>
+                            </div>
+                            {booking.owner.phone && (
+                              <div className="flex items-center space-x-2">
+                                <Phone className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                <span className="text-green-700 dark:text-green-400">{booking.owner.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Status and Actions */}
@@ -575,14 +634,6 @@ export default function BookingsPage() {
                       </span>
                       
                       <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => router.push(`/post/${booking.postId}`)}
-                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors" 
-                          title="Ver servicio"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        
                         {/* Owner Actions */}
                         {viewMode === 'owner' && booking.status === 'requested' && (
                           <>
@@ -613,6 +664,26 @@ export default function BookingsPage() {
                             <CreditCard className="w-4 h-4" />
                           </button>
                         )}
+
+                        {/* Cancellation Actions - Only show for bookings that can be cancelled */}
+                        {(booking.status === 'requested' || booking.status === 'pending_payment' || booking.status === 'paid') && (
+                          <button 
+                            onClick={() => handleCancelBooking(booking)}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
+                            title="Cancelar reserva"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* View Booking Details Button */}
+                        <button 
+                          onClick={() => router.push(`/bookings/${booking.id}`)}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors" 
+                          title="Ver detalles de la reserva"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -651,6 +722,21 @@ export default function BookingsPage() {
           )}
         </motion.div>
       </div>
+
+      {/* Cancellation Modal */}
+      {selectedBookingForCancellation && cancellationPenalty && (
+        <CancellationModal
+          isOpen={showCancellationModal}
+          onClose={() => {
+            setShowCancellationModal(false);
+            setSelectedBookingForCancellation(null);
+          }}
+          onConfirm={handleConfirmCancellation}
+          booking={selectedBookingForCancellation}
+          penalty={cancellationPenalty}
+          isCancelling={isCancelling}
+        />
+      )}
     </div>
   );
 }

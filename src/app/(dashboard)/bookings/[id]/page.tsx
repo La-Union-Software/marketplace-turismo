@@ -20,7 +20,9 @@ import {
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { mobbexService } from '@/services/mobbexService';
-import { Booking } from '@/types';
+import { Booking, CancellationPenalty } from '@/types';
+import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
+import CancellationModal from '@/components/booking/CancellationModal';
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -29,6 +31,9 @@ export default function BookingDetailPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationPenalty, setCancellationPenalty] = useState<CancellationPenalty | null>(null);
 
   const bookingId = params.id as string;
 
@@ -97,43 +102,15 @@ export default function BookingDetailPage() {
         console.log('🔑 [BookingDetail] No user Mobbex credentials, using system credentials');
       }
 
-      console.log('🚀 [BookingDetail] Creating Mobbex checkout...');
+      console.log('🚀 [BookingDetail] Approving booking without checkout creation...');
       
-      // Get publisher's CUIT for split payment
-      const publisherCuit = user?.mobbexCredentials?.cuit;
-      console.log('💰 [BookingDetail] Publisher CUIT for split payment:', publisherCuit);
-      
-      // Create Mobbex checkout with split payment
-      const checkout = await mobbexService.createBookingCheckout({
-        bookingId: booking.id,
-        postTitle: booking.post.title,
-        totalAmount: booking.totalAmount,
-        currency: booking.currency,
-        clientName: booking.client.name,
-        clientEmail: booking.client.email,
-        returnUrl: `${window.location.origin}/payment/complete?booking=${booking.id}`,
-        webhookUrl: `${window.location.origin}/api/mobbex/webhook`,
-        publisherCuit: publisherCuit, // Add publisher CUIT for split payment
-        marketplaceFee: 10, // 10% marketplace fee
-        userCredentials: userCredentials || undefined
-      });
-
-      console.log('✅ [BookingDetail] Checkout created successfully:', {
-        id: checkout.id,
-        url: checkout.url,
-        reference: checkout.reference
-      });
-
       console.log('💾 [BookingDetail] Updating booking status to pending_payment...');
-      // Update booking status to pending payment
-      await firebaseDB.bookings.updateStatus(booking.id, 'pending_payment', {
-        mobbexCheckoutId: checkout.id,
-        mobbexCheckoutUrl: checkout.url
-      });
+      // Update booking status to pending payment (without checkout)
+      await firebaseDB.bookings.updateStatus(booking.id, 'pending_payment');
       console.log('✅ [BookingDetail] Booking status updated successfully');
 
       console.log('🔔 [BookingDetail] Creating notification for client...');
-      // Create notification for client
+      // Create notification for client with mock checkout link
       await firebaseDB.notifications.create({
         userId: booking.clientId,
         type: 'payment_pending',
@@ -143,7 +120,7 @@ export default function BookingDetailPage() {
         data: {
           bookingId: booking.id,
           postId: booking.postId,
-          checkoutUrl: checkout.url
+          checkoutUrl: `${window.location.origin}/checkout/${booking.id}`
         }
       });
       console.log('✅ [BookingDetail] Notification created successfully');
@@ -189,26 +166,63 @@ export default function BookingDetailPage() {
   };
 
   const handlePaymentClick = async () => {
-    if (!booking?.mobbexCheckoutUrl) {
-      alert('No hay enlace de pago disponible. Contacta al propietario.');
+    if (!booking) {
+      alert('No hay información de reserva disponible.');
       return;
     }
 
+    // Redirect to mock checkout page
+    router.push(`/checkout/${booking.id}`);
+  };
+
+  const handleCancelBooking = () => {
+    if (!booking) return;
+
+    // Calculate cancellation penalty
+    const penalty = calculateCancellationPenalty(
+      booking.post.cancellationPolicies || [],
+      booking.totalAmount,
+      new Date(booking.startDate)
+    );
+
+    setCancellationPenalty(penalty);
+    setShowCancellationModal(true);
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!booking || !user) return;
+
+    setIsCancelling(true);
+
     try {
-      // Check if checkout is still valid
-      if (booking.mobbexCheckoutId) {
-        const checkoutStatus = await mobbexService.getCheckoutStatus(booking.mobbexCheckoutId);
-        if (checkoutStatus.status.code === 200) {
-          window.open(booking.mobbexCheckoutUrl, '_blank');
-        } else {
-          alert('El enlace de pago ha expirado. Contacta al propietario.');
-        }
-      } else {
-        window.open(booking.mobbexCheckoutUrl, '_blank');
+      const response = await fetch(`/api/bookings/${booking.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cancelledBy: booking.clientId === user.id ? 'client' : 'owner'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al cancelar la reserva');
       }
+
+      const result = await response.json();
+      
+      // Show success message
+      alert(`Reserva cancelada exitosamente${result.penaltyAmount > 0 ? ` (Penalización: ${result.penaltyAmount} ${booking.currency})` : ''}`);
+      
+      // Close modal and refresh page
+      setShowCancellationModal(false);
+      window.location.reload();
     } catch (err) {
-      console.error('Error getting checkout status:', err);
-      alert('Error al acceder al pago');
+      console.error('Error cancelling booking:', err);
+      alert('Error al cancelar la reserva: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -430,6 +444,44 @@ export default function BookingDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Publisher Information - Only show to clients when booking is paid */}
+            {isClient && booking.status === 'paid' && booking.owner && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Información del Proveedor
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-300">{booking.owner.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-300">{booking.owner.email}</span>
+                  </div>
+                  {booking.owner.phone && (
+                    <div className="flex items-center space-x-2">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-600 dark:text-gray-300">{booking.owner.phone}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex items-start space-x-2">
+                    <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-1" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">
+                        Reserva Confirmada
+                      </p>
+                      <p className="text-sm text-green-700 dark:text-green-400">
+                        Tu pago ha sido procesado exitosamente. Puedes contactar al proveedor usando la información de arriba.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
 
           {/* Actions Sidebar */}
@@ -476,6 +528,17 @@ export default function BookingDetailPage() {
                   </button>
                 )}
 
+                {/* Cancellation Actions - Only show for bookings that can be cancelled */}
+                {(booking.status === 'requested' || booking.status === 'pending_payment' || booking.status === 'paid') && (
+                  <button
+                    onClick={handleCancelBooking}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Cancelar Reserva</span>
+                  </button>
+                )}
+
                 {/* View Post Button */}
                 <button
                   onClick={() => router.push(`/post/${booking.postId}`)}
@@ -488,6 +551,18 @@ export default function BookingDetailPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Cancellation Modal */}
+      {booking && cancellationPenalty && (
+        <CancellationModal
+          isOpen={showCancellationModal}
+          onClose={() => setShowCancellationModal(false)}
+          onConfirm={handleConfirmCancellation}
+          booking={booking}
+          penalty={cancellationPenalty}
+          isCancelling={isCancelling}
+        />
+      )}
     </div>
   );
 }

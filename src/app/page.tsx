@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import AddressSearch from '@/components/ui/AddressSearch';
+import BackgroundCarousel from '@/components/ui/BackgroundCarousel';
 
 export default function HomePage() {
   const [searchForm, setSearchForm] = useState({
@@ -21,6 +22,14 @@ export default function HomePage() {
   });
 
   const [locationData, setLocationData] = useState<any>(null);
+
+  // Banner images for the carousel
+  const bannerImages = [
+    '/img/banner-1.jpg',
+    '/img/banner-2.jpg',
+    '/img/banner-3.jpg',
+    '/img/banner-4.jpg'
+  ];
 
   const popularDestinations = [
     { name: 'Buenos Aires', image: '/api/placeholder/300/200', description: 'La ciudad que nunca duerme' },
@@ -52,18 +61,30 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
+      <section className="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8 min-h-screen flex items-center">
+        {/* Background Carousel */}
+        <div className="absolute inset-0 z-0">
+          <BackgroundCarousel 
+            images={bannerImages} 
+            interval={5000}
+            className="w-full h-full"
+          />
+        </div>
+        
+        {/* Content */}
+        <div className="relative z-10 max-w-7xl mx-auto text-center w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-6 drop-shadow-2xl">
               Encuentra tu{' '}
-              <span className="gradient-text">viaje soñado</span>
+              <span className="gradient-text bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                viaje soñado
+              </span>
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+            <p className="text-lg sm:text-xl text-white/95 mb-8 max-w-3xl mx-auto drop-shadow-lg font-medium">
               Descubre los mejores destinos de Argentina. Alojamientos únicos, experiencias inolvidables y vehículos para explorar.
             </p>
           </motion.div>
@@ -75,7 +96,7 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="max-w-4xl mx-auto"
           >
-            <div className="glass rounded-2xl p-2 flex flex-col lg:flex-row items-stretch lg:items-center space-y-2 lg:space-y-0 lg:space-x-2">
+            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl p-2 flex flex-col lg:flex-row items-stretch lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 shadow-xl border border-white/20">
               <div className="flex-1">
                 <AddressSearch
                   value={searchForm.location}

@@ -955,6 +955,11 @@ export const firebaseDB = {
   bookings: {
     async create(bookingData: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'post' | 'client' | 'owner'>): Promise<string> {
       try {
+        // Server-side validation: prevent users from booking their own services
+        if (bookingData.clientId === bookingData.ownerId) {
+          throw new Error('No puedes reservar tu propio servicio');
+        }
+
         const cleanData = Object.fromEntries(
           Object.entries(bookingData).filter(([_, value]) => value !== undefined)
         );
@@ -967,7 +972,7 @@ export const firebaseDB = {
         return docRef.id;
       } catch (error) {
         console.error('Error creating booking:', error);
-        throw new Error('Failed to create booking');
+        throw error instanceof Error ? error : new Error('Failed to create booking');
       }
     },
 

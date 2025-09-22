@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Clock, CreditCard, Calendar, MapPin, User } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, CreditCard, Calendar, MapPin, User, Mail, Phone, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { mobbexService } from '@/services/mobbexService';
@@ -51,32 +51,17 @@ function PaymentCompleteContent() {
         setBooking(bookingData);
 
         // Determine payment status from URL parameters
-        if (status === '200' && type && type !== 'none') {
+        if (status === 'success') {
           setPaymentStatus('success');
-        } else if (status === '0' && type === 'none') {
+        } else if (status === 'failed') {
           setPaymentStatus('failed');
-        } else if (status === '2' || status === '100') {
+        } else if (status === 'pending') {
           setPaymentStatus('pending');
         } else {
           setPaymentStatus('unknown');
         }
 
-        // If we have a transaction ID, try to get more details from Mobbex
-        if (transactionId && bookingData.mobbexCheckoutId) {
-          try {
-            const checkoutStatus = await mobbexService.getCheckoutStatus(bookingData.mobbexCheckoutId);
-            if (checkoutStatus.payment?.status?.code === 200) {
-              setPaymentStatus('success');
-            } else if (checkoutStatus.payment?.status?.code === 400) {
-              setPaymentStatus('failed');
-            } else {
-              setPaymentStatus('pending');
-            }
-          } catch (err) {
-            console.error('Error fetching checkout status:', err);
-            // Keep the status from URL parameters
-          }
-        }
+        // Payment status is determined by URL parameters for mock checkout
 
       } catch (err) {
         console.error('Error fetching booking:', err);
@@ -118,9 +103,9 @@ function PaymentCompleteContent() {
   const getStatusMessage = () => {
     switch (paymentStatus) {
       case 'success':
-        return 'Tu pago ha sido procesado exitosamente. Tu reserva está confirmada.';
+        return 'Tu pago ha sido procesado exitosamente. Tu reserva está confirmada. El propietario ha sido notificado.';
       case 'failed':
-        return 'Tu pago no pudo ser procesado. Por favor, intenta nuevamente.';
+        return 'Tu pago no pudo ser procesado. Por favor, verifica los datos de tu tarjeta e intenta nuevamente.';
       case 'pending':
         return 'Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.';
       default:
@@ -284,6 +269,40 @@ function PaymentCompleteContent() {
               </div>
             </div>
           </div>
+
+          {/* Publisher Information - Show when payment is successful */}
+          {paymentStatus === 'success' && booking.owner && (
+            <div className="mt-8 p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-start space-x-2 mb-4">
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-1" />
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-1">
+                    Información del Proveedor
+                  </h3>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Puedes contactar al proveedor usando la información de abajo.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-green-700 dark:text-green-400">{booking.owner.name}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Mail className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-green-700 dark:text-green-400">{booking.owner.email}</span>
+                </div>
+                {booking.owner.phone && (
+                  <div className="flex items-center space-x-2">
+                    <Phone className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-400">{booking.owner.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div
