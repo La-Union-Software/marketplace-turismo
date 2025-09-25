@@ -71,7 +71,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
         }, user.id);
       }
 
-      setMessage({ type: 'success', text: 'Credentials saved successfully!' });
+      setMessage({ type: 'success', text: '¡Credenciales guardadas exitosamente!' });
       
       // Reload credentials to get updated data
       await loadCredentials();
@@ -82,7 +82,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
       }, 1500);
     } catch (error) {
       console.error('Error saving credentials:', error);
-      setMessage({ type: 'error', text: 'Error saving credentials. Please try again.' });
+      setMessage({ type: 'error', text: 'Error al guardar credenciales. Por favor, inténtalo de nuevo.' });
     } finally {
       setIsSaving(false);
     }
@@ -97,7 +97,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="glass rounded-xl p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-brown mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading credentials...</p>
+          <p className="text-gray-600 dark:text-gray-300">Cargando credenciales...</p>
         </div>
       </div>
     );
@@ -122,7 +122,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
                 Mobbex
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Payment Gateway Configuration
+                Configuración de Gateway de Pagos
               </p>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
           {/* API Key Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              API Key
+              Clave API
             </label>
             <div className="relative">
               <input
@@ -147,7 +147,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
                 value={formData.apiKey}
                 onChange={(e) => handleInputChange('apiKey', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                placeholder="Enter your Mobbex API Key"
+                placeholder="Ingresa tu Clave API de Mobbex"
                 required
               />
             </div>
@@ -156,7 +156,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
           {/* Access Token Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Access Token
+              Token de Acceso
             </label>
             <div className="relative">
               <input
@@ -164,7 +164,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
                 value={formData.accessToken}
                 onChange={(e) => handleInputChange('accessToken', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                placeholder="Enter your Mobbex Access Token"
+                placeholder="Ingresa tu Token de Acceso de Mobbex"
                 required
               />
               <button
@@ -180,7 +180,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
           {/* Audit Key Field (Optional) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Audit Key <span className="text-gray-500">(Optional)</span>
+              Clave de Auditoría <span className="text-gray-500">(Opcional)</span>
             </label>
             <div className="relative">
               <input
@@ -188,7 +188,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
                 value={formData.auditKey}
                 onChange={(e) => handleInputChange('auditKey', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                placeholder="Enter your Mobbex Audit Key (for loyalty features)"
+                placeholder="Ingresa tu Clave de Auditoría de Mobbex (para funciones de lealtad)"
               />
               <button
                 type="button"
@@ -199,7 +199,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Required only for loyalty and advanced features
+              Requerido solo para funciones de lealtad y avanzadas
             </p>
           </div>
 
@@ -213,7 +213,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
               className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Enable Mobbex payments
+              Habilitar pagos con Mobbex
             </label>
           </div>
 
@@ -240,7 +240,7 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
               onClick={onClose}
               className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -250,12 +250,12 @@ export default function MobbexForm({ onClose }: MobbexFormProps) {
               {isSaving ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Saving...</span>
+                  <span>Guardando...</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Save Credentials</span>
+                  <span>Guardar Credenciales</span>
                 </>
               )}
             </button>

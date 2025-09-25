@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     
     if (!credentials || !credentials.isActive) {
       return NextResponse.json(
-        { error: 'Mobbex credentials not found or inactive' },
+        { error: 'Credenciales de Mobbex no encontradas o inactivas' },
         { status: 400 }
       );
     }
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       const errorText = await response.text();
       return NextResponse.json(
         { 
-          error: 'Failed to get subscriptions from Mobbex',
+          error: 'Error al obtener suscripciones de Mobbex',
           status: response.status,
           details: errorText
         },
@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
     console.error('Error getting Mobbex subscriptions:', error);
     return NextResponse.json(
       { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Error desconocido'
       },
       { status: 500 }
     );
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     
     if (!credentials || !credentials.isActive) {
       return NextResponse.json(
-        { error: 'Mobbex credentials not found or inactive' },
+        { error: 'Credenciales de Mobbex no encontradas o inactivas' },
         { status: 400 }
       );
     }
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(
         { 
-          error: 'Failed to create subscription in Mobbex',
+          error: 'Error al crear suscripción en Mobbex',
           status: response.status,
           details: errorText
         },
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
     console.error('Error creating Mobbex subscription:', error);
     return NextResponse.json(
       { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Error desconocido'
       },
       { status: 500 }
     );

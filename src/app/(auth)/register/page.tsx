@@ -29,7 +29,7 @@ export default function RegisterPage() {
   // Handle redirect after successful signup
   useEffect(() => {
     if (signupSuccess && user) {
-      setSuccess('Account created successfully! Redirecting...');
+      setSuccess('¡Cuenta creada exitosamente! Redirigiendo...');
       setTimeout(() => {
         // New users are clients by default, redirect to bookings
         router.push('/bookings');
@@ -45,13 +45,13 @@ export default function RegisterPage() {
     
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match.');
+      setError('Las contraseñas no coinciden.');
       setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError('La contraseña debe tener al menos 6 caracteres.');
       setIsLoading(false);
       return;
     }
@@ -67,7 +67,7 @@ export default function RegisterPage() {
       if (success) {
         setSignupSuccess(true);
       } else {
-        setError('Failed to create account. Please try again.');
+        setError('Error al crear la cuenta. Por favor, inténtalo de nuevo.');
       }
     } catch (error: unknown) {
       console.error('Registration error:', error);
@@ -76,18 +76,18 @@ export default function RegisterPage() {
       if (error && typeof error === 'object' && 'code' in error) {
         const firebaseError = error as { code: string };
         if (firebaseError.code === 'auth/email-already-in-use') {
-          setError('An account with this email already exists.');
+          setError('Ya existe una cuenta con este correo electrónico.');
         } else if (firebaseError.code === 'auth/invalid-email') {
-          setError('Invalid email address format.');
+          setError('Formato de correo electrónico inválido.');
         } else if (firebaseError.code === 'auth/weak-password') {
-          setError('Password is too weak. Please choose a stronger password.');
+          setError('La contraseña es muy débil. Por favor, elige una contraseña más segura.');
         } else if (firebaseError.code === 'auth/operation-not-allowed') {
-          setError('Email/password accounts are not enabled. Please contact support.');
+          setError('Las cuentas de correo electrónico/contraseña no están habilitadas. Por favor, contacta con soporte.');
         } else {
-          setError('An error occurred during registration. Please try again.');
+          setError('Ocurrió un error durante el registro. Por favor, inténtalo de nuevo.');
         }
       } else {
-        setError('An error occurred during registration. Please try again.');
+        setError('Ocurrió un error durante el registro. Por favor, inténtalo de nuevo.');
       }
     } finally {
       setIsLoading(false);
@@ -111,7 +111,7 @@ export default function RegisterPage() {
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Terms and Conditions
+              Términos y Condiciones
             </h2>
             <button
               onClick={() => setShowTermsModal(false)}
@@ -124,78 +124,93 @@ export default function RegisterPage() {
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Marketplace Turismo - Terms and Conditions
+                Marketplace Turismo - Términos y Condiciones
               </h3>
               
               <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Acceptance of Terms</h4>
-                  <p>
-                    By creating an account and using Marketplace Turismo, you agree to be bound by these terms and conditions. 
-                    If you do not agree to these terms, please do not use our service.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 TÉRMINOS Y CONDICIONES – MARKETPLACE TURISMO (Argentina)</h4>
+                  <p className="mb-4">
+                    Estos Términos y Condiciones regulan el acceso y uso de la Plataforma. Al registrarse o utilizarla, los usuarios aceptan su cumplimiento conforme a la Ley de Defensa del Consumidor N.º 24.240, el Código Civil y Comercial de la Nación (CCCN) y demás normativa aplicable.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Account Registration</h4>
-                  <p>
-                    You must provide accurate and complete information when creating your account. You are responsible for 
-                    maintaining the confidentiality of your account credentials and for all activities that occur under your account.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Objeto</h4>
+                  <p className="mb-2">
+                    Marketplace Turismo actúa como intermediario digital que conecta a clientes con prestadores de servicios turísticos (negocios).
+                  </p>
+                  <p className="mb-4">
+                    La Plataforma no presta servicios turísticos por sí misma, ni es responsable de su ejecución.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. User Responsibilities</h4>
-                  <p>
-                    As a user of Marketplace Turismo, you agree to use the platform responsibly and in accordance with all 
-                    applicable laws and regulations. You are responsible for the content you post and the services you provide.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Registro</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Solo pueden registrarse personas mayores de 18 años.</li>
+                    <li>Los datos aportados deben ser veraces y actualizados.</li>
+                    <li>El usuario es responsable del uso de su cuenta y credenciales.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Reservas</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Una reserva se confirma únicamente cuando el negocio acepta la solicitud.</li>
+                    <li>Al confirmarse, se genera un voucher de reserva con los datos del servicio contratado.</li>
+                    <li>El voucher es personal e intransferible.</li>
+                    <li>Cancelaciones y cambios se rigen por las políticas de cada prestador, que deben estar publicadas en la Plataforma conforme al art. 1100 del CCCN (información clara y accesible al consumidor).</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Pagos</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Los pagos se procesan exclusivamente mediante pasarelas externas seguras (ej. Mercado Pago, Mobbex).</li>
+                    <li>Marketplace Turismo no recibe ni almacena directamente dinero ni datos financieros de usuarios.</li>
+                    <li>La Plataforma solo registra la confirmación de la operación para gestionar la reserva.</li>
+                    <li>El pago al negocio se libera una vez cumplidas las condiciones pactadas por la pasarela (ejemplo: 12 horas posteriores al check-in sin reclamos).</li>
+                    <li>Cualquier reclamo relacionado al procesamiento del pago deberá canalizarse a través de la pasarela correspondiente.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Responsabilidades</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Los negocios son responsables de la calidad, seguridad y cumplimiento del servicio ofrecido.</li>
+                    <li>Los clientes son responsables de respetar las normas de uso establecidas por cada negocio.</li>
+                    <li>Marketplace Turismo no se hace responsable por daños, incumplimientos o conflictos entre las partes, aunque podrá intervenir como mediador cuando existan pruebas verificables.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">6. Propiedad intelectual</h4>
+                  <p className="mb-4">
+                    Todos los logos, diseños, marcas y contenidos de Marketplace Turismo están protegidos por la Ley de Propiedad Intelectual N.º 11.723. Su uso sin autorización está prohibido.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Service Availability</h4>
-                  <p>
-                    We strive to maintain high service availability, but we do not guarantee uninterrupted access to our platform. 
-                    We reserve the right to modify, suspend, or discontinue any part of our service at any time.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Suspensión de cuentas</h4>
+                  <p className="mb-4">
+                    Marketplace Turismo podrá suspender o dar de baja cuentas en casos de fraude, incumplimiento de estos términos, uso indebido de la plataforma o conducta inadecuada.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Content and Intellectual Property</h4>
-                  <p>
-                    You retain ownership of the content you post, but grant us a license to use, display, and distribute your 
-                    content in connection with our service. You must not post content that infringes on others' intellectual property rights.
-                  </p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">8. Jurisdicción y ley aplicable</h4>
+                  <p className="mb-2">Para cualquier conflicto:</p>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Entre negocios, proveedores o usuarios comerciales: será competente la jurisdicción de los tribunales ordinarios de San Carlos de Bariloche, Provincia de Río Negro, República Argentina, con renuncia a cualquier otro fuero o jurisdicción.</li>
+                    <li>Entre consumidores finales y la Plataforma: se aplicará lo dispuesto por la Ley de Defensa del Consumidor N.º 24.240 y el Código Civil y Comercial de la Nación, respetando la opción de reclamar en el domicilio del consumidor o en el de la Plataforma.</li>
+                  </ul>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">6. Prohibited Activities</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">9. Modificaciones</h4>
                   <p>
-                    You may not use our service for illegal activities, spam, harassment, or any activity that could harm 
-                    other users or the platform. We reserve the right to suspend or terminate accounts that violate these terms.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Limitation of Liability</h4>
-                  <p>
-                    Marketplace Turismo is provided "as is" without warranties of any kind. We are not liable for any 
-                    damages arising from your use of our service, including but not limited to direct, indirect, or consequential damages.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">8. Changes to Terms</h4>
-                  <p>
-                    We may update these terms from time to time. We will notify users of significant changes, and continued 
-                    use of our service constitutes acceptance of the updated terms.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">9. Contact Information</h4>
-                  <p>
-                    If you have any questions about these terms and conditions, please contact us through our official channels.
+                    La Plataforma podrá modificar estos Términos en cualquier momento. Los cambios entrarán en vigencia desde su publicación en el sitio web.
                   </p>
                 </section>
               </div>
@@ -207,7 +222,7 @@ export default function RegisterPage() {
               onClick={() => setShowTermsModal(false)}
               className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
             >
-              I Understand
+              Entiendo
             </button>
           </div>
         </motion.div>
@@ -228,7 +243,7 @@ export default function RegisterPage() {
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Privacy Policy
+              Política de Privacidad
             </h2>
             <button
               onClick={() => setShowPrivacyModal(false)}
@@ -246,90 +261,62 @@ export default function RegisterPage() {
               
               <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Information We Collect</h4>
-                  <p>
-                    We collect information you provide directly to us, such as when you create an account, post services, 
-                    or communicate with us. This includes your name, email address, phone number, and service details.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 POLÍTICA DE PRIVACIDAD – MARKETPLACE TURISMO (Argentina)</h4>
+                  <p className="mb-4">
+                    Marketplace Turismo (en adelante, "la Plataforma") respeta y protege los datos personales de sus usuarios (clientes, negocios, revendedores y referidos), conforme a lo dispuesto por la Ley N.º 25.326 de Protección de Datos Personales y sus modificatorias.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. How We Use Your Information</h4>
-                  <p>
-                    We use your information to provide and improve our services, communicate with you, process transactions, 
-                    and ensure platform security. We may also use your information for analytics and marketing purposes.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Datos que recopilamos</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li><strong>Información personal:</strong> nombre, apellido, DNI, CUIT/CUIL (cuando corresponda), domicilio, correo electrónico, teléfono.</li>
+                    <li><strong>Información comercial:</strong> descripción de servicios, precios, facturación.</li>
+                    <li><strong>Datos de uso:</strong> historial de reservas, puntuaciones, preferencias.</li>
+                    <li><strong>Datos de pago:</strong> la Plataforma no almacena información sensible de tarjetas o cuentas bancarias. Los pagos se procesan a través de pasarelas externas seguras (ej. Mercado Pago, Mobbex), que cumplen con las normas de seguridad PCI DSS.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Finalidad</h4>
+                  <p className="mb-2">Los datos se recaban para:</p>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Gestionar reservas y generar vouchers.</li>
+                    <li>Facilitar la comunicación entre clientes y negocios.</li>
+                    <li>Emitir facturas según normativa de AFIP.</li>
+                    <li>Analizar estadísticas de uso para mejorar la experiencia.</li>
+                    <li>Cumplir obligaciones legales y contractuales.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Protección y resguardo</h4>
+                  <ul className="list-disc pl-6 mb-4 space-y-1">
+                    <li>Los datos se almacenan en servidores seguros, con cifrado SSL.</li>
+                    <li>Solo el personal autorizado accede a la información, bajo deber de confidencialidad.</li>
+                    <li>No se ceden a terceros sin consentimiento, salvo obligación legal.</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición)</h4>
+                  <p className="mb-4">
+                    Los usuarios pueden ejercer estos derechos según lo previsto en la Ley 25.326, enviando solicitud al correo oficial de la Plataforma.
+                    La Dirección Nacional de Protección de Datos Personales es la autoridad de control en Argentina, y los usuarios pueden presentar reclamos ante ella si consideran vulnerados sus derechos.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Information Sharing</h4>
-                  <p>
-                    We do not sell your personal information. We may share your information with service providers who 
-                    assist us in operating our platform, or when required by law or to protect our rights and safety.
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Cookies</h4>
+                  <p className="mb-4">
+                    Se utilizan cookies para optimizar la experiencia. Pueden deshabilitarse desde el navegador.
                   </p>
                 </section>
 
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Data Security</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">6. Cambios en la política</h4>
                   <p>
-                    We implement appropriate security measures to protect your personal information against unauthorized 
-                    access, alteration, disclosure, or destruction. However, no method of transmission over the internet is 100% secure.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Cookies and Tracking</h4>
-                  <p>
-                    We use cookies and similar technologies to enhance your experience, analyze usage patterns, and 
-                    provide personalized content. You can control cookie settings through your browser preferences.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">6. Your Rights</h4>
-                  <p>
-                    You have the right to access, update, or delete your personal information. You can also opt out of 
-                    certain communications and data processing activities. Contact us to exercise these rights.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Data Retention</h4>
-                  <p>
-                    We retain your personal information for as long as necessary to provide our services and comply 
-                    with legal obligations. We will delete your information when it is no longer needed.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">8. International Transfers</h4>
-                  <p>
-                    Your information may be transferred to and processed in countries other than your own. We ensure 
-                    appropriate safeguards are in place to protect your information during such transfers.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">9. Children's Privacy</h4>
-                  <p>
-                    Our service is not intended for children under 13 years of age. We do not knowingly collect 
-                    personal information from children under 13. If we become aware of such collection, we will delete the information.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">10. Changes to Privacy Policy</h4>
-                  <p>
-                    We may update this privacy policy from time to time. We will notify you of any material changes 
-                    and post the updated policy on our website.
-                  </p>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">11. Contact Us</h4>
-                  <p>
-                    If you have any questions about this privacy policy or our data practices, please contact us 
-                    through our official channels.
+                    La Plataforma podrá modificar la presente política en cualquier momento. Los cambios entrarán en vigencia desde su publicación en el sitio web.
                   </p>
                 </section>
               </div>
@@ -341,7 +328,7 @@ export default function RegisterPage() {
               onClick={() => setShowPrivacyModal(false)}
               className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
             >
-              I Understand
+              Entiendo
             </button>
           </div>
         </motion.div>
@@ -365,7 +352,7 @@ export default function RegisterPage() {
           className="absolute -top-16 left-0 flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to home
+          Volver al inicio
         </Link>
 
         {/* Register Card */}
@@ -380,10 +367,10 @@ export default function RegisterPage() {
               <span className="text-2xl font-bold text-white">MT</span>
             </motion.div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Create account
+              Crear cuenta
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Sign up to start posting your services
+              Regístrate para comenzar a publicar tus servicios
             </p>
           </div>
 
@@ -415,7 +402,7 @@ export default function RegisterPage() {
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Full name *
+                Nombre completo *
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -426,7 +413,7 @@ export default function RegisterPage() {
                   onChange={(e) => updateFormData('name', e.target.value)}
                   required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
-                  placeholder="Your full name"
+                  placeholder="Tu nombre completo"
                 />
               </div>
             </div>
@@ -434,7 +421,7 @@ export default function RegisterPage() {
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email address *
+                Dirección de correo electrónico *
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -453,7 +440,7 @@ export default function RegisterPage() {
             {/* Phone Field */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone number
+                Número de teléfono
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -471,7 +458,7 @@ export default function RegisterPage() {
             {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password *
+                Contraseña *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -493,14 +480,14 @@ export default function RegisterPage() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Must be at least 6 characters long
+                Debe tener al menos 6 caracteres
               </p>
             </div>
 
             {/* Confirm Password Field */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirm password *
+                Confirmar contraseña *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -531,21 +518,21 @@ export default function RegisterPage() {
                 className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2 mt-1"
               />
               <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
-                I accept the{' '}
+                Acepto los{' '}
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
                   className="text-primary-brown hover:text-secondary-brown underline focus:outline-none focus:ring-2 focus:ring-primary-brown focus:ring-offset-2 rounded"
                 >
-                  terms and conditions
+                  términos y condiciones
                 </button>
-                {' '}and{' '}
+                {' '}y la{' '}
                 <button
                   type="button"
                   onClick={() => setShowPrivacyModal(true)}
                   className="text-primary-brown hover:text-secondary-brown underline focus:outline-none focus:ring-2 focus:ring-primary-brown focus:ring-offset-2 rounded"
                 >
-                  privacy policy
+                  política de privacidad
                 </button>
               </span>
             </div>
@@ -563,7 +550,7 @@ export default function RegisterPage() {
                   className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                 />
               ) : (
-                'Create account'
+                'Crear cuenta'
               )}
             </button>
           </form>
@@ -571,7 +558,7 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="my-6 flex items-center">
             <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-            <span className="px-4 text-sm text-gray-500 dark:text-gray-400">or</span>
+            <span className="px-4 text-sm text-gray-500 dark:text-gray-400">o</span>
             <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
           </div>
 
@@ -584,19 +571,19 @@ export default function RegisterPage() {
                 <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Continue with Google
+              Continuar con Google
             </button>
           </div>
 
           {/* Sign In Link */}
           <div className="mt-8 text-center">
             <p className="text-gray-600 dark:text-gray-300">
-              Already have an account?{' '}
+              ¿Ya tienes una cuenta?{' '}
               <Link
                 href="/login"
                 className="text-primary-brown hover:text-secondary-brown font-semibold transition-colors"
               >
-                Sign in here
+                Inicia sesión aquí
               </Link>
             </p>
           </div>

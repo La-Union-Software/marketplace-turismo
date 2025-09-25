@@ -38,12 +38,6 @@ export default function HomePage() {
     { name: 'Salta', image: '/api/placeholder/300/200', description: 'Cultura y tradición del norte' },
   ];
 
-  const categories = [
-    { name: 'Alojamientos', icon: '🏨', href: '/alojamientos', count: '2,500+' },
-    { name: 'Experiencias', icon: '🌟', href: '/experiencias', count: '1,200+' },
-    { name: 'Vehículos', icon: '🚗', href: '/vehiculos', count: '800+' },
-    { name: 'Ofertas', icon: '💎', href: '/ofertas', count: '300+' },
-  ];
 
   const handleLocationSelect = (address: any) => {
     setLocationData(address);
@@ -79,13 +73,13 @@ export default function HomePage() {
             transition={{ duration: 0.8 }}
           >
             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-6 drop-shadow-2xl">
-              Encuentra tu{' '}
+              Viví Argentina{' '}
               <span className="gradient-text bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                viaje soñado
+                a tu manera
               </span>
             </h1>
             <p className="text-lg sm:text-xl text-white/95 mb-8 max-w-3xl mx-auto drop-shadow-lg font-medium">
-              Descubre los mejores destinos de Argentina. Alojamientos únicos, experiencias inolvidables y vehículos para explorar.
+              Elegí entre alojamientos, actividades, excursiones y medios para moverte. Todo en un solo lugar, seguro y fácil de reservar.
             </p>
           </motion.div>
 
@@ -102,7 +96,7 @@ export default function HomePage() {
                   value={searchForm.location}
                   onChange={(value) => setSearchForm(prev => ({ ...prev, location: value }))}
                   onSelect={handleLocationSelect}
-                  placeholder="¿A dónde quieres ir?"
+                  placeholder="Elegí tu siguiente destino"
                   className="w-full"
                 />
               </div>
@@ -122,12 +116,12 @@ export default function HomePage() {
                   onChange={(e) => setSearchForm(prev => ({ ...prev, guests: e.target.value }))}
                   className="w-full pl-10 pr-4 py-3 border-0 bg-transparent text-gray-900 dark:text-white focus:outline-none focus:ring-0 appearance-none"
                 >
-                  <option value="">¿Cuántos?</option>
-                  <option value="1">1 huésped</option>
-                  <option value="2">2 huéspedes</option>
-                  <option value="3">3 huéspedes</option>
-                  <option value="4">4 huéspedes</option>
-                  <option value="5+">5+ huéspedes</option>
+                  <option value="">¿Cuántos viajeros?</option>
+                  <option value="1">1 viajero</option>
+                  <option value="2">2 viajeros</option>
+                  <option value="3">3 viajeros</option>
+                  <option value="4">4 viajeros</option>
+                  <option value="5+">5+ viajeros</option>
                 </select>
               </div>
               <button 
@@ -141,48 +135,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Explora por categoría
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              Encuentra exactamente lo que buscas para tu próxima aventura
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {categories.map((category, index) => (
-              <motion.div
-                key={category.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-              >
-                <Link
-                  href={category.href}
-                  className="glass rounded-xl p-6 text-center hover:transform hover:scale-105 transition-all duration-300 block"
-                >
-                  <div className="text-4xl mb-4">{category.icon}</div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    {category.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {category.count} opciones disponibles
-                  </p>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Popular Destinations */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">
@@ -251,33 +203,49 @@ export default function HomePage() {
             className="text-center mb-12"
           >
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Números que hablan por sí solos
+              Nuestro comienzo, tu próxima aventura.
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-300">
-              Miles de viajeros confían en nosotros
+            Creando el futuro del turismo juntos
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { number: '50K+', label: 'Viajeros satisfechos', icon: '👥' },
-              { number: '5K+', label: 'Destinos disponibles', icon: '🗺️' },
-              { number: '98%', label: 'Tasa de satisfacción', icon: '⭐' },
-              { number: '24/7', label: 'Soporte disponible', icon: '🔄' },
-            ].map((stat, index) => (
+              { 
+                icon: '🔑', 
+                title: 'Lanzamiento 2025', 
+                description: 'Nuevo marketplace para transformar el turismo.' 
+              },
+              { 
+                icon: '📌', 
+                title: '100% pensado para Argentina', 
+                description: 'Adaptado a viajeros y prestadores locales.' 
+              },
+              { 
+                icon: '🔒', 
+                title: 'Seguridad primero', 
+                description: 'Políticas claras y protección en cada reserva.' 
+              },
+              { 
+                icon: '🌱', 
+                title: 'Creciendo juntos', 
+                description: 'Invitamos a negocios y viajeros a ser parte desde el inicio.' 
+              },
+            ].map((card, index) => (
               <motion.div
-                key={stat.label}
+                key={card.title}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 1.2 + index * 0.1 }}
                 className="text-center"
               >
-                <div className="text-4xl mb-4">{stat.icon}</div>
-                <div className="text-3xl font-bold text-primary-brown mb-2">
-                  {stat.number}
-                </div>
+                <div className="text-4xl mb-4">{card.icon}</div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  {card.title}
+                </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  {stat.label}
+                  {card.description}
                 </p>
               </motion.div>
             ))}

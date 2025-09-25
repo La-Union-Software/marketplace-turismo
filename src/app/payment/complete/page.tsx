@@ -264,7 +264,7 @@ function PaymentCompleteContent() {
               
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {booking.guestCount} {booking.guestCount === 1 ? 'huésped' : 'huéspedes'}
+                  {booking.guestCount} {booking.guestCount === 1 ? 'viajero' : 'viajeros'}
                 </span>
               </div>
             </div>

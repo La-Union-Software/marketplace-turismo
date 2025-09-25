@@ -183,7 +183,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Dashboard
+            Panel de Control
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Bienvenido de vuelta, {user?.name || 'Usuario'}. Aquí tienes un resumen de tu actividad.

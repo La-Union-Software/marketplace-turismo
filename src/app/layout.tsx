@@ -7,9 +7,9 @@ import Header from "@/components/layout/Header";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Marketplace Turismo - Encuentra tu viaje soñado",
-  description: "Marketplace de servicios turísticos. Alquiler de coches, bicicletas, hoteles, casas rurales y experiencias únicas.",
-  keywords: "turismo, alquiler, hoteles, experiencias, viajes, España",
+  title: "Marketplace Turismo - Viví Argentina a tu manera",
+  description: "Elegí entre alojamientos, actividades, excursiones y medios para moverte. Todo en un solo lugar, seguro y fácil de reservar.",
+  keywords: "turismo, alquiler, hoteles, aventuras, viajes, España",
   authors: [{ name: "Marketplace Turismo" }],
   viewport: "width=device-width, initial-scale=1",
 };

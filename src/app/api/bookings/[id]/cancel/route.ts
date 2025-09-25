@@ -19,7 +19,7 @@ export async function POST(
 
     if (!cancelledBy || !['client', 'owner'].includes(cancelledBy)) {
       return NextResponse.json(
-        { error: 'cancelledBy must be either "client" or "owner"' },
+        { error: 'cancelledBy debe ser "client" u "owner"' },
         { status: 400 }
       );
     }
@@ -28,7 +28,7 @@ export async function POST(
     const booking = await firebaseDB.bookings.getById(bookingId);
     if (!booking) {
       return NextResponse.json(
-        { error: 'Booking not found' },
+        { error: 'Reserva no encontrada' },
         { status: 404 }
       );
     }
@@ -36,21 +36,21 @@ export async function POST(
     // Check if booking can be cancelled
     if (booking.status === 'cancelled') {
       return NextResponse.json(
-        { error: 'Booking is already cancelled' },
+        { error: 'La reserva ya está cancelada' },
         { status: 400 }
       );
     }
 
     if (booking.status === 'completed') {
       return NextResponse.json(
-        { error: 'Cannot cancel completed booking' },
+        { error: 'No se puede cancelar una reserva completada' },
         { status: 400 }
       );
     }
 
     if (booking.status === 'declined') {
       return NextResponse.json(
-        { error: 'Cannot cancel declined booking' },
+        { error: 'No se puede cancelar una reserva rechazada' },
         { status: 400 }
       );
     }
@@ -58,7 +58,7 @@ export async function POST(
     // Only allow cancellation for specific statuses
     if (!['requested', 'pending_payment', 'paid'].includes(booking.status)) {
       return NextResponse.json(
-        { error: 'Booking cannot be cancelled in its current status' },
+        { error: 'La reserva no puede ser cancelada en su estado actual' },
         { status: 400 }
       );
     }
@@ -125,13 +125,13 @@ export async function POST(
     return NextResponse.json({ 
       success: true, 
       penaltyAmount,
-      message: 'Booking cancelled successfully' 
+      message: 'Reserva cancelada exitosamente' 
     });
 
   } catch (error) {
     console.error('Error cancelling booking:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }
