@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Save, X, Plus, Minus } from 'lucide-react';
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
 import { SubscriptionPlan } from '@/types';
 import { useAuth } from '@/lib/auth';
 
@@ -61,48 +60,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
         features: cleanFeatures
       };
 
-      // If plan has Mobbex subscription ID, update Mobbex first
-      if (plan.mobbexSubscriptionId) {
-        try {
-          console.log('Updating Mobbex subscription first...');
-          await mobbexService.initialize();
-          
-          if (mobbexService.isServiceConfigured()) {
-            // Update subscription details
-            await mobbexService.updateSubscription(plan.mobbexSubscriptionId, {
-              name: formData.name,
-              description: formData.description,
-              total: formData.price,
-              currency: formData.currency
-            });
-            console.log('✅ Mobbex subscription details updated successfully');
-
-            // Handle activation/deactivation sync
-            if (formData.isActive !== plan.isActive) {
-              if (formData.isActive) {
-                // Activating - activate in Mobbex
-                await mobbexService.activateSubscription(plan.mobbexSubscriptionId);
-                console.log('✅ Mobbex subscription activated');
-              } else {
-                // Deactivating - suspend in Mobbex
-                await mobbexService.deactivateSubscription(plan.mobbexSubscriptionId);
-                console.log('✅ Mobbex subscription suspended');
-              }
-            }
-          } else {
-            throw new Error('Mobbex service not configured');
-          }
-        } catch (mobbexError) {
-          console.error('❌ Failed to update Mobbex subscription:', mobbexError);
-          setMessage({ 
-            type: 'error', 
-            text: 'Failed to update Mobbex subscription. Plan was not updated to maintain data consistency. Please check your Mobbex credentials and try again.' 
-          });
-          return;
-        }
-      }
-
-      // Only update Firebase if Mobbex update succeeded (or if no Mobbex subscription)
+      // Update plan in database
       try {
         await firebaseDB.plans.update(plan.id, planData, user.id);
         console.log('✅ Local plan updated successfully');
@@ -117,7 +75,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
 
       setMessage({ 
         type: 'success', 
-        text: `Plan updated successfully${plan.mobbexSubscriptionId ? ' and synced with Mobbex' : ''}!` 
+        text: 'Plan updated successfully!' 
       });
       
       // Reload plans and close form
@@ -166,7 +124,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -198,7 +156,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="e.g., Basic Plan, Premium Plan"
                 required
               />
@@ -216,7 +174,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                   min="0"
                   value={formData.price}
                   onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="0.00"
                   required
                 />
@@ -230,12 +188,11 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
               <select
                 value={formData.currency}
                 onChange={(e) => handleInputChange('currency', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
-                <option value="ARS">ARS (Argentine Peso)</option>
                 <option value="USD">USD (US Dollar)</option>
-                <option value="EUR">EUR (Euro)</option>
+                <option value="ARS">ARS (Argentine Peso)</option>
                 <option value="BRL">BRL (Brazilian Real)</option>
                 <option value="CLP">CLP (Chilean Peso)</option>
                 <option value="COP">COP (Colombian Peso)</option>
@@ -254,7 +211,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Describe what this plan offers..."
               required
             />
@@ -269,7 +226,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
               <select
                 value={formData.billingCycle}
                 onChange={(e) => handleInputChange('billingCycle', e.target.value as 'monthly' | 'yearly' | 'weekly' | 'daily')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
                 <option value="monthly">Monthly</option>
@@ -288,7 +245,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                 min="1"
                 value={formData.maxPosts}
                 onChange={(e) => handleInputChange('maxPosts', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -302,7 +259,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                 min="1"
                 value={formData.maxBookings}
                 onChange={(e) => handleInputChange('maxBookings', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -322,7 +279,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                     type="text"
                     value={feature}
                     onChange={(e) => updateFeature(index, e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder={`Feature ${index + 1}`}
                   />
                   {formData.features.length > 1 && (
@@ -339,7 +296,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
               <button
                 type="button"
                 onClick={addFeature}
-                className="flex items-center space-x-2 px-3 py-2 text-primary-brown border border-primary-brown rounded-lg hover:bg-primary-brown hover:text-white transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Feature</span>
@@ -362,7 +319,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                     handleInputChange('isActive', true);
                   }
                 }}
-                className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="isVisible" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Plan is showing to users
@@ -382,7 +339,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
                     handleInputChange('isVisible', false);
                   }
                 }}
-                className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Plan is active and available for users
@@ -413,7 +370,7 @@ export default function EditPlanForm({ plan, onClose, onPlanUpdated }: EditPlanF
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isSaving ? (
                 <>

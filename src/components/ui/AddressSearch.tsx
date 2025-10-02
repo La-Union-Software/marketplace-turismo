@@ -167,7 +167,7 @@ export default function AddressSearch({
           onFocus={() => value.length >= 3 && setIsOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full pl-10 pr-10 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full pl-10 pr-10 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {value && (
           <button
@@ -179,7 +179,7 @@ export default function AddressSearch({
         )}
         {isLoading && (
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-brown"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
           </div>
         )}
       </div>
@@ -203,7 +203,7 @@ export default function AddressSearch({
               }`}
             >
               <div className="flex items-start space-x-3">
-                <MapPin className="h-4 w-4 text-primary-brown mt-0.5 flex-shrink-0" />
+                <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {result.display_name.split(',')[0]}

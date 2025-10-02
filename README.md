@@ -1,10 +1,10 @@
-# Marketplace Turismo
+# Nexar
 
 Un marketplace moderno y minimalista para servicios turísticos en España. Conecta a viajeros con proveedores de servicios turísticos como alquiler de vehículos, hoteles, experiencias y más.
 
 ## 🎯 Objetivo
 
-Marketplace Turismo ayuda a los individuos a encontrar su viaje soñado, con un enfoque en la experiencia de viaje. Por otro lado, es un canal para agencias turísticas, propietarios de apartamentos y administradores turísticos para mostrar sus servicios.
+Nexar ayuda a los individuos a encontrar su viaje soñado, con un enfoque en la experiencia de viaje. Por otro lado, es un canal para agencias turísticas, propietarios de apartamentos y administradores turísticos para mostrar sus servicios.
 
 ## ✨ Características
 
@@ -166,7 +166,7 @@ http://localhost:3000
 ### Variables de Entorno
 Crear archivo `.env.local`:
 ```env
-NEXT_PUBLIC_APP_NAME=Marketplace Turismo
+NEXT_PUBLIC_APP_NAME=Nexar
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -234,7 +234,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ## 📞 Contacto
 
-- **Proyecto**: Marketplace Turismo
+- **Proyecto**: Nexar
 - **Email**: info@marketplaceturismo.com
 - **Website**: https://marketplaceturismo.com
 

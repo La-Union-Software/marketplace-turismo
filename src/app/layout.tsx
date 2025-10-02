@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import Header from "@/components/layout/Header";
 
-const inter = Inter({ subsets: ["latin"] });
+const montserrat = Montserrat({ 
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-montserrat"
+});
 
 export const metadata: Metadata = {
-  title: "Marketplace Turismo - Viví Argentina a tu manera",
-  description: "Elegí entre alojamientos, actividades, excursiones y medios para moverte. Todo en un solo lugar, seguro y fácil de reservar.",
+  title: "Nexar - Viví Argentina a tu manera",
+  description: "Elegí entre alojamientos, actividades, excursiones y medios para moverte.<br> Todo en un solo lugar, seguro y fácil de reservar.",
   keywords: "turismo, alquiler, hoteles, aventuras, viajes, España",
-  authors: [{ name: "Marketplace Turismo" }],
+  authors: [{ name: "Nexar" }],
   viewport: "width=device-width, initial-scale=1",
 };
 
@@ -20,10 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="scroll-smooth">
-      <body className={`${inter.className} antialiased`}>
+    <html lang="es" className={`scroll-smooth ${montserrat.variable}`}>
+      <body className={`${montserrat.className} antialiased`}>
         <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-br from-background-light via-green-50 to-background-light dark:from-background-dark dark:via-gray-900 dark:to-background-dark">
+          <div className="min-h-screen bg-background-light dark:bg-background-dark">
             <Header />
             <main>
               {children}

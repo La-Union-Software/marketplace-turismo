@@ -175,7 +175,7 @@ function UsersManagement() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -232,7 +232,7 @@ function UsersManagement() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -249,7 +249,7 @@ function UsersManagement() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -268,7 +268,7 @@ function UsersManagement() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -287,7 +287,7 @@ function UsersManagement() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -317,7 +317,7 @@ function UsersManagement() {
                   placeholder="Search users by name, email, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -327,7 +327,7 @@ function UsersManagement() {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="all">All Roles</option>
                 {SYSTEM_ROLES.map((role) => (
@@ -343,7 +343,7 @@ function UsersManagement() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -382,7 +382,7 @@ function UsersManagement() {
                   >
                     <td className="py-4 px-4">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                           <span className="text-white font-medium text-sm">
                             {user.name.charAt(0).toUpperCase()}
                           </span>
@@ -508,7 +508,7 @@ function UsersManagement() {
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value as UserRole | '')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">Choose a role...</option>
                 {SYSTEM_ROLES.map((role) => (
@@ -533,7 +533,7 @@ function UsersManagement() {
               <button
                 onClick={handleAssignRole}
                 disabled={!selectedRole || isProcessing}
-                className="px-4 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Assigning...' : 'Assign Role'}
               </button>

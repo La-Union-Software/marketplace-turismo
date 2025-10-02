@@ -24,7 +24,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { User, Post, BasePost, UserRole, UserRoleAssignment, MercadoPagoCredentials, MobbexCredentials, SubscriptionPlan, UserSubscription, ServiceCategory, Pricing, Booking, BookingStatus, Notification, NotificationType } from '@/types';
+import { User, Post, BasePost, UserRole, UserRoleAssignment, MercadoPagoCredentials, MercadoPagoAccount, SubscriptionPlan, UserSubscription, ServiceCategory, Pricing, Booking, BookingStatus, Notification, NotificationType, Favourite, PostImage } from '@/types';
 import { SYSTEM_ROLES, PermissionService } from './permissionsService';
 
 // Authentication Services
@@ -512,55 +512,60 @@ export const firebaseDB = {
       }
     },
 
-    // Get Mobbex credentials
-    async getMobbexCredentials(): Promise<MobbexCredentials | null> {
+    // Get Mercado Pago account (for subscription management)
+    async getMercadoPagoAccount(): Promise<MercadoPagoAccount | null> {
       try {
-        const settingsDoc = await getDoc(doc(db, 'systemSettings', 'mobbex'));
-        if (settingsDoc.exists()) {
-          return settingsDoc.data() as MobbexCredentials;
+        const settingsRef = doc(db, 'systemSettings', 'mercadoPagoAccount');
+        const docSnap = await getDoc(settingsRef);
+        
+        if (docSnap.exists()) {
+          return docSnap.data() as MercadoPagoAccount;
         }
         return null;
       } catch (error) {
-        console.error('Error getting Mobbex credentials:', error);
+        console.error('Error getting Mercado Pago account:', error);
         throw error;
       }
     },
 
-    // Save Mobbex credentials
-    async saveMobbexCredentials(credentials: Omit<MobbexCredentials, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<void> {
+    // Save Mercado Pago account
+    async saveMercadoPagoAccount(account: Omit<MercadoPagoAccount, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<void> {
       try {
-        const settingsRef = doc(db, 'systemSettings', 'mobbex');
+        const settingsRef = doc(db, 'systemSettings', 'mercadoPagoAccount');
         const now = new Date();
         
-        const newCredentials: MobbexCredentials = {
-          id: 'mobbex',
-          ...credentials,
+        const newAccount: MercadoPagoAccount = {
+          id: 'mercadoPagoAccount',
+          ...account,
           createdAt: now,
           updatedAt: now,
           updatedBy: userId,
         };
 
-        await setDoc(settingsRef, newCredentials);
+        await setDoc(settingsRef, newAccount);
       } catch (error) {
-        console.error('Error saving Mobbex credentials:', error);
+        console.error('Error saving Mercado Pago account:', error);
         throw error;
       }
     },
 
-    // Update Mobbex credentials
-    async updateMobbexCredentials(updates: Partial<Omit<MobbexCredentials, 'id' | 'createdAt'>>, userId: string): Promise<void> {
+    // Update Mercado Pago account
+    async updateMercadoPagoAccount(updates: Partial<Omit<MercadoPagoAccount, 'id' | 'createdAt'>>, userId: string): Promise<void> {
       try {
-        const settingsRef = doc(db, 'systemSettings', 'mobbex');
+        const settingsRef = doc(db, 'systemSettings', 'mercadoPagoAccount');
+        const now = new Date();
+        
         await updateDoc(settingsRef, {
           ...updates,
-          updatedAt: new Date(),
+          updatedAt: now,
           updatedBy: userId,
         });
       } catch (error) {
-        console.error('Error updating Mobbex credentials:', error);
+        console.error('Error updating Mercado Pago account:', error);
         throw error;
       }
     },
+
 
     // Listen to Mercado Pago credentials changes
     onMercadoPagoCredentialsChange(callback: (credentials: MercadoPagoCredentials | null) => void) {
@@ -880,7 +885,7 @@ export const firebaseDB = {
       }
     },
 
-    async getByPostId(postId: string): Promise<{ id: string; data: string; order: number }[]> {
+    async getByPostId(postId: string): Promise<PostImage[]> {
       try {
         const q = query(
           collection(db, 'posts', postId, 'images'),
@@ -888,11 +893,16 @@ export const firebaseDB = {
         );
         const querySnapshot = await getDocs(q);
         
-        return querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data().data,
-          order: doc.data().order,
-        }));
+        return querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            data: data.data,
+            order: data.order,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+        });
       } catch (error) {
         console.error('Error getting post images:', error);
         throw new Error('Failed to get post images');
@@ -1278,50 +1288,102 @@ export const firebaseDB = {
     },
   },
 
-  // User Mobbex Credentials
-  userMobbexCredentials: {
-    async save(userId: string, credentials: Record<string, unknown>): Promise<void> {
+  // Favourites Collection
+  favourites: {
+    async add(userId: string, postId: string): Promise<string> {
       try {
-        const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
-          mobbexCredentials: {
-            ...credentials,
-            isConnected: true,
-            connectedAt: serverTimestamp(),
-          },
-          updatedAt: serverTimestamp(),
-        });
-      } catch (error) {
-        console.error('Error saving user Mobbex credentials:', error);
-        throw new Error('Failed to save Mobbex credentials');
-      }
-    },
-
-    async get(userId: string): Promise<Record<string, unknown> | null> {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          return userData.mobbexCredentials || null;
+        // Check if already favourited
+        const existingFavourite = await this.getByUserAndPost(userId, postId);
+        if (existingFavourite) {
+          throw new Error('Post already in favourites');
         }
-        return null;
+
+        const docRef = await addDoc(collection(db, 'favourites'), {
+          userId,
+          postId,
+          createdAt: serverTimestamp(),
+        });
+        return docRef.id;
       } catch (error) {
-        console.error('Error getting user Mobbex credentials:', error);
-        throw new Error('Failed to get Mobbex credentials');
+        console.error('Error adding favourite:', error);
+        throw new Error('Failed to add favourite');
       }
     },
 
-    async disconnect(userId: string): Promise<void> {
+    async remove(userId: string, postId: string): Promise<void> {
       try {
-        const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
-          mobbexCredentials: null,
-          updatedAt: serverTimestamp(),
-        });
+        const favourite = await this.getByUserAndPost(userId, postId);
+        if (!favourite) {
+          throw new Error('Favourite not found');
+        }
+
+        await deleteDoc(doc(db, 'favourites', favourite.id));
       } catch (error) {
-        console.error('Error disconnecting Mobbex:', error);
-        throw new Error('Failed to disconnect Mobbex');
+        console.error('Error removing favourite:', error);
+        throw new Error('Failed to remove favourite');
       }
     },
-  }
+
+    async getByUserAndPost(userId: string, postId: string): Promise<Favourite | null> {
+      try {
+        const q = query(
+          collection(db, 'favourites'),
+          where('userId', '==', userId),
+          where('postId', '==', postId)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          return null;
+        }
+
+        const doc = querySnapshot.docs[0];
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId,
+          postId: data.postId,
+          createdAt: data.createdAt?.toDate() || new Date(),
+        };
+      } catch (error) {
+        console.error('Error getting favourite:', error);
+        return null;
+      }
+    },
+
+    async getByUserId(userId: string): Promise<Favourite[]> {
+      try {
+        const q = query(
+          collection(db, 'favourites'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        
+        return querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            userId: data.userId,
+            postId: data.postId,
+            createdAt: data.createdAt?.toDate() || new Date(),
+          };
+        });
+      } catch (error) {
+        console.error('Error getting user favourites:', error);
+        throw new Error('Failed to get favourites');
+      }
+    },
+
+    async isFavourited(userId: string, postId: string): Promise<boolean> {
+      try {
+        const favourite = await this.getByUserAndPost(userId, postId);
+        return favourite !== null;
+      } catch (error) {
+        console.error('Error checking favourite status:', error);
+        return false;
+      }
+    },
+  },
+
 };

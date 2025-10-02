@@ -133,7 +133,7 @@ Successfully implemented a consistent header component for the entire applicatio
 - **Full navigation** - All items visible horizontally
 - **Dropdown positioning** - Absolute positioning with proper spacing
 - **Button visibility** - All buttons and elements visible
-- **Logo text** - Full "Marketplace Turismo" text
+- **Logo text** - Full "Nexar" text
 
 ### **Tablet (md)**
 - **Adaptive layout** - Navigation adjusts to medium screens
@@ -218,4 +218,4 @@ The header implementation provides:
 5. **Smooth interactions** with animations and transitions
 6. **Accessibility features** for inclusive user experience
 
-The header now serves as the primary navigation hub for the Marketplace Turismo application, providing users with easy access to all major sections while maintaining the beautiful design aesthetic and ensuring a consistent experience across all pages.
+The header now serves as the primary navigation hub for the Nexar application, providing users with easy access to all major sections while maintaining the beautiful design aesthetic and ensuring a consistent experience across all pages.

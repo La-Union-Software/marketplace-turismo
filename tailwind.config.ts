@@ -10,18 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          brown: '#8B4513',
-          green: '#228B22',
-        },
-        secondary: {
-          brown: '#D2691E',
-          green: '#32CD32',
-        },
-        accent: {
-          brown: '#CD853F',
-          green: '#90EE90',
-        },
+        primary: '#01B4ED',
+        secondary: '#2ECC71',
+        accent: '#1E3273',
         background: {
           light: '#FAFAFA',
           dark: '#1A1A1A',
@@ -32,7 +23,8 @@ const config: Config = {
         }
       },
       fontFamily: {
-        'montserrat': ['Montserrat', 'sans-serif'],
+        'sans': ['var(--font-montserrat)', 'Montserrat', 'sans-serif'],
+        'montserrat': ['var(--font-montserrat)', 'Montserrat', 'sans-serif'],
         'nunito': ['Nunito', 'sans-serif'],
       },
       animation: {

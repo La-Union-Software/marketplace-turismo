@@ -3,12 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Euro, Calendar, User, Star, Share2, Heart } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, Star, Share2, Heart } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, PostImage } from '@/types';
 import PostImages from '@/components/ui/PostImages';
 import BookingForm from '@/components/booking/BookingForm';
+import ShareModal from '@/components/ui/ShareModal';
+import { formatAddressForDisplay } from '@/lib/utils';
+
+// Function to mask phone numbers and email addresses
+const maskContactInfo = (text: string): string => {
+  if (!text) return text;
+  
+  // Mask phone numbers (various formats)
+  // Matches: +54 9 11 1234-5678, (011) 1234-5678, 11-1234-5678, 1234567890, etc.
+  let maskedText = text.replace(/(\+?\d{1,4}[\s\-\(\)]?)?(\d{2,4}[\s\-\(\)]?)?(\d{3,4}[\s\-]?\d{3,4})/g, '*****');
+  
+  // Mask email addresses
+  // Matches: user@domain.com, user.name@domain.co.uk, etc.
+  maskedText = maskedText.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '*****');
+  
+  return maskedText;
+};
 
 export default function PostDetailPage() {
   const params = useParams();
@@ -19,6 +36,9 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [isFavourited, setIsFavourited] = useState(false);
+  const [favouriteLoading, setFavouriteLoading] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const postId = params.id as string;
 
@@ -41,6 +61,24 @@ export default function PostDetailPage() {
           return;
         }
 
+        // Check if post is disabled - only allow owner, superadmin, or clients with bookings to view
+        if (postData.isEnabled === false) {
+          const isOwner = user?.id === postData.userId;
+          const isSuperAdmin = hasRole('superadmin');
+          
+          // Check if user has a booking for this post
+          let hasBooking = false;
+          if (user && hasRole('client')) {
+            const userBookings = await firebaseDB.bookings.getByUserId(user.id);
+            hasBooking = userBookings.some(booking => booking.postId === postId);
+          }
+          
+          if (!isOwner && !isSuperAdmin && !hasBooking) {
+            setError('Esta publicación no está disponible');
+            return;
+          }
+        }
+
         setPost(postData);
 
         // Fetch images from subcollection
@@ -55,7 +93,7 @@ export default function PostDetailPage() {
     };
 
     fetchPost();
-  }, [postId]);
+  }, [postId, user, hasRole]);
 
   const handleBookingClick = () => {
     if (!user) {
@@ -83,11 +121,59 @@ export default function PostDetailPage() {
     return post.price;
   };
 
+  // Check if post is favourited when component loads
+  useEffect(() => {
+    const checkFavouriteStatus = async () => {
+      if (user && post) {
+        try {
+          const favourited = await firebaseDB.favourites.isFavourited(user.id, post.id);
+          setIsFavourited(favourited);
+        } catch (error) {
+          console.error('Error checking favourite status:', error);
+        }
+      }
+    };
+
+    checkFavouriteStatus();
+  }, [user, post]);
+
+  // Handle favourite toggle
+  const handleFavouriteToggle = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    if (!post) return;
+
+    setFavouriteLoading(true);
+    try {
+      if (isFavourited) {
+        await firebaseDB.favourites.remove(user.id, post.id);
+        setIsFavourited(false);
+      } else {
+        await firebaseDB.favourites.add(user.id, post.id);
+        setIsFavourited(true);
+      }
+    } catch (error) {
+      console.error('Error toggling favourite:', error);
+      // Show error message to user
+      alert('Error al guardar en favoritos. Inténtalo de nuevo.');
+    } finally {
+      setFavouriteLoading(false);
+    }
+  };
+
+  // Handle share functionality
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando publicación...</p>
         </div>
       </div>
@@ -96,7 +182,7 @@ export default function PostDetailPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +195,7 @@ export default function PostDetailPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver
           </button>
@@ -120,7 +206,7 @@ export default function PostDetailPage() {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Publicación no encontrada
@@ -130,7 +216,7 @@ export default function PostDetailPage() {
           </p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Ir al Inicio
           </button>
@@ -140,7 +226,7 @@ export default function PostDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto p-8">
         {/* Back Button */}
         <motion.div
@@ -151,7 +237,7 @@ export default function PostDetailPage() {
         >
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
+            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Volver
@@ -186,7 +272,7 @@ export default function PostDetailPage() {
                   <div className="flex items-center space-x-4 text-gray-600 dark:text-gray-300">
                     <div className="flex items-center">
                       <MapPin className="w-4 h-4 mr-1" />
-                      <span>{post.location}</span>
+                      <span>{formatAddressForDisplay(post.location)}</span>
                     </div>
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1" />
@@ -195,18 +281,35 @@ export default function PostDetailPage() {
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                  <button 
+                    onClick={handleShare}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Compartir"
+                  >
                     <Share2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                   </button>
-                  <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                    <Heart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  <button 
+                    onClick={handleFavouriteToggle}
+                    disabled={favouriteLoading}
+                    className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors ${
+                      favouriteLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title={isFavourited ? "Quitar de favoritos" : "Guardar en favoritos"}
+                  >
+                    <Heart 
+                      className={`w-5 h-5 transition-colors ${
+                        isFavourited 
+                          ? 'text-red-500 fill-red-500' 
+                          : 'text-gray-600 dark:text-gray-300'
+                      }`} 
+                    />
                   </button>
                 </div>
               </div>
 
               <div className="prose prose-lg dark:prose-invert max-w-none">
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {post.description}
+                  {maskContactInfo(post.description)}
                 </p>
               </div>
             </div>
@@ -218,16 +321,36 @@ export default function PostDetailPage() {
                   Información Específica
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(post.specificFields).map(([key, value]) => (
-                    <div key={key} className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        {key.charAt(0).toUpperCase() + key.slice(1)}:
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(post.specificFields).map(([key, value]) => {
+                    // Skip boolean values (characteristics) as they'll be shown separately
+                    if (typeof value === 'boolean') return null;
+                    
+                    // Skip PropertyType fields
+                    if (key === 'propertyType') return null;
+                    
+                    // Handle special field names
+                    const getFieldDisplayName = (fieldKey: string) => {
+                      switch (fieldKey) {
+                        case 'maxPeople':
+                          return 'Cantidad máxima de personas';
+                        case 'voucherText':
+                          return 'Texto para Voucher';
+                        default:
+                          return fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
+                      }
+                    };
+                    
+                    return (
+                      <div key={key} className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {getFieldDisplayName(key)}:
+                        </span>
+                        <span className="text-gray-600 dark:text-gray-400">
+                          {typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -239,7 +362,7 @@ export default function PostDetailPage() {
               </h2>
               <div className="flex items-center text-gray-600 dark:text-gray-300">
                 <MapPin className="w-5 h-5 mr-2" />
-                <span>{post.location}</span>
+                <span>{formatAddressForDisplay(post.location)}</span>
               </div>
             </div>
           </motion.div>
@@ -257,10 +380,7 @@ export default function PostDetailPage() {
                 <div className="mb-6">
                   <div className="flex items-baseline space-x-2 mb-2">
                     <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                      {getMinPrice()} {post.currency}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      desde
+                      Desde ${getMinPrice()}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -276,7 +396,7 @@ export default function PostDetailPage() {
                 ) : (
                   <button
                     onClick={handleBookingClick}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 font-semibold"
+                    className="w-full py-3 px-4 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 font-semibold"
                   >
                     Solicitar Reserva
                   </button>
@@ -307,6 +427,19 @@ export default function PostDetailPage() {
           onSuccess={() => {
             setShowBookingForm(false);
             // Show success message or redirect
+          }}
+        />
+      )}
+
+      {/* Share Modal */}
+      {post && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          post={{
+            title: post.title,
+            description: post.description,
+            url: window.location.href,
           }}
         />
       )}

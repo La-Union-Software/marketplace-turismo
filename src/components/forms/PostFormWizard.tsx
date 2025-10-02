@@ -19,7 +19,7 @@ import {
 import { ServiceCategory, BasePost, Pricing, FixedPricing, DynamicPricing, DynamicPricingSeason, Weekday, PostImage, CancellationPolicy } from '@/types';
 import { serviceCategories, categoryFields, mainCategoryMapping, categoryAmenities } from '@/services/dummyData';
 import { generateId } from '@/lib/utils';
-import AddressSearch from '@/components/ui/AddressSearch';
+import AddressSection from '@/components/ui/AddressSection';
 import { fileToBase64, filesToBase64, compressBase64Image } from '@/lib/imageUtils';
 import { firebaseDB } from '@/services/firebaseService';
 import { useAuth } from '@/lib/auth';
@@ -40,6 +40,14 @@ interface PostFormData {
     lon: string;
     place_id: string;
     display_name: string;
+  };
+  // Address Information
+  address: {
+    country: string;
+    state: string;
+    city: string;
+    postalCode: string;
+    address: string;
   };
   mainImage: string; // Single main image
   images: string[]; // Multiple additional images
@@ -74,9 +82,9 @@ const mainCategories = [
     icon: Car,
   },
   {
-    id: 'clases-instructorados',
-    title: 'Clases e instructorados',
-    description: 'Clases de sky, snowboard y mucho más.',
+    id: 'otros-servicios',
+    title: 'Otros servicios',
+    description: 'Clases, alquileres, excursiones, fotografía y más.',
     icon: GraduationCap,
   },
 ];
@@ -141,6 +149,13 @@ export default function PostFormWizard({
     description: '',
     category: '',
     location: '',
+    address: {
+      country: '',
+      state: '',
+      city: '',
+      postalCode: '',
+      address: ''
+    },
     mainImage: '',
     images: [],
     specificFields: {},
@@ -159,8 +174,8 @@ export default function PostFormWizard({
         mainCategory = 'alojamiento';
       } else if (mainCategoryMapping['alquiler-vehiculos']?.includes(postData.category as ServiceCategory)) {
         mainCategory = 'alquiler-vehiculos';
-      } else if (mainCategoryMapping['clases-instructorados']?.includes(postData.category as ServiceCategory)) {
-        mainCategory = 'clases-instructorados';
+      } else if (mainCategoryMapping['otros-servicios']?.includes(postData.category as ServiceCategory)) {
+        mainCategory = 'otros-servicios';
       }
 
       // Prepare images data
@@ -174,6 +189,13 @@ export default function PostFormWizard({
         description: postData.description,
         category: postData.category as ServiceCategory,
         location: postData.location,
+        address: {
+          country: 'AR', // Default to Argentina
+          state: '',
+          city: '',
+          postalCode: '',
+          address: ''
+        },
         mainImage,
         images: additionalImages,
         specificFields: postData.specificFields || {}, // Prefill specific fields from post data
@@ -256,7 +278,7 @@ export default function PostFormWizard({
         pricing: {
           type: 'fixed',
           price: 0,
-          currency: 'EUR'
+          currency: 'USD'
         }
       });
     } else {
@@ -276,7 +298,7 @@ export default function PostFormWizard({
         startDate: '',
         endDate: '',
         price: 0,
-        currency: 'EUR',
+        currency: 'USD',
         weekdays: []
       };
       updateFormData({
@@ -364,16 +386,20 @@ export default function PostFormWizard({
     updateFormData({ images: newImages });
   };
 
-  // Address selection handler
-  const handleAddressSelect = (address: { display_name: string; lat: string; lon: string; place_id: string }) => {
+  // Address change handler
+  const handleAddressChange = (address: { country: string; state: string; city: string; postalCode: string; address: string }) => {
+    updateFormData({ address });
+    
+    // Update location field with formatted address
+    const locationParts = [
+      address.address,
+      address.city,
+      address.state,
+      address.country
+    ].filter(Boolean);
+    
     updateFormData({
-      location: address.display_name,
-      locationData: {
-        lat: address.lat,
-        lon: address.lon,
-        place_id: address.place_id,
-        display_name: address.display_name
-      }
+      location: locationParts.join(', ')
     });
   };
 
@@ -400,8 +426,13 @@ export default function PostFormWizard({
 
     try {
       // Validate required fields
-      if (!formData.title || !formData.description || !formData.category || !formData.location || !formData.mainImage) {
+      if (!formData.title || !formData.description || !formData.category || !formData.mainImage) {
         throw new Error('Please fill in all required fields');
+      }
+
+      // Validate address fields
+      if (!formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address) {
+        throw new Error('Please fill in all required address fields');
       }
 
       if (!formData.pricing) {
@@ -417,12 +448,13 @@ export default function PostFormWizard({
         specificFields: formData.specificFields, // Include specific fields
         cancellationPolicies: formData.cancellationPolicies, // Include cancellation policies
         isActive: formData.isActive,
+        isEnabled: editMode ? (postData?.isEnabled !== false) : true, // Default to enabled for new posts
         status: editMode ? (postData?.status || 'published') : 'published' as const,
         publisherId: user.id,
         userId: user.id,
         // Add pricing information to the post
         price: formData.pricing.type === 'fixed' ? formData.pricing.price : 0,
-        currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'EUR',
+        currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'USD',
         // Additional fields for BasePost (only include if they have values)
         publishedAt: editMode ? postData?.publishedAt : new Date(),
       };
@@ -469,6 +501,13 @@ export default function PostFormWizard({
             description: '',
             category: '',
             location: '',
+            address: {
+              country: '',
+              state: '',
+              city: '',
+              postalCode: '',
+              address: ''
+            },
             mainImage: '',
             images: [],
             specificFields: {},
@@ -533,17 +572,17 @@ export default function PostFormWizard({
               className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left ${
                 editMode 
                   ? 'cursor-not-allowed opacity-60' 
-                  : 'cursor-pointer hover:border-primary-brown/50 hover:shadow-md'
+                  : 'cursor-pointer hover:border-primary/50 hover:shadow-md'
               } ${
                 isSelected
-                  ? 'border-primary-brown bg-gradient-to-br from-primary-brown/10 to-primary-green/10 shadow-lg'
+                  ? 'border-primary bg-primary/10 shadow-lg'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
               }`}
             >
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className={`p-4 rounded-full transition-colors duration-300 ${
                   isSelected
-                    ? 'bg-primary-brown text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}>
                   <IconComponent className="w-8 h-8" />
@@ -552,7 +591,7 @@ export default function PostFormWizard({
                 <div>
                   <h3 className={`text-lg font-semibold mb-2 ${
                     isSelected
-                      ? 'text-primary-brown'
+                      ? 'text-primary'
                       : 'text-gray-900 dark:text-white'
                   }`}>
                     {category.title}
@@ -565,7 +604,7 @@ export default function PostFormWizard({
 
               {isSelected && (
                 <div className="absolute top-4 right-4">
-                  <div className="w-6 h-6 bg-primary-brown rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-white" />
                   </div>
                 </div>
@@ -596,7 +635,7 @@ export default function PostFormWizard({
                 type="text"
                 value={formData.title}
                 onChange={(e) => updateFormData({ title: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Ej: Alquiler de Bicicletas de Montaña en Sierra Nevada"
               />
             </div>
@@ -609,7 +648,7 @@ export default function PostFormWizard({
                 value={formData.description}
                 onChange={(e) => updateFormData({ description: e.target.value })}
                 rows={4}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Describe tu servicio en detalle..."
               />
             </div>
@@ -621,7 +660,7 @@ export default function PostFormWizard({
               <select
                 value={formData.category}
                 onChange={(e) => updateFormData({ category: e.target.value as ServiceCategory | '' })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 disabled={!formData.mainCategory}
               >
                 <option value="">
@@ -637,13 +676,11 @@ export default function PostFormWizard({
 
             <div className="z-10">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Ubicación *
+                Dirección *
               </label>
-              <AddressSearch
-                value={formData.location}
-                onChange={(value) => updateFormData({ location: value })}
-                onSelect={handleAddressSelect}
-                placeholder="Buscar ubicación (ciudad, provincia, país)..."
+              <AddressSection
+                value={formData.address}
+                onChange={handleAddressChange}
                 disabled={!formData.mainCategory}
               />
             </div>
@@ -690,7 +727,7 @@ export default function PostFormWizard({
                   />
                   <label
                     htmlFor="main-image-upload"
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 cursor-pointer"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 cursor-pointer"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Seleccionar Imagen
@@ -740,7 +777,7 @@ export default function PostFormWizard({
                   />
                   <label
                     htmlFor="images-upload"
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 cursor-pointer"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 cursor-pointer"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Agregar Imágenes
@@ -758,30 +795,61 @@ export default function PostFormWizard({
               Información Específica
             </h3>
             <div className="space-y-6">
-              {Object.entries(fields).map(([fieldName, options]) => (
-                <div key={fieldName}>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} *
-                  </label>
-                  <select
-                    value={String(formData.specificFields[fieldName] || '')}
-                    onChange={(e) => updateFormData({
-                      specificFields: {
-                        ...formData.specificFields,
-                        [fieldName]: e.target.value
-                      }
-                    })}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                  >
-                    <option value="">Seleccionar {fieldName}</option>
-                    {options.map((option: string) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+              {Object.entries(fields).map(([fieldName, options]) => {
+                // Skip PropertyType fields for Alojamientos
+                if (fieldName === 'propertyType') return null;
+                
+                // Handle numeric fields (like maxPeople)
+                if (typeof options === 'string' && options === 'Cantidad máxima de personas') {
+                  return (
+                    <div key={fieldName}>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {options} *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={String(formData.specificFields[fieldName] || '')}
+                        onChange={(e) => updateFormData({
+                          specificFields: {
+                            ...formData.specificFields,
+                            [fieldName]: parseInt(e.target.value) || 1
+                          }
+                        })}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Ej: 4"
+                      />
+                    </div>
+                  );
+                }
+                
+                // Handle regular select fields
+                return (
+                  <div key={fieldName}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} *
+                    </label>
+                    <select
+                      value={String(formData.specificFields[fieldName] || '')}
+                      onChange={(e) => updateFormData({
+                        specificFields: {
+                          ...formData.specificFields,
+                          [fieldName]: e.target.value
+                        }
+                      })}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Seleccionar {fieldName}</option>
+                      {Array.isArray(options) && options.map((option: string) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
 
               {/* Características y Servicios Checkboxes */}
               {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
@@ -801,7 +869,7 @@ export default function PostFormWizard({
                               [amenity]: e.target.checked
                             }
                           })}
-                          className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
                           {amenity}
@@ -813,41 +881,65 @@ export default function PostFormWizard({
               )}
 
               {/* Common specific fields for all categories */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Incluye
-                </label>
-                <textarea
-                  value={String(formData.specificFields.includes || '')}
-                  onChange={(e) => updateFormData({
-                    specificFields: {
-                      ...formData.specificFields,
-                      includes: e.target.value
-                    }
-                  })}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                  placeholder="Qué incluye tu servicio? (separar por comas)"
-                />
-              </div>
+              {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) ? (
+                // Special fields for Alojamientos
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Texto para Voucher
+                  </label>
+                  <textarea
+                    value={String(formData.specificFields.voucherText || '')}
+                    onChange={(e) => updateFormData({
+                      specificFields: {
+                        ...formData.specificFields,
+                        voucherText: e.target.value
+                      }
+                    })}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Texto que aparecerá en el voucher del cliente..."
+                  />
+                </div>
+              ) : (
+                // Default fields for other categories
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Incluye
+                    </label>
+                    <textarea
+                      value={String(formData.specificFields.includes || '')}
+                      onChange={(e) => updateFormData({
+                        specificFields: {
+                          ...formData.specificFields,
+                          includes: e.target.value
+                        }
+                      })}
+                      rows={3}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Qué incluye tu servicio? (separar por comas)"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Requisitos
-                </label>
-                <textarea
-                  value={String(formData.specificFields.requirements || '')}
-                  onChange={(e) => updateFormData({
-                    specificFields: {
-                      ...formData.specificFields,
-                      requirements: e.target.value
-                    }
-                  })}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                  placeholder="Qué requisitos necesitan los clientes? (separar por comas)"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Requisitos
+                    </label>
+                    <textarea
+                      value={String(formData.specificFields.requirements || '')}
+                      onChange={(e) => updateFormData({
+                        specificFields: {
+                          ...formData.specificFields,
+                          requirements: e.target.value
+                        }
+                      })}
+                      rows={3}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Qué requisitos necesitan los clientes? (separar por comas)"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -890,21 +982,21 @@ export default function PostFormWizard({
               onClick={() => setPricingType('fixed')}
               className={`p-6 rounded-xl border-2 transition-all duration-300 text-left ${
                 formData.pricing?.type === 'fixed'
-                  ? 'border-primary-brown bg-gradient-to-br from-primary-brown/10 to-primary-green/10 shadow-lg'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-brown/50 hover:shadow-md'
+                  ? 'border-primary bg-primary/10 shadow-lg'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary/50 hover:shadow-md'
               }`}
             >
               <div className="flex flex-col items-center text-center space-y-3">
                 <div className={`p-3 rounded-full transition-colors duration-300 ${
                   formData.pricing?.type === 'fixed'
-                    ? 'bg-primary-brown text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}>
                   <Settings className="w-6 h-6" />
                 </div>
                 <h3 className={`text-lg font-semibold ${
                   formData.pricing?.type === 'fixed'
-                    ? 'text-primary-brown'
+                    ? 'text-primary'
                     : 'text-gray-900 dark:text-white'
                 }`}>
                   Precio Fijo
@@ -920,21 +1012,21 @@ export default function PostFormWizard({
               onClick={() => setPricingType('dynamic')}
               className={`p-6 rounded-xl border-2 transition-all duration-300 text-left ${
                 formData.pricing?.type === 'dynamic'
-                  ? 'border-primary-brown bg-gradient-to-br from-primary-brown/10 to-primary-green/10 shadow-lg'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-brown/50 hover:shadow-md'
+                  ? 'border-primary bg-primary/10 shadow-lg'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary/50 hover:shadow-md'
               }`}
             >
               <div className="flex flex-col items-center text-center space-y-3">
                 <div className={`p-3 rounded-full transition-colors duration-300 ${
                   formData.pricing?.type === 'dynamic'
-                    ? 'bg-primary-brown text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}>
                   <Settings className="w-6 h-6" />
                 </div>
                 <h3 className={`text-lg font-semibold ${
                   formData.pricing?.type === 'dynamic'
-                    ? 'text-primary-brown'
+                    ? 'text-primary'
                     : 'text-gray-900 dark:text-white'
                 }`}>
                   Precio Dinámico
@@ -967,7 +1059,7 @@ export default function PostFormWizard({
                       price: parseFloat(e.target.value) || 0
                     } as FixedPricing
                   })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="0.00"
                   min="0"
                   step="0.01"
@@ -985,9 +1077,8 @@ export default function PostFormWizard({
                       currency: e.target.value
                     } as FixedPricing
                   })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  <option value="EUR">EUR (€)</option>
                   <option value="USD">USD ($)</option>
                   <option value="ARS">ARS ($)</option>
                 </select>
@@ -1005,7 +1096,7 @@ export default function PostFormWizard({
               </h3>
               <button
                 onClick={addSeason}
-                className="flex items-center px-4 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Agregar Temporada
@@ -1050,7 +1141,7 @@ export default function PostFormWizard({
                           type="number"
                           value={season.price}
                           onChange={(e) => updateSeason(season.id, { price: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                           placeholder="0.00"
                           min="0"
                           step="0.01"
@@ -1066,7 +1157,7 @@ export default function PostFormWizard({
                           type="date"
                           value={season.startDate}
                           onChange={(e) => updateSeason(season.id, { startDate: e.target.value })}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                         />
                       </div>
 
@@ -1079,7 +1170,7 @@ export default function PostFormWizard({
                           type="date"
                           value={season.endDate}
                           onChange={(e) => updateSeason(season.id, { endDate: e.target.value })}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                         />
                       </div>
                     </div>
@@ -1096,7 +1187,7 @@ export default function PostFormWizard({
                               type="checkbox"
                               checked={season.weekdays.includes(weekday.value)}
                               onChange={() => toggleWeekday(season.id, weekday.value)}
-                              className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
                             />
                             <span className="text-sm text-gray-700 dark:text-gray-300">
                               {weekday.label}
@@ -1129,7 +1220,7 @@ export default function PostFormWizard({
           </div>
           <button
             onClick={addCancellationPolicy}
-            className="flex items-center px-4 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             <Plus className="w-4 h-4 mr-2" />
             Agregar Política
@@ -1176,7 +1267,7 @@ export default function PostFormWizard({
                       onChange={(e) => updateCancellationPolicy(policy.id, { 
                         days_quantity: parseInt(e.target.value) || 0 
                       })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="0"
                       min="0"
                     />
@@ -1193,7 +1284,7 @@ export default function PostFormWizard({
                         cancellation_type: e.target.value as 'Fijo' | 'Porcentaje',
                         cancellation_amount: 0 // Reset amount when type changes
                       })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       <option value="Fijo">Fijo</option>
                       <option value="Porcentaje">Porcentaje</option>
@@ -1212,7 +1303,7 @@ export default function PostFormWizard({
                         onChange={(e) => updateCancellationPolicy(policy.id, { 
                           cancellation_amount: parseFloat(e.target.value) || 0 
                         })}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                         placeholder="0.00"
                         min="0"
                         max={policy.cancellation_type === 'Porcentaje' ? 100 : undefined}
@@ -1233,7 +1324,7 @@ export default function PostFormWizard({
                     <strong>Descripción:</strong> Si se cancela con {policy.days_quantity} días o menos de anticipación, 
                     se cobrará {policy.cancellation_type === 'Porcentaje' 
                       ? `${policy.cancellation_amount}% del total` 
-                      : `${policy.cancellation_amount}€`} como penalización.
+                      : `$${policy.cancellation_amount}`} como penalización.
                   </p>
                 </div>
               </div>
@@ -1270,14 +1361,14 @@ export default function PostFormWizard({
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Marketplace Turismo - Términos y Condiciones de Publicación
+                Nexar - Términos y Condiciones de Publicación
               </h3>
               
               <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Aceptación de Términos</h4>
                   <p>
-                    Al publicar un servicio en Marketplace Turismo, usted acepta cumplir con estos términos y condiciones. 
+                    Al publicar un servicio en Nexar, usted acepta cumplir con estos términos y condiciones. 
                     La publicación de contenido implica la aceptación total de estas condiciones.
                   </p>
                 </section>
@@ -1286,7 +1377,7 @@ export default function PostFormWizard({
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Contenido y Responsabilidad</h4>
                   <p>
                     Usted es responsable de la veracidad y exactitud de toda la información publicada. 
-                    Marketplace Turismo se reserva el derecho de moderar, editar o eliminar contenido que 
+                    Nexar se reserva el derecho de moderar, editar o eliminar contenido que 
                     no cumpla con nuestras políticas de calidad.
                   </p>
                 </section>
@@ -1303,7 +1394,7 @@ export default function PostFormWizard({
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Tarifas y Comisiones</h4>
                   <p>
-                    Marketplace Turismo puede aplicar comisiones sobre las transacciones realizadas 
+                    Nexar puede aplicar comisiones sobre las transacciones realizadas 
                     a través de la plataforma. Las tarifas aplicables serán comunicadas antes de 
                     la confirmación de cualquier reserva.
                   </p>
@@ -1312,7 +1403,7 @@ export default function PostFormWizard({
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">5. Moderación de Contenido</h4>
                   <p>
-                    Todo el contenido está sujeto a revisión y moderación. Marketplace Turismo 
+                    Todo el contenido está sujeto a revisión y moderación. Nexar 
                     se reserva el derecho de rechazar, suspender o eliminar publicaciones que 
                     no cumplan con nuestros estándares de calidad y políticas de la plataforma.
                   </p>
@@ -1330,7 +1421,7 @@ export default function PostFormWizard({
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Modificaciones</h4>
                   <p>
-                    Marketplace Turismo se reserva el derecho de modificar estos términos en 
+                    Nexar se reserva el derecho de modificar estos términos en 
                     cualquier momento. Los cambios serán notificados a través de la plataforma 
                     y entrarán en vigor inmediatamente.
                   </p>
@@ -1340,7 +1431,7 @@ export default function PostFormWizard({
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">8. Contacto</h4>
                   <p>
                     Para cualquier consulta sobre estos términos y condiciones, puede contactarnos 
-                    a través de los canales oficiales de Marketplace Turismo.
+                    a través de los canales oficiales de Nexar.
                   </p>
                 </section>
               </div>
@@ -1350,7 +1441,7 @@ export default function PostFormWizard({
           <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setShowTermsModal(false)}
-              className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
             >
               Entendido
             </button>
@@ -1397,6 +1488,18 @@ export default function PostFormWizard({
             <div>
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Ubicación:</span>
               <p className="text-gray-900 dark:text-white">{formData.location}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Dirección:</span>
+              <p className="text-gray-900 dark:text-white">
+                {[
+                  formData.address.address,
+                  formData.address.city,
+                  formData.address.state,
+                  formData.address.country
+                ].filter(Boolean).join(', ')}
+                {formData.address.postalCode && ` (${formData.address.postalCode})`}
+              </p>
             </div>
             <div>
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Descripción:</span>
@@ -1468,10 +1571,25 @@ export default function PostFormWizard({
               // Skip boolean values (characteristics) as they'll be shown separately
               if (typeof value === 'boolean') return null;
               
+              // Skip PropertyType fields
+              if (key === 'propertyType') return null;
+              
+              // Handle special field names
+              const getFieldDisplayName = (fieldKey: string) => {
+                switch (fieldKey) {
+                  case 'maxPeople':
+                    return 'Cantidad máxima de personas';
+                  case 'voucherText':
+                    return 'Texto para Voucher';
+                  default:
+                    return fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
+                }
+              };
+              
               return (
                 <div key={key}>
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {key.charAt(0).toUpperCase() + key.slice(1)}:
+                    {getFieldDisplayName(key)}:
                   </span>
                   <p className="text-gray-900 dark:text-white">{String(value)}</p>
                 </div>
@@ -1492,7 +1610,7 @@ export default function PostFormWizard({
                   
                   return (
                     <div key={amenity} className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-primary-brown rounded-full"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
                       <span className="text-gray-900 dark:text-white">{amenity}</span>
                     </div>
                   );
@@ -1519,7 +1637,7 @@ export default function PostFormWizard({
                   <div>
                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Precio:</span>
                     <p className="text-gray-900 dark:text-white">
-                      {formData.pricing.price} {formData.pricing.currency}
+                      ${formData.pricing.price}
                     </p>
                   </div>
                 </div>
@@ -1541,7 +1659,7 @@ export default function PostFormWizard({
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <div>
-                              <strong>Precio:</strong> {season.price} {season.currency}
+                              <strong>Precio:</strong> ${season.price}
                             </div>
                             <div>
                               <strong>Período:</strong> {season.startDate} - {season.endDate}
@@ -1593,7 +1711,7 @@ export default function PostFormWizard({
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Cancelación con {policy.days_quantity} días o menos: {policy.cancellation_type === 'Porcentaje' 
                       ? `${policy.cancellation_amount}% del total` 
-                      : `${policy.cancellation_amount}€`} de penalización
+                      : `$${policy.cancellation_amount}`} de penalización
                   </p>
                 </div>
               ))}
@@ -1611,7 +1729,7 @@ export default function PostFormWizard({
                 type="checkbox"
                 checked={formData.isActive}
                 onChange={(e) => updateFormData({ isActive: e.target.checked })}
-                className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 Publicar inmediatamente
@@ -1624,7 +1742,7 @@ export default function PostFormWizard({
                   type="checkbox"
                   checked={formData.termsAccepted}
                   onChange={(e) => updateFormData({ termsAccepted: e.target.checked })}
-                  className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2 mt-0.5"
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 mt-0.5"
                   required
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -1632,9 +1750,9 @@ export default function PostFormWizard({
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(true)}
-                    className="text-primary-brown hover:text-secondary-brown underline focus:outline-none focus:ring-2 focus:ring-primary-brown focus:ring-offset-2 rounded"
+                    className="text-primary hover:text-secondary underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
                   >
-                    términos y condiciones de publicación de Marketplace Turismo
+                    términos y condiciones de publicación de Nexar
                   </button>
                 </span>
               </label>
@@ -1676,7 +1794,7 @@ export default function PostFormWizard({
             <div key={step.id} className="flex items-center">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
                 index <= currentStep
-                  ? 'bg-primary-brown border-primary-brown text-white'
+                  ? 'bg-primary border-primary text-white'
                   : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400'
               }`}>
                 {index < currentStep ? (
@@ -1699,7 +1817,7 @@ export default function PostFormWizard({
               </div>
               {index < steps.length - 1 && (
                 <div className={`w-16 h-0.5 mx-4 ${
-                  index < currentStep ? 'bg-primary-brown' : 'bg-gray-300 dark:bg-gray-600'
+                  index < currentStep ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
                 }`} />
               )}
             </div>
@@ -1750,7 +1868,7 @@ export default function PostFormWizard({
                 className={`flex items-center px-6 py-2 rounded-lg transition-all duration-300 ${
                   !formData.termsAccepted || isSubmitting
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-primary-brown to-primary-green text-white hover:from-secondary-brown hover:to-secondary-green'
+                    : 'bg-primary text-white hover:bg-secondary'
                 }`}
               >
                 {isSubmitting ? (
@@ -1771,15 +1889,15 @@ export default function PostFormWizard({
               onClick={nextStep}
               disabled={
                 (currentStep === 0 && !formData.mainCategory) ||
-                (currentStep === 1 && (!formData.category || !formData.mainImage)) ||
+                (currentStep === 1 && (!formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
                 (currentStep === 2 && !formData.pricing)
               }
               className={`flex items-center px-6 py-2 rounded-lg transition-all duration-300 ${
                 (currentStep === 0 && !formData.mainCategory) ||
-                (currentStep === 1 && (!formData.category || !formData.mainImage)) ||
+                (currentStep === 1 && (!formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
                 (currentStep === 2 && !formData.pricing)
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-primary-brown to-primary-green text-white hover:from-secondary-brown hover:to-secondary-green'
+                  : 'bg-primary text-white hover:bg-secondary'
               }`}
             >
               Siguiente

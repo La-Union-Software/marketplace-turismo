@@ -32,10 +32,10 @@ export default function HomePage() {
   ];
 
   const popularDestinations = [
-    { name: 'Buenos Aires', image: '/api/placeholder/300/200', description: 'La ciudad que nunca duerme' },
-    { name: 'Bariloche', image: '/api/placeholder/300/200', description: 'Paraíso de la Patagonia' },
-    { name: 'Mendoza', image: '/api/placeholder/300/200', description: 'Tierra del vino y la montaña' },
-    { name: 'Salta', image: '/api/placeholder/300/200', description: 'Cultura y tradición del norte' },
+    { name: 'Mar del Plata', image: '/img/mar-del-plata.jpg', description: 'La más feliz de todas' },
+    { name: 'Bariloche', image: '/img/bariloche.jpg', description: 'Paraíso de la Patagonia' },
+    { name: 'Córdoba', image: '/img/cordoba.jpg', description: 'Corazón cultural de Argentina' },
+    { name: 'Jujuy', image: '/img/jujuy.jpg', description: 'Colores y tradiciones del norte' },
   ];
 
 
@@ -74,12 +74,12 @@ export default function HomePage() {
           >
             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-6 drop-shadow-2xl">
               Viví Argentina{' '}
-              <span className="gradient-text bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+              <span className="text-secondary">
                 a tu manera
               </span>
             </h1>
             <p className="text-lg sm:text-xl text-white/95 mb-8 max-w-3xl mx-auto drop-shadow-lg font-medium">
-              Elegí entre alojamientos, actividades, excursiones y medios para moverte. Todo en un solo lugar, seguro y fácil de reservar.
+              Elegí entre alojamientos, actividades, excursiones y medios para moverte.<br />Todo en un solo lugar, seguro y fácil de reservar.
             </p>
           </motion.div>
 
@@ -126,7 +126,7 @@ export default function HomePage() {
               </div>
               <button 
                 onClick={handleSearch}
-                className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-xl hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
+                className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-secondary transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
               >
                 <Search className="w-5 h-5" />
               </button>
@@ -165,8 +165,8 @@ export default function HomePage() {
                   href={`/destinos/${destination.name.toLowerCase().replace(' ', '-')}`}
                   className="glass rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 block"
                 >
-                  <div className="h-48 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">Imagen de {destination.name}</span>
+                  <div className="h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                    <img src={destination.image} alt={destination.name} className="w-full h-full object-cover" />
                   </div>
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -181,9 +181,6 @@ export default function HomePage() {
                           <Star key={i} className="w-4 h-4 fill-current" />
                         ))}
                       </div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                        4.8 (120 reseñas)
-                      </span>
                     </div>
                   </div>
                 </Link>
@@ -203,10 +200,10 @@ export default function HomePage() {
             className="text-center mb-12"
           >
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Nuestro comienzo, tu próxima aventura.
+              Nuestro comienzo y tu próxima aventura
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-300">
-            Creando el futuro del turismo juntos
+            Creando el futuro del turismo juntos.
             </p>
           </motion.div>
 
@@ -215,22 +212,22 @@ export default function HomePage() {
               { 
                 icon: '🔑', 
                 title: 'Lanzamiento 2025', 
-                description: 'Nuevo marketplace para transformar el turismo.' 
+                description: 'Nuevo marketplace para transformar \n el turismo.' 
               },
               { 
                 icon: '📌', 
-                title: '100% pensado para Argentina', 
-                description: 'Adaptado a viajeros y prestadores locales.' 
+                title: '100% Argentino', 
+                description: 'Creado para conectarte' 
               },
               { 
                 icon: '🔒', 
                 title: 'Seguridad primero', 
-                description: 'Políticas claras y protección en cada reserva.' 
+                description: 'Políticas claras y protección \n en cada reserva.' 
               },
               { 
                 icon: '🌱', 
                 title: 'Creciendo juntos', 
-                description: 'Invitamos a negocios y viajeros a ser parte desde el inicio.' 
+                description: 'Forma parte desde nuestros inicios' 
               },
             ].map((card, index) => (
               <motion.div

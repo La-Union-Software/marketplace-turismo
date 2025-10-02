@@ -2,17 +2,17 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Globe, CreditCard } from 'lucide-react';
+import { User, Bell, Shield, Globe, CreditCard, Link } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePermissions } from '@/services/permissionsService';
-import MobbexForm from '@/components/forms/MobbexForm';
-import MobbexDevConnectForm from '@/components/forms/MobbexDevConnectForm';
+import MercadoPagoForm from '@/components/forms/MercadoPagoForm';
+import MercadoPagoConnectForm from '@/components/forms/MercadoPagoConnectForm';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const permissions = usePermissions(user?.roles || []);
-  const [showMobbexForm, setShowMobbexForm] = useState(false);
-  const [showMobbexDevConnectForm, setShowMobbexDevConnectForm] = useState(false);
+  const [showMercadoPagoForm, setShowMercadoPagoForm] = useState(false);
+  const [showMercadoPagoConnectForm, setShowMercadoPagoConnectForm] = useState(false);
 
   const settingsSections = [
     {
@@ -45,16 +45,22 @@ export default function SettingsPage() {
     }
   ];
 
-  // Add Mobbex section for Superadmin and Publisher users
-  if (permissions.hasRole('superadmin') || permissions.hasRole('publisher')) {
+  // Add MercadoPago sections for Superadmin users
+  if (permissions.hasRole('superadmin')) {
     settingsSections.push({
-      title: 'Mobbex',
-      description: permissions.hasRole('superadmin') 
-        ? 'Configura las credenciales de pago de Mobbex' 
-        : 'Conecta tu cuenta de Mobbex para procesar pagos',
+      title: 'MercadoPago Credentials',
+      description: 'Configura las credenciales de pago de MercadoPago',
       icon: CreditCard,
       href: '#',
-      color: 'from-emerald-500 to-emerald-600'
+      color: 'from-blue-500 to-blue-600'
+    });
+
+    settingsSections.push({
+      title: 'Conectar con la cuenta principal de Mercado Pago',
+      description: 'Conecta tu cuenta principal para gestionar planes de suscripción',
+      icon: Link,
+      href: '#',
+      color: 'from-green-500 to-green-600'
     });
   }
 
@@ -85,12 +91,10 @@ export default function SettingsPage() {
               transition={{ duration: 0.6, delay: index * 0.1 }}
               className="glass rounded-xl p-6 hover:transform hover:scale-105 transition-all duration-300 cursor-pointer"
               onClick={() => {
-                if (section.title === 'Mobbex') {
-                  if (permissions.hasRole('superadmin')) {
-                    setShowMobbexForm(true);
-                  } else if (permissions.hasRole('publisher')) {
-                    setShowMobbexDevConnectForm(true);
-                  }
+                if (section.title === 'MercadoPago Credentials') {
+                  setShowMercadoPagoForm(true);
+                } else if (section.title === 'Conectar con la cuenta principal de Mercado Pago') {
+                  setShowMercadoPagoConnectForm(true);
                 }
                 // For other sections, you can add navigation logic here
               }}
@@ -106,7 +110,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                     {section.description}
                   </p>
-                  <button className="text-sm text-primary-brown hover:text-secondary-brown font-medium transition-colors">
+                  <button className="text-sm text-primary hover:text-secondary font-medium transition-colors">
                     Configurar →
                   </button>
                 </div>
@@ -212,14 +216,14 @@ export default function SettingsPage() {
         </motion.div>
       </div>
 
-      {/* Mobbex Form Modal */}
-      {showMobbexForm && (
-        <MobbexForm onClose={() => setShowMobbexForm(false)} />
+      {/* MercadoPago Credentials Form Modal */}
+      {showMercadoPagoForm && (
+        <MercadoPagoForm onClose={() => setShowMercadoPagoForm(false)} />
       )}
 
-      {/* Mobbex Dev Connect Form Modal */}
-      {showMobbexDevConnectForm && (
-        <MobbexDevConnectForm onClose={() => setShowMobbexDevConnectForm(false)} />
+      {/* MercadoPago Connect Form Modal */}
+      {showMercadoPagoConnectForm && (
+        <MercadoPagoConnectForm onClose={() => setShowMercadoPagoConnectForm(false)} />
       )}
     </div>
   );

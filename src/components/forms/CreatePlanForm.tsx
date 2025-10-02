@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Save, X, Plus, Minus } from 'lucide-react';
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
 import { SubscriptionPlan } from '@/types';
 import { useAuth } from '@/lib/auth';
 
@@ -19,7 +18,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
     name: '',
     description: '',
     price: 0,
-    currency: 'ARS', // Default to ARS for Mobbex
+    currency: 'ARS', // Default to ARS
     billingCycle: 'monthly' as const,
     features: [''],
     maxPosts: 10,
@@ -46,82 +45,11 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
         features: cleanFeatures
       };
 
-      // Initialize Mobbex service
-      await mobbexService.initialize();
-
-      let mobbexSubscriptionId: string | undefined;
-      let localPlanId: string | undefined;
-
-      // Create local plan first to get the ID
-      try {
-        localPlanId = await firebaseDB.plans.create(planData, user.id);
-        console.log('✅ Local plan created successfully:', localPlanId);
-      } catch (firebaseError) {
-        console.error('❌ Failed to create local plan:', firebaseError);
-        setMessage({ 
-          type: 'error', 
-          text: 'Failed to create local plan. Please try again.' 
-        });
-        return;
-      }
-
-      // Create Mobbex subscription if service is configured
-      if (mobbexService.isServiceConfigured()) {
-        try {
-          // Create plan data with the actual plan ID for reference
-          const planDataWithId = {
-            ...planData,
-            id: localPlanId
-          };
-          
-          const mobbexSubscription = await mobbexService.createSubscription(planDataWithId);
-          mobbexSubscriptionId = mobbexSubscription.id;
-          console.log('✅ Mobbex subscription created:', mobbexSubscriptionId);
-          
-          // Update local plan with Mobbex subscription ID
-          await firebaseDB.plans.update(localPlanId, { mobbexSubscriptionId }, user.id);
-          console.log('✅ Local plan updated with Mobbex subscription ID');
-        } catch (mobbexError) {
-          console.error('❌ Failed to create Mobbex subscription:', mobbexError);
-          console.error('❌ Mobbex error details:', {
-            message: mobbexError instanceof Error ? mobbexError.message : 'Unknown error',
-            stack: mobbexError instanceof Error ? mobbexError.stack : undefined,
-            error: mobbexError
-          });
-          
-          // If Mobbex creation fails, delete the local plan to maintain consistency
-          try {
-            console.log('Cleaning up local plan due to Mobbex creation failure...');
-            await firebaseDB.plans.delete(localPlanId);
-            console.log('✅ Local plan cleaned up');
-          } catch (cleanupError) {
-            console.error('❌ Failed to clean up local plan:', cleanupError);
-          }
-          
-          setMessage({ 
-            type: 'error', 
-            text: `Failed to create Mobbex subscription: ${mobbexError instanceof Error ? mobbexError.message : 'Unknown error'}. Plan was not created to maintain data consistency.` 
-          });
-          return;
-        }
-      } else {
-        console.warn('Mobbex service not configured, plan created locally only');
-        setMessage({ 
-          type: 'error', 
-          text: 'Mobbex is not configured. Please configure Mobbex credentials in Settings to create plans.' 
-        });
-        
-        // Clean up local plan if Mobbex is required
-        try {
-          await firebaseDB.plans.delete(localPlanId);
-          console.log('✅ Local plan cleaned up due to missing Mobbex configuration');
-        } catch (cleanupError) {
-          console.error('❌ Failed to clean up local plan:', cleanupError);
-        }
-        return;
-      }
+      // Create plan in database
+      const planId = await firebaseDB.plans.create(planData, user.id);
+      console.log('✅ Plan created successfully:', planId);
       
-      setMessage({ type: 'success', text: 'Plan created successfully and synced with Mobbex!' });
+      setMessage({ type: 'success', text: 'Plan created successfully!' });
       
       // Close form after a short delay
       setTimeout(() => {
@@ -169,7 +97,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -201,7 +129,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="e.g., Basic Plan, Premium Plan"
                 required
               />
@@ -219,7 +147,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                   min="0"
                   value={formData.price}
                   onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="0.00"
                   required
                 />
@@ -233,12 +161,11 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
               <select
                 value={formData.currency}
                 onChange={(e) => handleInputChange('currency', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
-                <option value="ARS">ARS (Argentine Peso)</option>
                 <option value="USD">USD (US Dollar)</option>
-                <option value="EUR">EUR (Euro)</option>
+                <option value="ARS">ARS (Argentine Peso)</option>
                 <option value="BRL">BRL (Brazilian Real)</option>
                 <option value="CLP">CLP (Chilean Peso)</option>
                 <option value="COP">COP (Colombian Peso)</option>
@@ -257,7 +184,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Describe what this plan offers..."
               required
             />
@@ -272,7 +199,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
               <select
                 value={formData.billingCycle}
                 onChange={(e) => handleInputChange('billingCycle', e.target.value as 'monthly' | 'yearly')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
                 <option value="monthly">Monthly</option>
@@ -291,7 +218,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                 min="1"
                 value={formData.maxPosts}
                 onChange={(e) => handleInputChange('maxPosts', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -305,7 +232,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                 min="1"
                 value={formData.maxBookings}
                 onChange={(e) => handleInputChange('maxBookings', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -325,7 +252,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                     type="text"
                     value={feature}
                     onChange={(e) => updateFeature(index, e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder={`Feature ${index + 1}`}
                   />
                   {formData.features.length > 1 && (
@@ -342,7 +269,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
               <button
                 type="button"
                 onClick={addFeature}
-                className="flex items-center space-x-2 px-3 py-2 text-primary-brown border border-primary-brown rounded-lg hover:bg-primary-brown hover:text-white transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Feature</span>
@@ -365,7 +292,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                     handleInputChange('isActive', true);
                   }
                 }}
-                className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="isVisible" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Plan is showing to users
@@ -385,7 +312,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
                     handleInputChange('isVisible', false);
                   }
                 }}
-                className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Plan is active and available for users
@@ -416,7 +343,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isSaving ? (
                 <>

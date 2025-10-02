@@ -89,7 +89,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
+        className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -117,7 +117,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-sm text-primary-brown hover:text-secondary-brown transition-colors"
+                  className="text-sm text-primary hover:text-secondary transition-colors"
                 >
                   Marcar todas como leídas
                 </button>
@@ -155,7 +155,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                               {notification.title}
                             </p>
                             {!notification.isRead && (
-                              <div className="w-2 h-2 bg-primary-brown rounded-full flex-shrink-0"></div>
+                              <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></div>
                             )}
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -189,7 +189,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                     setIsOpen(false);
                     router.push('/notifications');
                   }}
-                  className="w-full text-sm text-primary-brown hover:text-secondary-brown transition-colors"
+                  className="w-full text-sm text-primary hover:text-secondary transition-colors"
                 >
                   Ver todas las notificaciones
                 </button>

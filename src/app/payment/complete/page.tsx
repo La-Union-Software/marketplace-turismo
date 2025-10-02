@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, CreditCard, Calendar, MapPin, User, Mail, Phone, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
 import { Booking } from '@/types';
 
 function PaymentCompleteContent() {
@@ -143,9 +142,9 @@ function PaymentCompleteContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Verificando estado del pago...</p>
         </div>
       </div>
@@ -154,7 +153,7 @@ function PaymentCompleteContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 mb-4">
             <XCircle className="w-16 h-16 mx-auto" />
@@ -165,7 +164,7 @@ function PaymentCompleteContent() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -176,7 +175,7 @@ function PaymentCompleteContent() {
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Reserva no encontrada
@@ -186,7 +185,7 @@ function PaymentCompleteContent() {
           </p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -196,7 +195,7 @@ function PaymentCompleteContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -313,7 +312,7 @@ function PaymentCompleteContent() {
         >
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Ver Mis Reservas
           </button>
@@ -321,7 +320,7 @@ function PaymentCompleteContent() {
           {paymentStatus === 'failed' && (
             <button
               onClick={() => router.push(`/post/${booking.postId}`)}
-              className="px-6 py-3 border border-primary-brown text-primary-brown rounded-lg hover:bg-primary-brown hover:text-white transition-all duration-300"
+              className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-all duration-300"
             >
               Intentar Nuevamente
             </button>
@@ -335,9 +334,9 @@ function PaymentCompleteContent() {
 export default function PaymentCompletePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
         </div>
       </div>

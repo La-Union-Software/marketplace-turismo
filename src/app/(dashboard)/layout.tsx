@@ -50,6 +50,7 @@ export default function DashboardLayout({
     const baseItems: NavigationItem[] = [
       { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['publisher', 'superadmin'] },
       { name: 'Publicaciones', href: '/posts', icon: FileText, roles: ['publisher', 'superadmin'] },
+      { name: 'Favoritos', href: '/favorites', icon: Heart, roles: ['client', 'publisher', 'superadmin'] },
       { name: 'Configuración', href: '/settings', icon: Settings, roles: ['publisher', 'superadmin'] },
     ];
 
@@ -65,7 +66,6 @@ export default function DashboardLayout({
     if (hasRole('client')) {
       baseItems.push(
         { name: 'Mis Reservas', href: '/bookings', icon: Calendar, roles: ['client'] },
-        { name: 'Favoritos', href: '/favorites', icon: Heart, roles: ['client'] },
         { name: 'Mi Perfil', href: '/profile', icon: User, roles: ['client'] }
       );
     }
@@ -102,7 +102,7 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute requiredRoles={['publisher', 'superadmin', 'client']}>
-      <div className="min-h-screen bg-gradient-to-br from-background-light via-green-50 to-background-light dark:from-background-dark dark:via-gray-900 dark:to-background-dark">
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div 
@@ -116,15 +116,6 @@ export default function DashboardLayout({
           {/* Sidebar */}
           <div className="w-64 glass flex-shrink-0">
             <div className="flex h-full flex-col">
-              {/* Logo */}
-              <div className="flex h-16 items-center justify-between px-6">
-                <Link href="/dashboard" className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary-brown to-primary-green rounded-lg flex items-center justify-center mr-3">
-                    <span className="text-white font-bold text-sm">MT</span>
-                  </div>
-                  <span className="text-xl font-bold gradient-text">Marketplace Turismo</span>
-                </Link>
-              </div>
 
               {/* Navigation */}
               <nav className="flex-1 px-4 py-6 space-y-2">
@@ -140,7 +131,7 @@ export default function DashboardLayout({
                       href={item.href}
                       className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                         isActive
-                          ? 'bg-gradient-to-r from-primary-brown to-primary-green text-white shadow-lg'
+                          ? 'bg-primary text-white shadow-lg'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       }`}
                     >
@@ -157,7 +148,7 @@ export default function DashboardLayout({
               {/* User section */}
               <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                     <User className="w-5 h-5 text-white" />
                   </div>
                   <div className="ml-3 flex-1">
@@ -190,7 +181,7 @@ export default function DashboardLayout({
 
                 {/* User Plan Information */}
                 {userPlan && hasRole('publisher') && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         {userPlan.name.toLowerCase().includes('basic') && <Zap className="w-4 h-4 text-blue-600" />}
@@ -252,10 +243,10 @@ export default function DashboardLayout({
               {/* Logo */}
               <div className="flex h-16 items-center justify-between px-6">
                 <Link href="/dashboard" className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary-brown to-primary-green rounded-lg flex items-center justify-center mr-3">
+                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
                     <span className="text-white font-bold text-sm">MT</span>
                   </div>
-                  <span className="text-xl font-bold gradient-text">Marketplace Turismo</span>
+                  <span className="text-xl font-bold gradient-text">Nexar</span>
                 </Link>
                 <button
                   onClick={() => setSidebarOpen(false)}
@@ -279,7 +270,7 @@ export default function DashboardLayout({
                       href={item.href}
                       className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                         isActive
-                          ? 'bg-gradient-to-r from-primary-brown to-primary-green text-white shadow-lg'
+                          ? 'bg-primary text-white shadow-lg'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       }`}
                       onClick={() => setSidebarOpen(false)}
@@ -297,7 +288,7 @@ export default function DashboardLayout({
               {/* User section */}
               <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                     <User className="w-5 h-5 text-white" />
                   </div>
                   <div className="ml-3 flex-1">
@@ -330,7 +321,7 @@ export default function DashboardLayout({
 
                 {/* User Plan Information */}
                 {userPlan && hasRole('publisher') && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         {userPlan.name.toLowerCase().includes('basic') && <Zap className="w-4 h-4 text-blue-600" />}

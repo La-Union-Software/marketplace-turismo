@@ -56,9 +56,9 @@ export default function SuscribirsePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando planes...</p>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function SuscribirsePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <motion.div
@@ -107,7 +107,7 @@ export default function SuscribirsePage() {
             >
               {/* Plan Header */}
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
                   {plan.name.toLowerCase().includes('basic') && <Zap className="w-8 h-8 text-white" />}
                   {plan.name.toLowerCase().includes('premium') && <Star className="w-8 h-8 text-white" />}
                   {plan.name.toLowerCase().includes('enterprise') && <Crown className="w-8 h-8 text-white" />}
@@ -115,7 +115,7 @@ export default function SuscribirsePage() {
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   {plan.name}
                 </h3>
-                <div className="text-4xl font-bold text-primary-brown mb-1">
+                <div className="text-4xl font-bold text-primary mb-1">
                   ${plan.price}
                   <span className="text-lg text-gray-500 dark:text-gray-400 font-normal">
                     /{plan.billingCycle === 'monthly' ? 'mes' : plan.billingCycle === 'yearly' ? 'año' : plan.billingCycle}
@@ -151,7 +151,7 @@ export default function SuscribirsePage() {
               </div>
 
               {/* CTA Button */}
-              <button className="w-full bg-gradient-to-r from-primary-brown to-primary-green text-white py-3 px-6 rounded-lg font-semibold hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 transform hover:scale-105">
+              <button className="w-full bg-primary text-white py-3 px-6 rounded-lg font-semibold hover:bg-secondary transition-all duration-300 transform hover:scale-105">
                 Seleccionar Plan
               </button>
             </motion.div>
@@ -266,7 +266,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -275,7 +275,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
             <CreditCard className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -284,7 +284,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
           <p className="text-gray-600 dark:text-gray-300">
             Plan: <span className="font-semibold">{plan.name}</span>
           </p>
-          <p className="text-lg font-bold text-primary-brown">
+          <p className="text-lg font-bold text-primary">
             ${plan.price}/{plan.billingCycle === 'monthly' ? 'mes' : plan.billingCycle === 'yearly' ? 'año' : plan.billingCycle}
           </p>
         </div>
@@ -300,7 +300,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
               value={paymentData.cardNumber}
               onChange={(e) => handleInputChange('cardNumber', e.target.value)}
               placeholder="1234 5678 9012 3456"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
@@ -314,7 +314,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
               value={paymentData.cardHolder}
               onChange={(e) => handleInputChange('cardHolder', e.target.value)}
               placeholder="Nombre Apellido"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
@@ -329,7 +329,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
                 value={paymentData.expiryDate}
                 onChange={(e) => handleInputChange('expiryDate', e.target.value)}
                 placeholder="MM/AA"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -342,7 +342,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
                 value={paymentData.cvv}
                 onChange={(e) => handleInputChange('cvv', e.target.value)}
                 placeholder="123"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -356,7 +356,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
               type="email"
               value={paymentData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
@@ -373,7 +373,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
             <button
               type="submit"
               disabled={isProcessing}
-              className="flex-1 px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isProcessing ? (
                 <>

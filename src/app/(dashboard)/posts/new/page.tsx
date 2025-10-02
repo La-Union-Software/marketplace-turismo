@@ -24,9 +24,9 @@ export default function NewPostPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Verificando permisos...</p>
         </div>
       </div>
@@ -35,7 +35,7 @@ export default function NewPostPage() {
 
   if (canCreatePost === false) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -52,7 +52,7 @@ export default function NewPostPage() {
             No tienes permisos para crear publicaciones. Redirigiendo a la página de suscripción...
           </p>
           <div className="animate-pulse">
-            <div className="w-4 h-4 bg-primary-brown rounded-full mx-auto"></div>
+            <div className="w-4 h-4 bg-primary rounded-full mx-auto"></div>
           </div>
         </motion.div>
       </div>
@@ -61,7 +61,7 @@ export default function NewPostPage() {
 
   if (canCreatePost === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -78,7 +78,7 @@ export default function NewPostPage() {
             Estamos verificando tu suscripción y permisos...
           </p>
           <div className="animate-pulse">
-            <div className="w-4 h-4 bg-primary-brown rounded-full mx-auto"></div>
+            <div className="w-4 h-4 bg-primary rounded-full mx-auto"></div>
           </div>
         </motion.div>
       </div>
@@ -87,7 +87,7 @@ export default function NewPostPage() {
 
   // User can create posts - show the form
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div

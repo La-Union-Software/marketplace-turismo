@@ -35,7 +35,7 @@ export default function ProtectedRoute({
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary-brown mb-4" />
+          <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary mb-4" />
           <p className="text-gray-600 dark:text-gray-300">Loading...</p>
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function ProtectedRoute({
             </p>
             <button
               onClick={() => router.back()}
-              className="bg-primary-brown text-white px-4 py-2 rounded-lg hover:bg-secondary-brown transition-colors"
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
             >
               Go Back
             </button>
@@ -95,7 +95,7 @@ export default function ProtectedRoute({
             </p>
             <button
               onClick={() => router.back()}
-              className="bg-primary-brown text-white px-4 py-2 rounded-lg hover:bg-secondary-brown transition-colors"
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
             >
               Go Back
             </button>

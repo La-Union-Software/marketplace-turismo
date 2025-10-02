@@ -17,7 +17,8 @@ import {
   User,
   CreditCard,
   Mail,
-  Phone
+  Phone,
+  Download
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
@@ -25,6 +26,7 @@ import { Booking, BookingStatus, CancellationPenalty } from '@/types';
 import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
 import CancellationModal from '@/components/booking/CancellationModal';
 import PostImages from '@/components/ui/PostImages';
+import { voucherService } from '@/services/voucherService';
 
 export default function BookingsPage() {
   const { user, hasRole } = useAuth();
@@ -128,24 +130,12 @@ export default function BookingsPage() {
       const booking = bookings.find(b => b.id === bookingId);
       if (!booking) return;
 
-      // Get user's Mobbex credentials if available
-      let userCredentials = null;
-      if (user?.mobbexCredentials?.isConnected) {
-        userCredentials = {
-          accessToken: user.mobbexCredentials.accessToken,
-          entity: {
-            name: user.mobbexCredentials.entity.name,
-            taxId: user.mobbexCredentials.entity.taxId,
-          },
-        };
-      }
-
-      console.log('🚀 [Bookings] Approving booking without checkout creation...');
+      console.log('🚀 [Bookings] Approving booking...');
       
-      // Update booking status to pending payment (without checkout)
+      // Update booking status to pending payment
       await firebaseDB.bookings.updateStatus(bookingId, 'pending_payment');
 
-      // Create notification for client with mock checkout link
+      // Create notification for client
       await firebaseDB.notifications.create({
         userId: booking.clientId,
         type: 'payment_pending',
@@ -154,8 +144,7 @@ export default function BookingsPage() {
         isRead: false,
         data: {
           bookingId,
-          postId: booking.postId,
-          checkoutUrl: `${window.location.origin}/checkout/${booking.id}`
+          postId: booking.postId
         }
       });
 
@@ -315,10 +304,20 @@ export default function BookingsPage() {
     }).format(price);
   };
 
+  const handleDownloadVoucher = async (booking: Booking) => {
+    try {
+      const type = viewMode === 'client' ? 'client' : 'publisher';
+      await voucherService.generateVoucher({ booking, type });
+    } catch (error) {
+      console.error('Error downloading voucher:', error);
+      alert('Error al descargar el voucher. Por favor, intenta nuevamente.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -336,7 +335,7 @@ export default function BookingsPage() {
           <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Reintentar
           </button>
@@ -380,7 +379,7 @@ export default function BookingsPage() {
                   onClick={() => setViewMode('client')}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     viewMode === 'client' 
-                      ? 'bg-primary-brown text-white' 
+                      ? 'bg-primary text-white' 
                       : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -390,7 +389,7 @@ export default function BookingsPage() {
                   onClick={() => setViewMode('owner')}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     viewMode === 'owner' 
-                      ? 'bg-primary-brown text-white' 
+                      ? 'bg-primary text-white' 
                       : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -410,7 +409,7 @@ export default function BookingsPage() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -427,7 +426,7 @@ export default function BookingsPage() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -446,7 +445,7 @@ export default function BookingsPage() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
                 <ClockIcon className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -465,7 +464,7 @@ export default function BookingsPage() {
             className="glass rounded-xl p-6"
           >
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-white" />
               </div>
               <div className="ml-4">
@@ -497,7 +496,7 @@ export default function BookingsPage() {
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -505,7 +504,7 @@ export default function BookingsPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="all">Todos los estados</option>
                 <option value="requested">Solicitadas</option>
@@ -634,6 +633,17 @@ export default function BookingsPage() {
                       </span>
                       
                       <div className="flex items-center space-x-2">
+                        {/* Download Voucher - Available for paid bookings */}
+                        {booking.status === 'paid' && (
+                          <button
+                            onClick={() => handleDownloadVoucher(booking)}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            title="Descargar Voucher"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
+                        
                         {/* Owner Actions */}
                         {viewMode === 'owner' && booking.status === 'requested' && (
                           <>
@@ -713,7 +723,7 @@ export default function BookingsPage() {
               {!searchTerm && statusFilter === 'all' && viewMode === 'client' && (
                 <button 
                   onClick={() => router.push('/alojamientos')}
-                  className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
                 >
                   Explorar Servicios
                 </button>

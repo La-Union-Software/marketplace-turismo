@@ -120,7 +120,7 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -177,7 +177,7 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
                 const user = users.find(u => u.id === e.target.value);
                 setSelectedUser(user || null);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="">Choose a user...</option>
               {users.map((user) => (
@@ -196,7 +196,7 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value as UserRole | '')}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="">Choose a role...</option>
               {SYSTEM_ROLES.map((role) => (
@@ -212,7 +212,7 @@ export default function RoleManagement({ className = '' }: RoleManagementProps) 
             <button
               onClick={handleAssignRole}
               disabled={!selectedUser || !selectedRole || isProcessing}
-              className="w-full bg-gradient-to-r from-primary-brown to-primary-green text-white py-2 px-4 rounded-lg font-semibold hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-primary text-white py-2 px-4 rounded-lg font-semibold hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isProcessing ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

@@ -161,7 +161,7 @@ export default function CancellationModal({
                   checked={isConfirmed}
                   onChange={(e) => setIsConfirmed(e.target.checked)}
                   disabled={isCancelling}
-                  className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2 mt-0.5"
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 mt-0.5"
                 />
                 <div className="text-sm text-gray-700 dark:text-gray-300">
                   <p className="font-medium mb-1">

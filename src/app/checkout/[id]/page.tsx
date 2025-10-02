@@ -222,9 +222,9 @@ function CheckoutContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando checkout...</p>
         </div>
       </div>
@@ -233,7 +233,7 @@ function CheckoutContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 mb-4">
             <XCircle className="w-16 h-16 mx-auto" />
@@ -244,7 +244,7 @@ function CheckoutContent() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -255,7 +255,7 @@ function CheckoutContent() {
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Reserva no encontrada
@@ -265,7 +265,7 @@ function CheckoutContent() {
           </p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -275,7 +275,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-8">
         {/* Back Button */}
         <motion.div
@@ -286,7 +286,7 @@ function CheckoutContent() {
         >
           <button
             onClick={() => router.push('/bookings')}
-            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
+            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Volver a Reservas
@@ -384,7 +384,7 @@ function CheckoutContent() {
                       onChange={(e) => handleInputChange('cardNumber', formatCardNumber(e.target.value))}
                       placeholder="1234 5678 9012 3456"
                       maxLength={19}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                     />
                   </div>
 
@@ -399,7 +399,7 @@ function CheckoutContent() {
                         onChange={(e) => handleInputChange('expiryDate', formatExpiryDate(e.target.value))}
                         placeholder="MM/YY"
                         maxLength={5}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                       />
                     </div>
                     
@@ -413,7 +413,7 @@ function CheckoutContent() {
                         onChange={(e) => handleInputChange('cvv', e.target.value.replace(/\D/g, '').slice(0, 3))}
                         placeholder="123"
                         maxLength={3}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Para pruebas: usa 200 para aprobar, cualquier otro número para rechazar
@@ -430,7 +430,7 @@ function CheckoutContent() {
                       value={paymentData.cardholderName}
                       onChange={(e) => handleInputChange('cardholderName', e.target.value)}
                       placeholder="Juan Pérez"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                 </div>
@@ -450,7 +450,7 @@ function CheckoutContent() {
                       value={paymentData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       placeholder="juan@ejemplo.com"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                     />
                   </div>
 
@@ -463,7 +463,7 @@ function CheckoutContent() {
                       value={paymentData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                       placeholder="+54 9 11 1234-5678"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                     />
                   </div>
 
@@ -476,7 +476,7 @@ function CheckoutContent() {
                       value={paymentData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
                       placeholder="Av. Corrientes 1234"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                     />
                   </div>
 
@@ -490,7 +490,7 @@ function CheckoutContent() {
                         value={paymentData.city}
                         onChange={(e) => handleInputChange('city', e.target.value)}
                         placeholder="Buenos Aires"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                       />
                     </div>
                     
@@ -503,7 +503,7 @@ function CheckoutContent() {
                         value={paymentData.zipCode}
                         onChange={(e) => handleInputChange('zipCode', e.target.value)}
                         placeholder="C1043"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-brown focus:border-primary-brown dark:bg-gray-800 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
                       />
                     </div>
                   </div>
@@ -513,7 +513,7 @@ function CheckoutContent() {
                 <button
                   onClick={handlePayment}
                   disabled={processing}
-                  className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-lg font-semibold"
+                  className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-lg font-semibold"
                 >
                   {processing ? (
                     <>
@@ -539,9 +539,9 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
         </div>
       </div>

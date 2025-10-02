@@ -15,12 +15,13 @@ import {
   Users,
   FileText,
   Star,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Link
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
 import { SubscriptionPlan } from '@/types';
 import CreatePlanForm from '@/components/forms/CreatePlanForm';
 import EditPlanForm from '@/components/forms/EditPlanForm';
@@ -32,6 +33,7 @@ export default function PlansPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const loadPlans = useCallback(async () => {
     try {
@@ -86,12 +88,6 @@ export default function PlansPage() {
         return;
       }
 
-      // Note: Mobbex subscription management methods are not implemented yet
-      // For now, we only update the local plan status
-      if (plan.mobbexSubscriptionId) {
-        console.log('Plan has Mobbex subscription ID, but Mobbex sync methods are not implemented yet');
-      }
-
       // Update local plan status
       await firebaseDB.plans.toggleActive(planId, !currentStatus, user.id);
       setMessage({ 
@@ -117,6 +113,49 @@ export default function PlansPage() {
     } catch (error) {
       console.error('Error deleting plan:', error);
       setMessage({ type: 'error', text: 'Error deleting plan' });
+    }
+  };
+
+  const handleSyncWithMercadoPago = async () => {
+    try {
+      setIsSyncing(true);
+      setMessage(null);
+
+      const response = await fetch('/api/mercadopago/sync-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to sync plans with MercadoPago');
+      }
+
+      const result = await response.json();
+      
+      if (result.errors > 0) {
+        setMessage({ 
+          type: 'error', 
+          text: `Sync completed with ${result.errors} errors. ${result.success} plans synced successfully.` 
+        });
+      } else {
+        setMessage({ 
+          type: 'success', 
+          text: `Successfully synced ${result.success} plans with MercadoPago!` 
+        });
+      }
+
+      // Reload plans to get updated data
+      await loadPlans();
+    } catch (error) {
+      console.error('Error syncing plans:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Error syncing plans with MercadoPago' 
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -158,7 +197,7 @@ export default function PlansPage() {
     return (
       <div className="w-full max-w-none">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Loading subscription plans...</p>
         </div>
       </div>
@@ -183,10 +222,27 @@ export default function PlansPage() {
               Manage subscription plans and pricing for your users
             </p>
           </div>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleSyncWithMercadoPago}
+              disabled={isSyncing}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-accent transition-all duration-300 flex items-center space-x-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSyncing ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-5 h-5" />
+                  <span>Sync with MercadoPago</span>
+                </>
+              )}
+            </button>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 flex items-center space-x-2 shadow-lg"
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2 shadow-lg"
             >
               <Plus className="w-5 h-5" />
               <span>Create Plan</span>
@@ -239,7 +295,7 @@ export default function PlansPage() {
             </p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 flex items-center space-x-2 mx-auto"
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2 mx-auto"
             >
               <Plus className="w-5 h-5" />
               <span>Create First Plan</span>
@@ -269,10 +325,10 @@ export default function PlansPage() {
                     <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(plan.isActive)}`}>
                       {plan.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    {plan.mobbexSubscriptionId && (
-                      <div className="flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        <ExternalLink className="w-3 h-3" />
-                        <span>Mobbex</span>
+                    {plan.mercadoPagoPlanId && (
+                      <div className="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400">
+                        <Link className="w-3 h-3" />
+                        <span>MercadoPago</span>
                       </div>
                     )}
                   </div>
@@ -293,20 +349,20 @@ export default function PlansPage() {
                 {/* Features */}
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center space-x-3">
-                    <FileText className="w-4 h-4 text-primary-brown" />
+                    <FileText className="w-4 h-4 text-primary" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Up to {plan.maxPosts} posts
                     </span>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <Calendar className="w-4 h-4 text-primary-brown" />
+                    <Calendar className="w-4 h-4 text-primary" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Up to {plan.maxBookings} bookings
                     </span>
                   </div>
                   {plan.features.map((feature, idx) => (
                     <div key={idx} className="flex items-center space-x-3">
-                      <Star className="w-4 h-4 text-primary-brown" />
+                      <Star className="w-4 h-4 text-primary" />
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         {feature}
                       </span>
@@ -318,7 +374,7 @@ export default function PlansPage() {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setEditingPlan(plan)}
-                    className="flex-1 px-3 py-2 text-sm text-primary-brown border border-primary-brown rounded-lg hover:bg-primary-brown hover:text-white transition-colors flex items-center justify-center space-x-1"
+                    className="flex-1 px-3 py-2 text-sm text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors flex items-center justify-center space-x-1"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>

@@ -93,7 +93,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="glass rounded-xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Loading credentials...</p>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -143,7 +143,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
                 type="text"
                 value={formData.publicKey}
                 onChange={(e) => handleInputChange('publicKey', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter your Mercado Pago Public Key"
                 required
               />
@@ -160,7 +160,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
                 type={showAccessToken ? 'text' : 'password'}
                 value={formData.accessToken}
                 onChange={(e) => handleInputChange('accessToken', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter your Mercado Pago Access Token"
                 required
               />
@@ -181,7 +181,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => handleInputChange('isActive', e.target.checked)}
-              className="w-4 h-4 text-primary-brown bg-gray-100 border-gray-300 rounded focus:ring-primary-brown focus:ring-2"
+              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Enable Mercado Pago payments
@@ -216,7 +216,7 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isSaving ? (
                 <>

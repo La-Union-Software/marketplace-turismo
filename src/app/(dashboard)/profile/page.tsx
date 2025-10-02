@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -14,10 +14,13 @@ import {
   CheckCircle,
   AlertCircle,
   Shield,
-  Calendar
+  Calendar,
+  Upload,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import RequireClient from '@/components/auth/ProtectedRoute';
+import { firebaseDB } from '@/services/firebaseService';
 
 export default function ProfilePage() {
   return (
@@ -45,6 +48,7 @@ function ProfileManagement() {
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'security'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState<ProfileFormData>({
@@ -80,20 +84,76 @@ function ProfileManagement() {
     }
   }, [user]);
 
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Por favor selecciona un archivo de imagen válido' 
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ 
+        type: 'error', 
+        text: 'La imagen debe ser menor a 5MB' 
+      });
+      return;
+    }
+
+    try {
+      const base64 = await convertToBase64(file);
+      setProfileForm(prev => ({ ...prev, avatar: base64 }));
+      setMessage({ 
+        type: 'success', 
+        text: 'Imagen cargada correctamente' 
+      });
+    } catch (error) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Error al procesar la imagen' 
+      });
+    }
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Update user profile in Firebase
+      await firebaseDB.users.update(user.id, {
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        avatar: profileForm.avatar
+      });
       
       setMessage({ 
         type: 'success', 
         text: 'Perfil actualizado correctamente' 
       });
     } catch (error) {
+      console.error('Error updating profile:', error);
       setMessage({ 
         type: 'error', 
         text: 'Error al actualizar el perfil' 
@@ -170,7 +230,7 @@ function ProfileManagement() {
   if (!user) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -230,27 +290,54 @@ function ProfileManagement() {
               {/* Profile Picture */}
               <div className="text-center mb-6">
                 <div className="relative inline-block">
-                  <div className="w-32 h-32 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center text-white text-4xl font-bold mb-4">
-                    {user.avatar ? (
+                  <div className="w-32 h-32 bg-primary rounded-full flex items-center justify-center text-white text-4xl font-bold mb-4 overflow-hidden">
+                    {profileForm.avatar ? (
                       <img 
-                        src={user.avatar} 
-                        alt={user.name} 
+                        src={profileForm.avatar} 
+                        alt={profileForm.name} 
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      user.name.charAt(0).toUpperCase()
+                      profileForm.name.charAt(0).toUpperCase()
                     )}
                   </div>
-                  <button className="absolute bottom-0 right-0 p-2 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+                  >
                     <Camera className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  {profileForm.avatar && (
+                    <button
+                      onClick={() => setProfileForm(prev => ({ ...prev, avatar: '' }))}
+                      className="absolute top-0 right-0 p-1 bg-red-500 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  )}
                 </div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {user.name}
+                  {profileForm.name}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  {user.email}
+                  {profileForm.email}
                 </p>
+                <div className="mt-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Cambiar foto
+                  </button>
+                </div>
               </div>
 
               {/* User Stats */}
@@ -324,7 +411,7 @@ function ProfileManagement() {
                   onClick={() => setActiveTab('profile')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'profile'
-                      ? 'bg-primary-brown text-white'
+                      ? 'bg-primary text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
@@ -335,7 +422,7 @@ function ProfileManagement() {
                   onClick={() => setActiveTab('password')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'password'
-                      ? 'bg-primary-brown text-white'
+                      ? 'bg-primary text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
@@ -346,7 +433,7 @@ function ProfileManagement() {
                   onClick={() => setActiveTab('security')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'security'
-                      ? 'bg-primary-brown text-white'
+                      ? 'bg-primary text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
@@ -372,7 +459,7 @@ function ProfileManagement() {
                         type="text"
                         value={profileForm.name}
                         onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                         required
                       />
                     </div>
@@ -384,7 +471,7 @@ function ProfileManagement() {
                         type="email"
                         value={profileForm.email}
                         onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                         required
                       />
                     </div>
@@ -396,19 +483,7 @@ function ProfileManagement() {
                         type="tel"
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        URL del avatar
-                      </label>
-                      <input
-                        type="url"
-                        value={profileForm.avatar}
-                        onChange={(e) => setProfileForm(prev => ({ ...prev, avatar: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
-                        placeholder="https://ejemplo.com/avatar.jpg"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -417,7 +492,7 @@ function ProfileManagement() {
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                     >
                       {isLoading ? (
                         <>
@@ -453,7 +528,7 @@ function ProfileManagement() {
                           type={showPasswords.current ? 'text' : 'password'}
                           value={passwordForm.currentPassword}
                           onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                           required
                         />
                         <button
@@ -474,7 +549,7 @@ function ProfileManagement() {
                           type={showPasswords.new ? 'text' : 'password'}
                           value={passwordForm.newPassword}
                           onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                           required
                         />
                         <button
@@ -495,7 +570,7 @@ function ProfileManagement() {
                           type={showPasswords.confirm ? 'text' : 'password'}
                           value={passwordForm.confirmPassword}
                           onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                           required
                         />
                         <button
@@ -513,7 +588,7 @@ function ProfileManagement() {
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                     >
                       {isLoading ? (
                         <>
@@ -558,9 +633,9 @@ function ProfileManagement() {
                             Añade una capa extra de seguridad a tu cuenta
                           </p>
                         </div>
-                        <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          Configurar
-                        </button>
+                        <span className="px-3 py-1 text-xs bg-gray-400 text-white rounded-lg">
+                          Próximamente
+                        </span>
                       </div>
                       
                       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -572,9 +647,9 @@ function ProfileManagement() {
                             Recibe alertas sobre actividades sospechosas
                           </p>
                         </div>
-                        <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          Configurar
-                        </button>
+                        <span className="px-3 py-1 text-xs bg-gray-400 text-white rounded-lg">
+                          Próximamente
+                        </span>
                       </div>
                       
                       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -586,9 +661,9 @@ function ProfileManagement() {
                             Gestiona tus sesiones abiertas
                           </p>
                         </div>
-                        <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          Ver sesiones
-                        </button>
+                        <span className="px-3 py-1 text-xs bg-gray-400 text-white rounded-lg">
+                          Próximamente
+                        </span>
                       </div>
                     </div>
                   </div>

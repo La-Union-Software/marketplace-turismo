@@ -22,16 +22,16 @@ export default function TailwindTest() {
 
       {/* Test our custom colors */}
       <div className="space-y-4">
-        <div className="p-4 bg-primary-brown text-white rounded-lg">
-          Custom color: bg-primary-brown
+        <div className="p-4 bg-primary text-white rounded-lg">
+          Custom color: bg-primary
         </div>
         
-        <div className="p-4 bg-primary-green text-white rounded-lg">
-          Custom color: bg-primary-green
+        <div className="p-4 bg-secondary text-white rounded-lg">
+          Custom color: bg-secondary
         </div>
         
-        <div className="p-4 bg-secondary-brown text-white rounded-lg">
-          Custom color: bg-secondary-brown
+        <div className="p-4 bg-secondary text-white rounded-lg">
+          Custom color: bg-secondary
         </div>
       </div>
 

@@ -65,9 +65,9 @@ export default function EditPostPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-brown mx-auto mb-4" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-300">Cargando publicación...</p>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function EditPostPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,7 +89,7 @@ export default function EditPostPage() {
           <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver
           </button>
@@ -100,7 +100,7 @@ export default function EditPostPage() {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Publicación no encontrada
@@ -110,7 +110,7 @@ export default function EditPostPage() {
           </p>
           <button
             onClick={() => router.push('/posts')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Publicaciones
           </button>
@@ -120,7 +120,7 @@ export default function EditPostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto p-8">
         {/* Header */}
         <motion.div

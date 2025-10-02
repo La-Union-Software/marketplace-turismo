@@ -169,7 +169,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                 {post.title}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                {post.location} • {post.price} {post.currency} por noche
+                {post.location} • ${post.price} por noche
               </p>
             </div>
 
@@ -185,7 +185,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                   value={formData.startDate}
                   onChange={(e) => handleInputChange('startDate', e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   required
                 />
               </div>
@@ -199,7 +199,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                   value={formData.endDate}
                   onChange={(e) => handleInputChange('endDate', e.target.value)}
                   min={formData.startDate || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   required
                 />
               </div>
@@ -217,7 +217,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                 max="20"
                 value={formData.guestCount}
                 onChange={(e) => handleInputChange('guestCount', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
             </div>
@@ -238,7 +238,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                     type="text"
                     value={formData.clientData.name}
                     onChange={(e) => handleInputChange('clientData.name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                     required
                   />
                 </div>
@@ -251,7 +251,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                     type="tel"
                     value={formData.clientData.phone}
                     onChange={(e) => handleInputChange('clientData.phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                     required
                   />
                 </div>
@@ -266,7 +266,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                   type="email"
                   value={formData.clientData.email}
                   onChange={(e) => handleInputChange('clientData.email', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   required
                 />
               </div>
@@ -280,7 +280,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                   value={formData.clientData.notes}
                   onChange={(e) => handleInputChange('clientData.notes', e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Información adicional sobre tu reserva..."
                 />
               </div>
@@ -295,12 +295,12 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
 
             {/* Total Amount */}
             {formData.startDate && formData.endDate && (
-              <div className="bg-primary-brown/10 border border-primary-brown/20 rounded-lg p-4">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-gray-900 dark:text-white">
                     Total Estimado:
                   </span>
-                  <span className="text-lg font-bold text-primary-brown">
+                  <span className="text-lg font-bold text-primary">
                     {(() => {
                       const startDate = new Date(formData.startDate);
                       const endDate = new Date(formData.endDate);
@@ -315,7 +315,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                     const startDate = new Date(formData.startDate);
                     const endDate = new Date(formData.endDate);
                     const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                    return `${nights} noches × ${post.price} ${post.currency}`;
+                    return `${nights} noches × $${post.price}`;
                   })()}
                 </p>
               </div>
@@ -334,7 +334,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Enviando...' : 'Enviar Solicitud'}
             </button>

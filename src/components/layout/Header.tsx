@@ -8,7 +8,8 @@ import {
   Bed, 
   Bike, 
   Sparkles,
-  Plus
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import NotificationBell from '@/components/ui/NotificationBell';
@@ -16,6 +17,7 @@ import NotificationBell from '@/components/ui/NotificationBell';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOtrosServiciosOpen, setIsOtrosServiciosOpen] = useState(false);
   const pathname = usePathname();
   const { user, hasRole } = useAuth();
 
@@ -23,7 +25,18 @@ export default function Header() {
   const navigationItems = [
     { name: 'Alojamientos', href: '/alojamientos', icon: Bed },
     { name: 'Vehículos', href: '/vehiculos', icon: Bike },
-    { name: 'Aventuras', href: '/experiencias', icon: Sparkles },
+    { 
+      name: 'Otros Servicios (proximamente)', 
+      href: '/experiencias', 
+      icon: Sparkles,
+      hasSubmenu: true,
+      submenuItems: [
+        { name: 'Clases e instructorados', href: '/experiencias?category=clases' },
+        { name: 'Alquileres', href: '/experiencias?category=alquileres' },
+        { name: 'Excursiones', href: '/experiencias?category=excursiones' },
+        { name: 'Fotografía', href: '/experiencias?category=fotografia' },
+      ]
+    },
   ];
 
   const isActive = (href: string) => {
@@ -39,29 +52,76 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-brown to-primary-green rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">MT</span>
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">N</span>
             </div>
-            <span className="text-xl font-bold gradient-text hidden sm:block">
-              Marketplace Turismo
+            <span className="text-xl font-bold text-primary hidden sm:block">
+              Nexar
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
             {navigationItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'text-primary-brown bg-primary-brown/10'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-brown hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.name}</span>
-              </Link>
+              <div key={item.name} className="relative">
+                {item.hasSubmenu ? (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setIsOtrosServiciosOpen(true)}
+                    onMouseLeave={() => setIsOtrosServiciosOpen(false)}
+                  >
+                    <Link
+                      href={item.href}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isActive(item.href)
+                          ? 'text-primary bg-primary/10'
+                          : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.name}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Link>
+                    
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                      {isOtrosServiciosOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                        >
+                          <div className="py-2">
+                            {item.submenuItems?.map((subItem) => (
+                              <Link
+                                key={subItem.name}
+                                href={subItem.href}
+                                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                {subItem.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive(item.href)
+                        ? 'text-primary bg-primary/10'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                )}
+              </div>
             ))}
 
           </nav>
@@ -72,7 +132,7 @@ export default function Header() {
             {user && !hasRole('superadmin') && (
               <Link
                 href="/posts/new"
-                className="hidden sm:flex items-center space-x-2 px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-all duration-300 transform hover:scale-105 shadow-md"
+                className="hidden sm:flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 transform hover:scale-105 shadow-md"
               >
                 <Plus className="w-4 h-4" />
                 <span>Publicar</span>
@@ -87,9 +147,9 @@ export default function Header() {
                 
                 <Link
                   href="/dashboard"
-                  className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-primary-brown hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-white font-medium text-sm">
                       {user.name.charAt(0).toUpperCase()}
                     </span>
@@ -103,13 +163,13 @@ export default function Header() {
               <div className="flex items-center space-x-3">
                 <Link
                   href="/login"
-                  className="hidden sm:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-primary-brown transition-colors"
+                  className="hidden sm:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-primary transition-colors"
                 >
                   Iniciar sesión
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-colors"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
                 >
                   Registrarse
                 </Link>
@@ -119,7 +179,7 @@ export default function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-primary-brown hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isMobileMenuOpen ? (
@@ -144,19 +204,66 @@ export default function Header() {
             >
               <div className="py-4 space-y-2">
                 {navigationItems.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                      isActive(item.href)
-                        ? 'text-primary-brown bg-primary-brown/10'
-                        : 'text-gray-700 dark:text-gray-300 hover:text-primary-brown hover:bg-gray-100 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
+                  <div key={item.name}>
+                    {item.hasSubmenu ? (
+                      <div>
+                        <button
+                          onClick={() => setIsOtrosServiciosOpen(!isOtrosServiciosOpen)}
+                          className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                            isActive(item.href)
+                              ? 'text-primary bg-primary/10'
+                              : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.name}</span>
+                          </div>
+                          <ChevronDown className={`w-4 h-4 transition-transform ${isOtrosServiciosOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {/* Mobile Submenu */}
+                        <AnimatePresence>
+                          {isOtrosServiciosOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="ml-4 mt-2 space-y-1"
+                            >
+                              {item.submenuItems?.map((subItem) => (
+                                <Link
+                                  key={subItem.name}
+                                  href={subItem.href}
+                                  onClick={() => {
+                                    setIsMobileMenuOpen(false);
+                                    setIsOtrosServiciosOpen(false);
+                                  }}
+                                  className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                >
+                                  {subItem.name}
+                                </Link>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isActive(item.href)
+                            ? 'text-primary bg-primary/10'
+                            : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    )}
+                  </div>
                 ))}
 
 
@@ -165,7 +272,7 @@ export default function Header() {
                   <Link
                     href="/posts/new"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center justify-center space-x-2 w-full px-4 py-3 bg-primary-brown text-white rounded-lg hover:bg-secondary-brown transition-all duration-300 shadow-md"
+                    className="flex items-center justify-center space-x-2 w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 shadow-md"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Publicar</span>

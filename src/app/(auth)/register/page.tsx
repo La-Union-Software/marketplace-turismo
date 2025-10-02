@@ -124,12 +124,12 @@ export default function RegisterPage() {
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Marketplace Turismo - Términos y Condiciones
+                Nexar - Términos y Condiciones
               </h3>
               
               <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 TÉRMINOS Y CONDICIONES – MARKETPLACE TURISMO (Argentina)</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 TÉRMINOS Y CONDICIONES – Nexar (Argentina)</h4>
                   <p className="mb-4">
                     Estos Términos y Condiciones regulan el acceso y uso de la Plataforma. Al registrarse o utilizarla, los usuarios aceptan su cumplimiento conforme a la Ley de Defensa del Consumidor N.º 24.240, el Código Civil y Comercial de la Nación (CCCN) y demás normativa aplicable.
                   </p>
@@ -138,7 +138,7 @@ export default function RegisterPage() {
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Objeto</h4>
                   <p className="mb-2">
-                    Marketplace Turismo actúa como intermediario digital que conecta a clientes con prestadores de servicios turísticos (negocios).
+                    Nexar actúa como intermediario digital que conecta a clientes con prestadores de servicios turísticos (negocios).
                   </p>
                   <p className="mb-4">
                     La Plataforma no presta servicios turísticos por sí misma, ni es responsable de su ejecución.
@@ -167,8 +167,8 @@ export default function RegisterPage() {
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">4. Pagos</h4>
                   <ul className="list-disc pl-6 mb-4 space-y-1">
-                    <li>Los pagos se procesan exclusivamente mediante pasarelas externas seguras (ej. Mercado Pago, Mobbex).</li>
-                    <li>Marketplace Turismo no recibe ni almacena directamente dinero ni datos financieros de usuarios.</li>
+                    <li>Los pagos se procesan exclusivamente mediante pasarelas externas seguras (ej. Mercado Pago).</li>
+                    <li>Nexar no recibe ni almacena directamente dinero ni datos financieros de usuarios.</li>
                     <li>La Plataforma solo registra la confirmación de la operación para gestionar la reserva.</li>
                     <li>El pago al negocio se libera una vez cumplidas las condiciones pactadas por la pasarela (ejemplo: 12 horas posteriores al check-in sin reclamos).</li>
                     <li>Cualquier reclamo relacionado al procesamiento del pago deberá canalizarse a través de la pasarela correspondiente.</li>
@@ -180,21 +180,21 @@ export default function RegisterPage() {
                   <ul className="list-disc pl-6 mb-4 space-y-1">
                     <li>Los negocios son responsables de la calidad, seguridad y cumplimiento del servicio ofrecido.</li>
                     <li>Los clientes son responsables de respetar las normas de uso establecidas por cada negocio.</li>
-                    <li>Marketplace Turismo no se hace responsable por daños, incumplimientos o conflictos entre las partes, aunque podrá intervenir como mediador cuando existan pruebas verificables.</li>
+                    <li>Nexar no se hace responsable por daños, incumplimientos o conflictos entre las partes, aunque podrá intervenir como mediador cuando existan pruebas verificables.</li>
                   </ul>
                 </section>
 
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">6. Propiedad intelectual</h4>
                   <p className="mb-4">
-                    Todos los logos, diseños, marcas y contenidos de Marketplace Turismo están protegidos por la Ley de Propiedad Intelectual N.º 11.723. Su uso sin autorización está prohibido.
+                    Todos los logos, diseños, marcas y contenidos de Nexar están protegidos por la Ley de Propiedad Intelectual N.º 11.723. Su uso sin autorización está prohibido.
                   </p>
                 </section>
 
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">7. Suspensión de cuentas</h4>
                   <p className="mb-4">
-                    Marketplace Turismo podrá suspender o dar de baja cuentas en casos de fraude, incumplimiento de estos términos, uso indebido de la plataforma o conducta inadecuada.
+                    Nexar podrá suspender o dar de baja cuentas en casos de fraude, incumplimiento de estos términos, uso indebido de la plataforma o conducta inadecuada.
                   </p>
                 </section>
 
@@ -220,7 +220,7 @@ export default function RegisterPage() {
           <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setShowTermsModal(false)}
-              className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
             >
               Entiendo
             </button>
@@ -256,14 +256,14 @@ export default function RegisterPage() {
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Marketplace Turismo - Privacy Policy
+                Nexar - Privacy Policy
               </h3>
               
               <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                 <section>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 POLÍTICA DE PRIVACIDAD – MARKETPLACE TURISMO (Argentina)</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">📑 POLÍTICA DE PRIVACIDAD – Nexar (Argentina)</h4>
                   <p className="mb-4">
-                    Marketplace Turismo (en adelante, "la Plataforma") respeta y protege los datos personales de sus usuarios (clientes, negocios, revendedores y referidos), conforme a lo dispuesto por la Ley N.º 25.326 de Protección de Datos Personales y sus modificatorias.
+                    Nexar (en adelante, "la Plataforma") respeta y protege los datos personales de sus usuarios (clientes, negocios, revendedores y referidos), conforme a lo dispuesto por la Ley N.º 25.326 de Protección de Datos Personales y sus modificatorias.
                   </p>
                 </section>
 
@@ -273,7 +273,7 @@ export default function RegisterPage() {
                     <li><strong>Información personal:</strong> nombre, apellido, DNI, CUIT/CUIL (cuando corresponda), domicilio, correo electrónico, teléfono.</li>
                     <li><strong>Información comercial:</strong> descripción de servicios, precios, facturación.</li>
                     <li><strong>Datos de uso:</strong> historial de reservas, puntuaciones, preferencias.</li>
-                    <li><strong>Datos de pago:</strong> la Plataforma no almacena información sensible de tarjetas o cuentas bancarias. Los pagos se procesan a través de pasarelas externas seguras (ej. Mercado Pago, Mobbex), que cumplen con las normas de seguridad PCI DSS.</li>
+                    <li><strong>Datos de pago:</strong> la Plataforma no almacena información sensible de tarjetas o cuentas bancarias. Los pagos se procesan a través de pasarelas externas seguras (ej. Mercado Pago), que cumplen con las normas de seguridad PCI DSS.</li>
                   </ul>
                 </section>
 
@@ -326,7 +326,7 @@ export default function RegisterPage() {
           <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setShowPrivacyModal(false)}
-              className="px-6 py-2 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
             >
               Entiendo
             </button>
@@ -338,7 +338,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-brown/20 via-primary-green/20 to-accent-brown/20"></div>
+      <div className="absolute inset-0 bg-primary/20"></div>
       
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -349,7 +349,7 @@ export default function RegisterPage() {
         {/* Back to Home */}
         <Link 
           href="/"
-          className="absolute -top-16 left-0 flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
+          className="absolute -top-16 left-0 flex items-center text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver al inicio
@@ -362,7 +362,7 @@ export default function RegisterPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-primary-brown to-primary-green rounded-full flex items-center justify-center"
+              className="w-16 h-16 mx-auto mb-4 bg-primary rounded-full flex items-center justify-center"
             >
               <span className="text-2xl font-bold text-white">MT</span>
             </motion.div>
@@ -412,7 +412,7 @@ export default function RegisterPage() {
                   value={formData.name}
                   onChange={(e) => updateFormData('name', e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                   placeholder="Tu nombre completo"
                 />
               </div>
@@ -431,7 +431,7 @@ export default function RegisterPage() {
                   value={formData.email}
                   onChange={(e) => updateFormData('email', e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                   placeholder="your@email.com"
                 />
               </div>
@@ -449,7 +449,7 @@ export default function RegisterPage() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => updateFormData('phone', e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                   placeholder="+34 600 123 456"
                 />
               </div>
@@ -468,7 +468,7 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={(e) => updateFormData('password', e.target.value)}
                   required
-                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
+                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                   placeholder="••••••••"
                 />
                 <button
@@ -497,7 +497,7 @@ export default function RegisterPage() {
                   value={formData.confirmPassword}
                   onChange={(e) => updateFormData('confirmPassword', e.target.value)}
                   required
-                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-brown focus:border-transparent transition-colors"
+                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                   placeholder="••••••••"
                 />
                 <button
@@ -515,14 +515,14 @@ export default function RegisterPage() {
               <input
                 type="checkbox"
                 required
-                className="w-4 h-4 text-primary-brown border-gray-300 rounded focus:ring-primary-brown focus:ring-2 mt-1"
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 mt-1"
               />
               <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
                 Acepto los{' '}
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
-                  className="text-primary-brown hover:text-secondary-brown underline focus:outline-none focus:ring-2 focus:ring-primary-brown focus:ring-offset-2 rounded"
+                  className="text-primary hover:text-secondary underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
                 >
                   términos y condiciones
                 </button>
@@ -530,7 +530,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPrivacyModal(true)}
-                  className="text-primary-brown hover:text-secondary-brown underline focus:outline-none focus:ring-2 focus:ring-primary-brown focus:ring-offset-2 rounded"
+                  className="text-primary hover:text-secondary underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
                 >
                   política de privacidad
                 </button>
@@ -541,7 +541,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-primary-brown to-primary-green text-white py-3 px-4 rounded-lg font-semibold hover:from-secondary-brown hover:to-secondary-green transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
+              className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-secondary transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
             >
               {isLoading ? (
                 <motion.div
@@ -555,25 +555,6 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-            <span className="px-4 text-sm text-gray-500 dark:text-gray-400">o</span>
-            <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-          </div>
-
-          {/* Social Login */}
-          <div className="space-y-3">
-            <button className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Continuar con Google
-            </button>
-          </div>
 
           {/* Sign In Link */}
           <div className="mt-8 text-center">
@@ -581,7 +562,7 @@ export default function RegisterPage() {
               ¿Ya tienes una cuenta?{' '}
               <Link
                 href="/login"
-                className="text-primary-brown hover:text-secondary-brown font-semibold transition-colors"
+                className="text-primary hover:text-secondary font-semibold transition-colors"
               >
                 Inicia sesión aquí
               </Link>

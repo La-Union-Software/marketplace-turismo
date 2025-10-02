@@ -15,14 +15,15 @@ import {
   Check,
   X,
   CreditCard,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
-import { mobbexService } from '@/services/mobbexService';
 import { Booking, CancellationPenalty } from '@/types';
 import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
 import CancellationModal from '@/components/booking/CancellationModal';
+import { voucherService } from '@/services/voucherService';
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -83,34 +84,13 @@ export default function BookingDetailPage() {
         clientEmail: booking.client.email
       });
 
-      // Get user's Mobbex credentials if available
-      let userCredentials = null;
-      if (user?.mobbexCredentials?.isConnected) {
-        userCredentials = {
-          accessToken: user.mobbexCredentials.accessToken,
-          entity: {
-            name: user.mobbexCredentials.entity.name,
-            taxId: user.mobbexCredentials.entity.taxId,
-          },
-        };
-        console.log('🔑 [BookingDetail] Using user Mobbex credentials:', {
-          hasAccessToken: !!userCredentials.accessToken,
-          entityName: userCredentials.entity.name,
-          entityTaxId: userCredentials.entity.taxId
-        });
-      } else {
-        console.log('🔑 [BookingDetail] No user Mobbex credentials, using system credentials');
-      }
-
-      console.log('🚀 [BookingDetail] Approving booking without checkout creation...');
-      
       console.log('💾 [BookingDetail] Updating booking status to pending_payment...');
-      // Update booking status to pending payment (without checkout)
+      // Update booking status to pending payment
       await firebaseDB.bookings.updateStatus(booking.id, 'pending_payment');
       console.log('✅ [BookingDetail] Booking status updated successfully');
 
       console.log('🔔 [BookingDetail] Creating notification for client...');
-      // Create notification for client with mock checkout link
+      // Create notification for client
       await firebaseDB.notifications.create({
         userId: booking.clientId,
         type: 'payment_pending',
@@ -119,8 +99,7 @@ export default function BookingDetailPage() {
         isRead: false,
         data: {
           bookingId: booking.id,
-          postId: booking.postId,
-          checkoutUrl: `${window.location.origin}/checkout/${booking.id}`
+          postId: booking.postId
         }
       });
       console.log('✅ [BookingDetail] Notification created successfully');
@@ -283,11 +262,23 @@ export default function BookingDetailPage() {
     }).format(price);
   };
 
+  const handleDownloadVoucher = async () => {
+    if (!booking) return;
+    
+    try {
+      const type = booking.clientId === user?.id ? 'client' : 'publisher';
+      await voucherService.generateVoucher({ booking, type });
+    } catch (error) {
+      console.error('Error downloading voucher:', error);
+      alert('Error al descargar el voucher. Por favor, intenta nuevamente.');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-brown mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando reserva...</p>
         </div>
       </div>
@@ -296,7 +287,7 @@ export default function BookingDetailPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 mb-4">
             <AlertCircle className="w-16 h-16 mx-auto" />
@@ -307,7 +298,7 @@ export default function BookingDetailPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -318,7 +309,7 @@ export default function BookingDetailPage() {
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Reserva no encontrada
@@ -328,7 +319,7 @@ export default function BookingDetailPage() {
           </p>
           <button
             onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-gradient-to-r from-primary-brown to-primary-green text-white rounded-lg hover:from-secondary-brown hover:to-secondary-green transition-all duration-300"
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
           >
             Volver a Reservas
           </button>
@@ -341,7 +332,7 @@ export default function BookingDetailPage() {
   const isClient = booking.clientId === user?.id;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-8">
         {/* Back Button */}
         <motion.div
@@ -352,7 +343,7 @@ export default function BookingDetailPage() {
         >
           <button
             onClick={() => router.push('/bookings')}
-            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-brown transition-colors"
+            className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Volver a Reservas
@@ -497,6 +488,17 @@ export default function BookingDetailPage() {
               </h3>
               
               <div className="space-y-3">
+                {/* Download Voucher - Available for paid bookings */}
+                {booking.status === 'paid' && (
+                  <button
+                    onClick={handleDownloadVoucher}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Descargar Voucher</span>
+                  </button>
+                )}
+
                 {/* Owner Actions */}
                 {isOwner && booking.status === 'requested' && (
                   <>
@@ -542,7 +544,7 @@ export default function BookingDetailPage() {
                 {/* View Post Button */}
                 <button
                   onClick={() => router.push(`/post/${booking.postId}`)}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-primary-brown text-primary-brown rounded-lg hover:bg-primary-brown hover:text-white transition-colors"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
                 >
                   <span>Ver Servicio</span>
                 </button>

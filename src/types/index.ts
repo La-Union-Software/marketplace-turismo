@@ -57,17 +57,6 @@ export interface User {
   updatedAt: Date;
   lastLoginAt?: Date;
   profileCompleted: boolean;
-  mobbexCredentials?: {
-    accessToken?: string;
-    entity?: {
-      name: string;
-      logo?: string;
-      taxId: string;
-    };
-    cuit?: string; // CUIT for marketplace split payments
-    isConnected: boolean;
-    connectedAt: Date;
-  };
 }
 
 // Cancellation Policy interface
@@ -91,6 +80,7 @@ export interface BasePost {
   specificFields: Record<string, unknown>; // Specific information fields based on category
   cancellationPolicies: CancellationPolicy[]; // Cancellation policies for the post
   isActive: boolean;
+  isEnabled: boolean; // SuperAdmin control - if false, post is hidden from platform
   userId: string;
   publisherId: string; // The user who published this post
   status: 'draft' | 'pending' | 'approved' | 'rejected' | 'published';
@@ -235,21 +225,20 @@ export interface MercadoPagoCredentials {
   updatedBy: string; // User ID who last updated the credentials
 }
 
-export interface MobbexCredentials {
+export interface MercadoPagoAccount {
   id: string;
-  apiKey: string;
   accessToken: string;
-  auditKey?: string; // Optional audit key for loyalty features
+  publicKey: string;
+  userId: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  updatedBy: string; // User ID who last updated the credentials
+  updatedBy: string;
 }
 
 export interface SystemSettings {
   id: string;
   mercadoPago: MercadoPagoCredentials;
-  mobbex: MobbexCredentials;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -269,7 +258,6 @@ export interface SubscriptionPlan {
   isVisible: boolean;
   mercadoPagoPlanId?: string; // Mercado Pago subscription plan ID
   mercadoPagoPreferenceId?: string; // Mercado Pago preference ID
-  mobbexSubscriptionId?: string; // Mobbex subscription ID for sync
   createdAt: Date;
   updatedAt: Date;
   createdBy: string; // User ID who created the plan
@@ -316,46 +304,9 @@ export interface UserSubscription {
   endDate: Date;
   mercadoPagoSubscriptionId?: string;
   mercadoPagoPreferenceId?: string;
-  mobbexSubscriptionId?: string; // Mobbex subscription ID
-  mobbexSubscriberId?: string; // Mobbex subscriber ID
   lastPaymentDate?: Date;
   nextPaymentDate?: Date;
   totalPayments: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Mobbex Subscription Types
-export interface MobbexSubscription {
-  id: string;
-  name: string;
-  description: string;
-  total: number;
-  currency: string;
-  reference: string;
-  features: string[];
-  returnUrl: string;
-  webhook: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface MobbexSubscriber {
-  id: string;
-  subscriptionId: string;
-  customer: {
-    identification: string;
-    email: string;
-    name: string;
-  };
-  startDate: {
-    day: number;
-    month: number;
-  };
-  reference: string;
-  total: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -410,9 +361,6 @@ export interface Booking {
     phone: string;
     notes?: string;
   };
-  mobbexCheckoutId?: string;
-  mobbexCheckoutUrl?: string;
-  mobbexTransactionId?: string;
   paymentData?: {
     method: string;
     installments: number;
@@ -445,4 +393,12 @@ export interface Notification {
   isRead: boolean;
   createdAt: Date;
   readAt?: Date;
+}
+
+// Favourite Types
+export interface Favourite {
+  id: string;
+  userId: string;
+  postId: string;
+  createdAt: Date;
 } 

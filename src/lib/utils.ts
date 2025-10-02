@@ -76,4 +76,72 @@ export function getCategoryColor(category: string): string {
     'Cabalgatas': 'bg-amber-100 text-amber-800',
   };
   return colors[category] || 'bg-gray-100 text-gray-800';
+}
+
+/**
+ * Parses OpenStreetMap address format to extract city and state/province
+ * @param address - The full address string from OpenStreetMap
+ * @returns Object with city and state, or fallback to original address
+ */
+export function parseAddress(address: string): { city: string; state: string } {
+  if (!address) return { city: '', state: '' };
+
+  // Split by comma and clean up whitespace
+  const parts = address.split(',').map(part => part.trim());
+  
+  if (parts.length < 2) {
+    return { city: address, state: '' };
+  }
+
+  // Common patterns for OpenStreetMap addresses:
+  // "Street Name, City, Province/State, Country"
+  // "Street Name, City, Province/State, Postal Code, Country"
+  
+  let city = '';
+  let state = '';
+  
+  // Try to identify city and state from the parts
+  // Usually city is the second part and state is the third
+  if (parts.length >= 3) {
+    city = parts[1];
+    
+    // Check if the third part looks like a state/province (not a postal code)
+    const thirdPart = parts[2];
+    const isPostalCode = /^\d{4,5}$/.test(thirdPart); // Simple postal code check
+    
+    if (!isPostalCode) {
+      state = thirdPart;
+    } else if (parts.length >= 4) {
+      // If third part is postal code, state might be fourth part
+      state = parts[3];
+    }
+  } else if (parts.length === 2) {
+    // Only two parts, assume first is city, second is state
+    city = parts[0];
+    state = parts[1];
+  } else {
+    // Fallback to original address
+    city = address;
+  }
+
+  // Clean up common suffixes and prefixes
+  city = city.replace(/^(Calle|Avenida|Plaza|Paseo)\s+/i, '').trim();
+  state = state.replace(/\s+(Provincia|Estado|State|Province)$/i, '').trim();
+  
+  return { city, state };
+}
+
+/**
+ * Formats address for display showing only city and state
+ * @param address - The full address string from OpenStreetMap
+ * @returns Formatted string with city and state
+ */
+export function formatAddressForDisplay(address: string): string {
+  const { city, state } = parseAddress(address);
+  
+  if (!city && !state) return address;
+  if (!state) return city;
+  if (!city) return state;
+  
+  return `${city}, ${state}`;
 } 

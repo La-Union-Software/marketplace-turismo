@@ -2,17 +2,19 @@
 
 import { BasePost } from '@/types';
 import PostImages from './PostImages';
-import { MapPin, Euro, Calendar } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
+import { formatAddressForDisplay } from '@/lib/utils';
 
 interface PostCardProps {
   post: BasePost;
   className?: string;
   showImages?: boolean;
+  isGridView?: boolean;
 }
 
-export default function PostCard({ post, className = '', showImages = true }: PostCardProps) {
+export default function PostCard({ post, className = '', showImages = true, isGridView = false }: PostCardProps) {
   return (
-    <div className={`glass rounded-xl p-6 hover:shadow-lg transition-all duration-300 ${className}`}>
+    <div className={`glass rounded-xl p-6 hover:shadow-lg transition-all duration-300 ${isGridView ? 'w-full max-w-sm' : ''} ${className}`}>
       {/* Images */}
       {showImages && (
         <div className="mb-4">
@@ -21,6 +23,7 @@ export default function PostCard({ post, className = '', showImages = true }: Po
             className="w-full"
             showMainImageOnly={true}
             showGallery={false}
+            aspectRatio={isGridView ? 'square' : 'tall'}
           />
         </div>
       )}
@@ -39,16 +42,15 @@ export default function PostCard({ post, className = '', showImages = true }: Po
         <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
           <div className="flex items-center space-x-1">
             <MapPin className="w-4 h-4" />
-            <span>{post.location}</span>
+            <span>{formatAddressForDisplay(post.location)}</span>
           </div>
           <div className="flex items-center space-x-1">
-            <Euro className="w-4 h-4" />
-            <span>{post.price} {post.currency}</span>
+            <span>Desde ${post.price}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="px-2 py-1 bg-primary-brown/10 text-primary-brown text-xs font-medium rounded-full">
+          <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
             {post.category}
           </span>
           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
