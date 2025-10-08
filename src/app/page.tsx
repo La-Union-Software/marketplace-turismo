@@ -11,6 +11,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import AddressSearch from '@/components/ui/AddressSearch';
 import BackgroundCarousel from '@/components/ui/BackgroundCarousel';
 
@@ -137,8 +138,20 @@ export default function HomePage() {
 
 
       {/* Popular Destinations */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        {/* Background decorative image - right half of contorno-isotipo-1 */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] pointer-events-none opacity-20 dark:opacity-10">
+          <div className="relative w-full h-full -translate-x-1/2">
+            <Image
+              src="/img/contorno-isotipo-1.png"
+              alt=""
+              fill
+              className="object-contain"
+            />
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -191,8 +204,20 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        {/* Background decorative image - top left quarter of contorno-isotipo-2 at bottom right */}
+        <div className="absolute right-0 bottom-0 w-[500px] h-[500px] pointer-events-none opacity-15 dark:opacity-10">
+          <div className="relative w-full h-full translate-y-1/2">
+            <Image
+              src="/img/contorno-isotipo-2.png"
+              alt=""
+              fill
+              className="object-contain"
+            />
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
