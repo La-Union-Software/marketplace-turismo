@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -120,13 +121,16 @@ export default function Header() {
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">N</span>
+          <Link href="/" className="flex items-center">
+            <div className="relative h-12 w-32 sm:h-14 sm:w-40">
+              <Image 
+                src="/img/logo.jpg" 
+                alt="Nexar Logo" 
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
-            <span className="text-xl font-bold text-primary hidden sm:block">
-              Nexar
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
