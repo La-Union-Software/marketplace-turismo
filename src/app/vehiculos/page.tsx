@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List, Search, MapPin, DollarSign, Car, Zap, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { firebaseDB } from '@/services/firebaseService';
@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 const VEHICULO_CATEGORIES: ServiceCategory[] = ['Alquiler de autos', 'Alquiler de bicicletas', 'Alquiler de kayaks'];
 
-export default function VehiculosPage() {
+function VehiculosContent() {
   const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BasePost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -803,5 +803,21 @@ export default function VehiculosPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VehiculosPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <VehiculosContent />
+    </Suspense>
   );
 }

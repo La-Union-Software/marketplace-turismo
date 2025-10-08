@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List, Search, MapPin, DollarSign, Clock, Users, Mountain, ChevronLeft, ChevronRight } from 'lucide-react';
 import { firebaseDB } from '@/services/firebaseService';
@@ -37,7 +37,7 @@ const getFilterDisplayName = (category: ServiceCategory): string => {
     : category;
 };
 
-export default function ClasesPage() {
+function ClasesContent() {
   const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BasePost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -721,5 +721,21 @@ export default function ClasesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ClasesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <ClasesContent />
+    </Suspense>
   );
 }

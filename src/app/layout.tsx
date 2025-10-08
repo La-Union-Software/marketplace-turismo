@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
@@ -15,7 +15,11 @@ export const metadata: Metadata = {
   description: "Elegí entre alojamientos, actividades, excursiones y medios para moverte.<br> Todo en un solo lugar, seguro y fácil de reservar.",
   keywords: "turismo, alquiler, hoteles, aventuras, viajes, España",
   authors: [{ name: "Nexar" }],
-  viewport: "width=device-width, initial-scale=1",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
