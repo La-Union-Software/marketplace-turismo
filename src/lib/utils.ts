@@ -52,8 +52,30 @@ export function getCategoryIcon(category: string): string {
     'Alquiler de bicicletas': 'bike',
     'Alquiler de kayaks': 'waves',
     // Clases/instructorados
-    'Clases de sky/snowboard': 'mountain',
+    'Clases de Esquí': 'mountain',
+    'Clases de snowboard': 'mountain',
+    'Clases de surf': 'waves',
+    'Clases de wingfoil': 'wind',
+    'Clases de wing surf': 'wind',
+    // Alquileres
+    'Alquiler equipo de esquí': 'mountain',
+    'Alquiler equipo de snowboard': 'mountain',
+    'Alquiler ropa de nieve': 'snowflake',
+    'Alquiler equipo de surf': 'waves',
+    'Alquiler equipo de wingfoil': 'wind',
+    'Alquiler equipo de wing surf': 'wind',
+    'Alquiler de carpa': 'tent',
+    'Alquiler de sombrilla': 'umbrella',
+    'Alquiler': 'package',
+    // Excursiones
+    'Excursiones lacustres': 'waves',
+    'Excursiones terrestres': 'map',
+    'Experiencias 4x4': 'car',
     'Cabalgatas': 'horse',
+    'Excursiones aéreas': 'plane',
+    // Fotografía
+    'Vuelo de drone': 'camera',
+    'Fotografía': 'camera',
   };
   return icons[category] || 'package';
 }
@@ -72,8 +94,30 @@ export function getCategoryColor(category: string): string {
     'Alquiler de bicicletas': 'bg-green-100 text-green-800',
     'Alquiler de kayaks': 'bg-cyan-100 text-cyan-800',
     // Clases/instructorados
-    'Clases de sky/snowboard': 'bg-sky-100 text-sky-800',
+    'Clases de Esquí': 'bg-sky-100 text-sky-800',
+    'Clases de snowboard': 'bg-purple-100 text-purple-800',
+    'Clases de surf': 'bg-blue-100 text-blue-800',
+    'Clases de wingfoil': 'bg-cyan-100 text-cyan-800',
+    'Clases de wing surf': 'bg-teal-100 text-teal-800',
+    // Alquileres
+    'Alquiler equipo de esquí': 'bg-sky-100 text-sky-800',
+    'Alquiler equipo de snowboard': 'bg-purple-100 text-purple-800',
+    'Alquiler ropa de nieve': 'bg-blue-100 text-blue-800',
+    'Alquiler equipo de surf': 'bg-blue-100 text-blue-800',
+    'Alquiler equipo de wingfoil': 'bg-cyan-100 text-cyan-800',
+    'Alquiler equipo de wing surf': 'bg-teal-100 text-teal-800',
+    'Alquiler de carpa': 'bg-green-100 text-green-800',
+    'Alquiler de sombrilla': 'bg-yellow-100 text-yellow-800',
+    'Alquiler': 'bg-gray-100 text-gray-800',
+    // Excursiones
+    'Excursiones lacustres': 'bg-blue-100 text-blue-800',
+    'Excursiones terrestres': 'bg-green-100 text-green-800',
+    'Experiencias 4x4': 'bg-orange-100 text-orange-800',
     'Cabalgatas': 'bg-amber-100 text-amber-800',
+    'Excursiones aéreas': 'bg-sky-100 text-sky-800',
+    // Fotografía
+    'Vuelo de drone': 'bg-indigo-100 text-indigo-800',
+    'Fotografía': 'bg-pink-100 text-pink-800',
   };
   return colors[category] || 'bg-gray-100 text-gray-800';
 }
@@ -133,10 +177,21 @@ export function parseAddress(address: string): { city: string; state: string } {
 
 /**
  * Formats address for display showing only city and state
- * @param address - The full address string from OpenStreetMap
+ * @param address - The full address string from OpenStreetMap or address object
  * @returns Formatted string with city and state
  */
-export function formatAddressForDisplay(address: string): string {
+export function formatAddressForDisplay(address: string | { country: string; state: string; city: string; postalCode: string; address: string }): string {
+  // Handle new address object format
+  if (typeof address === 'object' && address !== null) {
+    const parts = [];
+    if (address.city) parts.push(address.city);
+    if (address.state) parts.push(address.state);
+    if (address.postalCode) parts.push(address.postalCode);
+    
+    return parts.length > 0 ? parts.join(', ') : 'Ubicación no especificada';
+  }
+  
+  // Handle legacy string format
   const { city, state } = parseAddress(address);
   
   if (!city && !state) return address;

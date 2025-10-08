@@ -11,6 +11,7 @@ interface PostImagesProps {
   showMainImageOnly?: boolean;
   showGallery?: boolean;
   aspectRatio?: 'square' | 'tall';
+  imageHeightClass?: string;
 }
 
 export default function PostImages({ 
@@ -18,7 +19,8 @@ export default function PostImages({
   className = '', 
   showMainImageOnly = false,
   showGallery = true,
-  aspectRatio = 'tall'
+  aspectRatio = 'tall',
+  imageHeightClass
 }: PostImagesProps) {
   const { images, loading, error } = usePostImages(postId);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -98,19 +100,22 @@ export default function PostImages({
 
   const displayImages = showMainImageOnly ? [safeImages[0]] : safeImages;
 
+  // Determine image height class
+  const getImageHeightClass = () => {
+    if (imageHeightClass) return imageHeightClass;
+    if (aspectRatio === 'square') return 'aspect-square';
+    return 'h-96 md:h-[500px] lg:h-[600px]';
+  };
+
   return (
     <>
-      <div className={`space-y-4 ${className} overflow-hidden`}>
+      <div className={`${className} overflow-hidden`}>
         {/* Main Image Display */}
         <div className="relative">
           <img
             src={displayImages[selectedImageIndex]?.data}
             alt={`Post image ${selectedImageIndex + 1}`}
-            className={`w-full object-cover rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer transition-transform hover:scale-[1.02] ${
-              aspectRatio === 'square' 
-                ? 'aspect-square' 
-                : 'h-96 md:h-[500px] lg:h-[600px]'
-            }`}
+            className={`w-full object-cover cursor-pointer transition-transform hover:scale-[1.02] ${getImageHeightClass()}`}
             onClick={() => showGallery && openFullscreen(selectedImageIndex)}
           />
           

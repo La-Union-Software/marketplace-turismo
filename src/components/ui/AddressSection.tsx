@@ -34,15 +34,13 @@ interface AddressSectionProps {
   onChange: (address: AddressData) => void;
   placeholder?: string;
   disabled?: boolean;
-  showExternalToggle?: boolean;
 }
 
 export default function AddressSection({ 
   value, 
   onChange, 
   placeholder = "Seleccionar dirección...",
-  disabled = false,
-  showExternalToggle = true
+  disabled = false
 }: AddressSectionProps) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [states, setStates] = useState<State[]>([]);
@@ -52,7 +50,7 @@ export default function AddressSection({
   const [citySearch, setCitySearch] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [filteredCities, setFilteredCities] = useState<City[]>([]);
-  const [useExternalData, setUseExternalData] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load countries on component mount
   useEffect(() => {
@@ -62,7 +60,7 @@ export default function AddressSection({
         const data = await response.json();
         setCountries(data);
         
-        // Set default country to Argentina
+        // Set default country to Argentina only if no country is set
         if (data.length > 0 && !value.country) {
           const argentina = data.find((c: Country) => c.code === 'AR');
           if (argentina) {
@@ -80,7 +78,69 @@ export default function AddressSection({
     fetchCountries();
   }, []);
 
-  // Load states when country changes
+  // Initialize city search with existing city value
+  useEffect(() => {
+    if (value.city && !citySearch) {
+      setCitySearch(value.city);
+    }
+  }, [value.city, citySearch]);
+
+  // Load states when component mounts with existing country data
+  useEffect(() => {
+    if (value.country && countries.length > 0) {
+      const fetchStates = async () => {
+        try {
+          const response = await fetch(`/api/locations/states?country=${value.country}`);
+          const data = await response.json();
+          setStates(data);
+        } catch (error) {
+          console.error('Error fetching states:', error);
+        }
+      };
+      fetchStates();
+    }
+  }, [value.country, countries.length]);
+
+  // Handle state name to code conversion when states are loaded
+  useEffect(() => {
+    if (value.state && states.length > 0) {
+      // Check if the state value is a name instead of a code
+      // Also handle different formats like "río_negro" -> "Río Negro"
+      const stateByName = states.find(s => 
+        s.name === value.state || 
+        s.name.toLowerCase().replace(/\s+/g, '_') === value.state.toLowerCase() ||
+        s.code === value.state
+      );
+      
+      if (stateByName && stateByName.code !== value.state) {
+        // Only update the state code, preserve all other fields
+        onChange({
+          ...value,
+          state: stateByName.code
+        });
+      }
+    }
+  }, [value.state, states, onChange]);
+
+  // Load cities when component mounts with existing state data
+  useEffect(() => {
+    if (value.country && value.state && countries.length > 0) {
+      const fetchCities = async () => {
+        try {
+          const response = await fetch(`/api/locations/cities?country=${value.country}&state=${value.state}&limit=500`);
+          const data = await response.json();
+          const citiesData = data.cities || data;
+          setCities(citiesData);
+          setFilteredCities(citiesData);
+        } catch (error) {
+          console.error('Error fetching cities:', error);
+        }
+      };
+      fetchCities();
+    }
+  }, [value.country, value.state, countries.length]);
+
+  // Load states when country changes (only reset fields if this is a user-initiated change)
   useEffect(() => {
     if (value.country) {
       const fetchStates = async () => {
@@ -90,7 +150,15 @@ export default function AddressSection({
           const data = await response.json();
           setStates(data);
           
-          // Reset state and city when country changes
+          // Only reset fields if this is a user-initiated country change
+          // Don't reset if we're just loading data for existing values
+          if (isInitialLoad) {
+            // This is initial data loading, don't reset existing values
+            setIsInitialLoad(false);
+            return;
+          }
+          
+          // This is a user-initiated change, reset dependent fields
           onChange({
             ...value,
             state: '',
@@ -112,14 +180,14 @@ export default function AddressSection({
     }
   }, [value.country]);
 
-  // Load cities when state changes
+  // Load cities when state changes (only reset fields if this is a user-initiated change)
   useEffect(() => {
-    if (value.state) {
+    if (value.state && value.country) {
       const fetchCities = async () => {
         setLoadingCities(true);
         try {
-          // Use external or local data based on toggle
-          const response = await fetch(`/api/locations/cities?state=${value.state}&external=${useExternalData}&limit=500`);
+          // value.state now contains the state code directly
+          const response = await fetch(`/api/locations/cities?country=${value.country}&state=${value.state}&limit=500`);
           const data = await response.json();
           
           // Handle both old format (array) and new format (object with cities property)
@@ -127,7 +195,14 @@ export default function AddressSection({
           setCities(citiesData);
           setFilteredCities(citiesData);
           
-          // Reset city when state changes
+          // Only reset fields if this is a user-initiated state change
+          // Don't reset if we're just loading data for existing values
+          if (isInitialLoad) {
+            // This is initial data loading, don't reset existing values
+            return;
+          }
+          
+          // This is a user-initiated change, reset dependent fields
           onChange({
             ...value,
             city: '',
@@ -136,18 +211,8 @@ export default function AddressSection({
           });
         } catch (error) {
           console.error('Error fetching cities:', error);
-          // Fallback to local data
-          try {
-            const fallbackResponse = await fetch(`/api/locations/cities?state=${value.state}&external=false`);
-            const fallbackData = await fallbackResponse.json();
-            const citiesData = fallbackData.cities || fallbackData;
-            setCities(citiesData);
-            setFilteredCities(citiesData);
-          } catch (fallbackError) {
-            console.error('Fallback also failed:', fallbackError);
-            setCities([]);
-            setFilteredCities([]);
-          }
+          setCities([]);
+          setFilteredCities([]);
         } finally {
           setLoadingCities(false);
         }
@@ -158,7 +223,7 @@ export default function AddressSection({
       setCities([]);
       setFilteredCities([]);
     }
-  }, [value.state, useExternalData]);
+  }, [value.state, value.country]);
 
   // Filter cities based on search
   useEffect(() => {
@@ -173,9 +238,11 @@ export default function AddressSection({
   }, [citySearch, cities]);
 
   const handleCountryChange = (countryCode: string) => {
+    const selectedCountry = countries.find(c => c.code === countryCode);
+    setIsInitialLoad(false); // Mark as user-initiated change
     onChange({
       ...value,
-      country: countryCode,
+      country: countryCode, // Store the country code for consistency
       state: '',
       city: '',
       postalCode: '',
@@ -184,19 +251,21 @@ export default function AddressSection({
   };
 
   const handleStateChange = (stateCode: string) => {
+    setIsInitialLoad(false); // Mark as user-initiated change
     onChange({
       ...value,
-      state: stateCode,
+      state: stateCode, // Store the state code/ID
       city: '',
-      postalCode: '',
-      address: ''
+      // Preserve postalCode and address when state changes
+      postalCode: value.postalCode,
+      address: value.address
     });
   };
 
   const handleCitySelect = (city: City) => {
     onChange({
       ...value,
-      city: city.code
+      city: city.name // Store the actual city name instead of code
     });
     setCitySearch(city.name);
     setShowCityDropdown(false);
@@ -208,15 +277,17 @@ export default function AddressSection({
   };
 
   const getSelectedCountry = () => {
-    return countries.find(c => c.code === value.country);
+    // Handle both country code and country name
+    return countries.find(c => c.code === value.country || c.name === value.country);
   };
 
   const getSelectedState = () => {
-    return states.find(s => s.code === value.state);
+    // Handle both state code and state name
+    return states.find(s => s.code === value.state || s.name === value.state);
   };
 
   const getSelectedCity = () => {
-    return cities.find(c => c.code === value.city);
+    return cities.find(c => c.name === value.city);
   };
 
   return (
@@ -263,34 +334,6 @@ export default function AddressSection({
         </select>
       </div>
 
-      {/* External Data Toggle */}
-      {showExternalToggle && (
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Fuente de datos de ciudades
-            </h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {useExternalData 
-                ? 'Usando datos externos (más ciudades disponibles)' 
-                : 'Usando datos locales (más rápido)'
-              }
-            </p>
-          </div>
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useExternalData}
-              onChange={(e) => setUseExternalData(e.target.checked)}
-              disabled={disabled}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              Datos externos
-            </span>
-          </label>
-        </div>
-      )}
 
       {/* City */}
       <div className="relative">
@@ -384,7 +427,7 @@ export default function AddressSection({
               value.address,
               getSelectedCity()?.name,
               getSelectedState()?.name,
-              getSelectedCountry()?.name
+              getSelectedCountry()?.name || (value.country === 'AR' ? 'Argentina' : value.country)
             ].filter(Boolean).join(', ')}
             {value.postalCode && ` (${value.postalCode})`}
           </p>

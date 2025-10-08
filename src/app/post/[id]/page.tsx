@@ -11,6 +11,7 @@ import PostImages from '@/components/ui/PostImages';
 import BookingForm from '@/components/booking/BookingForm';
 import ShareModal from '@/components/ui/ShareModal';
 import { formatAddressForDisplay } from '@/lib/utils';
+import { categoryAmenities, mainCategoryMapping } from '@/services/dummyData';
 
 // Function to mask phone numbers and email addresses
 const maskContactInfo = (text: string): string => {
@@ -272,7 +273,12 @@ export default function PostDetailPage() {
                   <div className="flex items-center space-x-4 text-gray-600 dark:text-gray-300">
                     <div className="flex items-center">
                       <MapPin className="w-4 h-4 mr-1" />
-                      <span>{formatAddressForDisplay(post.location)}</span>
+                      <span>
+                        {post.address ? 
+                          formatAddressForDisplay(post.address) : 
+                          'Ubicación no disponible'
+                        }
+                      </span>
                     </div>
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1" />
@@ -320,37 +326,220 @@ export default function PostDetailPage() {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
                   Información Específica
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(post.specificFields).map(([key, value]) => {
-                    // Skip boolean values (characteristics) as they'll be shown separately
-                    if (typeof value === 'boolean') return null;
-                    
-                    // Skip PropertyType fields
-                    if (key === 'propertyType') return null;
-                    
-                    // Handle special field names
-                    const getFieldDisplayName = (fieldKey: string) => {
-                      switch (fieldKey) {
-                        case 'maxPeople':
-                          return 'Cantidad máxima de personas';
-                        case 'voucherText':
-                          return 'Texto para Voucher';
-                        default:
-                          return fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
-                      }
-                    };
-                    
-                    return (
-                      <div key={key} className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
-                          {getFieldDisplayName(key)}:
-                        </span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}
-                        </span>
+
+                <div className="space-y-6">
+                  {/* Check if it's an accommodation category */}
+                  {Boolean(mainCategoryMapping['alojamiento']?.includes(post.category as any)) && (
+                    <>
+                      {/* Basic Information for Accommodations */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {post.specificFields?.maxPeople !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Cantidad de personas
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.maxPeople)}
+                            </span>
+                          </div>
+                        )}
+                        {post.specificFields?.checkIn !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Check In
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.checkIn)}
+                            </span>
+                          </div>
+                        )}
+                        {post.specificFields?.checkOut !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Check Out
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.checkOut)}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
+
+                      {/* Amenities for Accommodations */}
+                      {categoryAmenities[post.category as keyof typeof categoryAmenities] && (
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            Características y Servicios
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {categoryAmenities[post.category as keyof typeof categoryAmenities]?.map((amenity) => {
+                              const hasAmenity = post.specificFields?.[amenity] === true;
+                              if (!hasAmenity) return null;
+                              
+                              return (
+                                <div key={amenity} className="flex items-center space-x-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-sm text-gray-900 dark:text-white">{amenity}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Check if it's a vehicle rental category */}
+                  {Boolean(mainCategoryMapping['alquiler-vehiculos']?.includes(post.category as any)) && (
+                    <>
+                      {/* Basic Information for Vehicles */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {post.specificFields?.maxPeople !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Capacidad
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.maxPeople)} personas
+                            </span>
+                          </div>
+                        )}
+                        {post.specificFields?.pickupTime !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Horario de retiro
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.pickupTime)}
+                            </span>
+                          </div>
+                        )}
+                        {post.specificFields?.returnTime !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              Horario de devolución
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {String(post.specificFields.returnTime)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Service Options for Vehicles */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                          Servicios Adicionales
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {post.specificFields?.deliveryPoints === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Entrega en puntos a convenir</span>
+                            </div>
+                          )}
+                          {post.specificFields?.childSeat === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Silla para niños</span>
+                            </div>
+                          )}
+                          {post.specificFields?.snowChains === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Cadenas para nieve</span>
+                            </div>
+                          )}
+                          {post.specificFields?.countryPermission === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Permiso para salir del país</span>
+                            </div>
+                          )}
+                          {post.specificFields?.spareWheel === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Rueda de auxilio</span>
+                            </div>
+                          )}
+                          {post.specificFields?.gnc === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">GNC</span>
+                            </div>
+                          )}
+                          {post.specificFields?.helmet === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Casco</span>
+                            </div>
+                          )}
+                          {post.specificFields?.vest === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Chaleco</span>
+                            </div>
+                          )}
+                          {post.specificFields?.extraHours === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Horas extras</span>
+                            </div>
+                          )}
+                          {post.specificFields?.lifeJacket === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Poncho salvavidas</span>
+                            </div>
+                          )}
+                          {post.specificFields?.paddles === true && (
+                            <div className="flex items-center space-x-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm text-gray-900 dark:text-white">Remos y salvaremos</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* For other services categories */}
+                  {Boolean(mainCategoryMapping['otros-servicios']?.includes(post.category as any)) && (
+                    <>
+                      {post.specificFields?.includes !== undefined && (
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            Incluye
+                          </h3>
+                          <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg whitespace-pre-line">
+                            {String(post.specificFields.includes)}
+                          </p>
+                        </div>
+                      )}
+                      {post.specificFields?.requirements !== undefined && (
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            Requisitos
+                          </h3>
+                          <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg whitespace-pre-line">
+                            {String(post.specificFields.requirements)}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Voucher Text - Available for all categories */}
+                  {post.specificFields?.voucherText !== undefined && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        Información del Voucher
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg whitespace-pre-line border-l-4 border-amber-500">
+                        {String(post.specificFields.voucherText)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -362,7 +551,12 @@ export default function PostDetailPage() {
               </h2>
               <div className="flex items-center text-gray-600 dark:text-gray-300">
                 <MapPin className="w-5 h-5 mr-2" />
-                <span>{formatAddressForDisplay(post.location)}</span>
+                <span>
+                  {post.address ? 
+                    formatAddressForDisplay(post.address) : 
+                    'Ubicación no disponible'
+                  }
+                </span>
               </div>
             </div>
           </motion.div>

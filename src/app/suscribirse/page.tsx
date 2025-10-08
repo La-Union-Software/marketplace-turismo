@@ -175,7 +175,7 @@ export default function SuscribirsePage() {
                   <CreditCard className="w-6 h-6 text-blue-600" />
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Publica sin límites
+                Publica tus servicios turisticos
                 </h4>
                 <p className="text-gray-600 dark:text-gray-300 text-sm">
                   Crea y gestiona múltiples publicaciones de servicios turísticos

@@ -24,6 +24,7 @@ import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { Booking, BookingStatus, CancellationPenalty } from '@/types';
 import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
+import { formatAddressForDisplay } from '@/lib/utils';
 import CancellationModal from '@/components/booking/CancellationModal';
 import PostImages from '@/components/ui/PostImages';
 import { voucherService } from '@/services/voucherService';
@@ -559,7 +560,9 @@ export default function BookingsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600 dark:text-gray-400">{booking.post.location}</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {booking.post.address ? formatAddressForDisplay(booking.post.address) : 'Ubicación no disponible'}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <DollarSign className="w-4 h-4 text-gray-400" />

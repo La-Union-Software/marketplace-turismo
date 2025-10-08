@@ -233,10 +233,13 @@ function PublicacionesContent() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: index * 0.05 }}
-                  onClick={() => handlePostClick(post.id)}
-                  className="cursor-pointer"
                 >
-                  <PostCard post={post} />
+                  <PostCard 
+                    post={post} 
+                    onClick={() => handlePostClick(post.id)}
+                    showStatus={false}
+                    imageHeight="md"
+                  />
                 </motion.div>
               ))}
             </div>

@@ -6,6 +6,7 @@ import { X, Calendar, User, Mail, Phone, MessageSquare, Users } from 'lucide-rea
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, Booking } from '@/types';
+import { formatAddressForDisplay } from '@/lib/utils';
 
 interface BookingFormProps {
   post: BasePost;
@@ -169,7 +170,7 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                 {post.title}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                {post.location} • ${post.price} por noche
+                {post.address ? formatAddressForDisplay(post.address) : 'Ubicación no disponible'} • ${post.price} por noche
               </p>
             </div>
 

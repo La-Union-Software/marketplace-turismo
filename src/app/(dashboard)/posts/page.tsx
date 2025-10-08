@@ -378,15 +378,23 @@ export default function PostsPage() {
                     transition={{ duration: 0.4, delay: index * 0.1 }}
                     className="relative group"
                   >
-                    <PostCard post={post} />
+                    <PostCard 
+                      post={post} 
+                      showStatus={true}
+                      imageHeight="md"
+                      onClick={() => handleEditPost(post.id)}
+                    />
                     
                     {/* Action Buttons */}
-                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                       <div className="flex space-x-2">
                         {/* Enable/Disable Button - SuperAdmin Only */}
                         {hasRole('superadmin') && (
                           <button
-                            onClick={() => handleToggleEnabled(post.id, post.isEnabled !== false)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEnabled(post.id, post.isEnabled !== false);
+                            }}
                             className={`p-2 rounded-full shadow-lg transition-colors ${
                               post.isEnabled !== false
                                 ? 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-500 hover:text-white'
@@ -398,30 +406,24 @@ export default function PostsPage() {
                           </button>
                         )}
                         
-                        {/* Edit/Delete Buttons - Owner Only (not SuperAdmin) */}
+                        {/* Delete Button - Owner Only (not SuperAdmin) */}
                         {post.userId === user?.id && !hasRole('superadmin') && (
-                          <>
-                            <button
-                              onClick={() => handleEditPost(post.id)}
-                              className="p-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-primary hover:text-white transition-colors"
-                              title="Editar publicación"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePost(post.id)}
-                              className="p-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-red-500 hover:text-white transition-colors"
-                              title="Eliminar publicación"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePost(post.id);
+                            }}
+                            className="p-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-red-500 hover:text-white transition-colors"
+                            title="Eliminar publicación"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
                     </div>
                     
                     {/* Status Indicators */}
-                    <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
                       {/* Disabled Badge */}
                       {post.isEnabled === false && (
                         <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800">

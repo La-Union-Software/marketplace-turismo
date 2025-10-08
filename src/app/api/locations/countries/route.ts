@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
-
-// For now, we'll only support Argentina
-const countries = [
-  {
-    id: 'AR',
-    name: 'Argentina',
-    code: 'AR'
-  }
-];
+import { firebaseLocationService } from '@/services/firebaseLocationService';
 
 export async function GET() {
   try {
+    const countries = await firebaseLocationService.getCountries();
     return NextResponse.json(countries);
   } catch (error) {
     console.error('Error fetching countries:', error);

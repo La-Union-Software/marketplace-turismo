@@ -9,32 +9,101 @@ import {
   Bike, 
   Sparkles,
   Plus,
-  ChevronDown
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import NotificationBell from '@/components/ui/NotificationBell';
+import { mainCategoryMapping } from '@/services/dummyData';
 
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isOtrosServiciosOpen, setIsOtrosServiciosOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [openNestedSubmenu, setOpenNestedSubmenu] = useState<string | null>(null);
   const pathname = usePathname();
   const { user, hasRole } = useAuth();
 
-
   const navigationItems = [
-    { name: 'Alojamientos', href: '/alojamientos', icon: Bed },
-    { name: 'Vehículos', href: '/vehiculos', icon: Bike },
     { 
-      name: 'Otros Servicios (proximamente)', 
+      name: 'Alojamientos', 
+      href: '/alojamientos', 
+      icon: Bed,
+      hasSubmenu: true,
+      submenuItems: [
+        { name: 'Todas las publicaciones', href: '/alojamientos' },
+        ...mainCategoryMapping['alojamiento'].map(cat => ({ 
+          name: cat, 
+          href: `/alojamientos?category=${encodeURIComponent(cat)}` 
+        }))
+      ]
+    },
+    { 
+      name: 'Vehículos', 
+      href: '/vehiculos', 
+      icon: Bike,
+      hasSubmenu: true,
+      submenuItems: [
+        { name: 'Todas las publicaciones', href: '/vehiculos' },
+        ...mainCategoryMapping['alquiler-vehiculos'].map(cat => ({ 
+          name: cat, 
+          href: `/vehiculos?category=${encodeURIComponent(cat)}` 
+        }))
+      ]
+    },
+    { 
+      name: 'Otros Servicios', 
       href: '/experiencias', 
       icon: Sparkles,
       hasSubmenu: true,
+      hasNestedSubmenu: true,
       submenuItems: [
-        { name: 'Clases e instructorados', href: '/experiencias?category=clases' },
-        { name: 'Alquileres', href: '/experiencias?category=alquileres' },
-        { name: 'Excursiones', href: '/experiencias?category=excursiones' },
-        { name: 'Fotografía', href: '/experiencias?category=fotografia' },
+        { name: 'Todas las publicaciones', href: '/experiencias' },
+        {
+          name: 'Clases e instructorados',
+          isGroup: true,
+          items: [
+            { name: 'Clases de Esquí', href: '/experiencias?category=Clases de Esquí' },
+            { name: 'Clases de snowboard', href: '/experiencias?category=Clases de snowboard' },
+            { name: 'Clases de surf', href: '/experiencias?category=Clases de surf' },
+            { name: 'Clases de wingfoil', href: '/experiencias?category=Clases de wingfoil' },
+            { name: 'Clases de wing surf', href: '/experiencias?category=Clases de wing surf' },
+          ]
+        },
+        {
+          name: 'Alquileres',
+          isGroup: true,
+          items: [
+            { name: 'Alquiler equipo de esquí', href: '/experiencias?category=Alquiler equipo de esquí' },
+            { name: 'Alquiler equipo de snowboard', href: '/experiencias?category=Alquiler equipo de snowboard' },
+            { name: 'Alquiler ropa de nieve', href: '/experiencias?category=Alquiler ropa de nieve' },
+            { name: 'Alquiler equipo de surf', href: '/experiencias?category=Alquiler equipo de surf' },
+            { name: 'Alquiler equipo de wingfoil', href: '/experiencias?category=Alquiler equipo de wingfoil' },
+            { name: 'Alquiler equipo de wing surf', href: '/experiencias?category=Alquiler equipo de wing surf' },
+            { name: 'Alquiler de carpa', href: '/experiencias?category=Alquiler de carpa' },
+            { name: 'Alquiler de sombrilla', href: '/experiencias?category=Alquiler de sombrilla' },
+            { name: 'Alquiler', href: '/experiencias?category=Alquiler' },
+          ]
+        },
+        {
+          name: 'Excursiones',
+          isGroup: true,
+          items: [
+            { name: 'Excursiones lacustres', href: '/experiencias?category=Excursiones lacustres' },
+            { name: 'Excursiones terrestres', href: '/experiencias?category=Excursiones terrestres' },
+            { name: 'Experiencias 4x4', href: '/experiencias?category=Experiencias 4x4' },
+            { name: 'Cabalgatas', href: '/experiencias?category=Cabalgatas' },
+            { name: 'Excursiones aéreas', href: '/experiencias?category=Excursiones aéreas' },
+          ]
+        },
+        {
+          name: 'Fotografía',
+          isGroup: true,
+          items: [
+            { name: 'Vuelo de drone', href: '/experiencias?category=Vuelo de drone' },
+            { name: 'Fotografía', href: '/experiencias?category=Fotografía' },
+          ]
+        }
       ]
     },
   ];
@@ -67,8 +136,11 @@ export default function Header() {
                 {item.hasSubmenu ? (
                   <div
                     className="relative"
-                    onMouseEnter={() => setIsOtrosServiciosOpen(true)}
-                    onMouseLeave={() => setIsOtrosServiciosOpen(false)}
+                    onMouseEnter={() => setOpenSubmenu(item.name)}
+                    onMouseLeave={() => {
+                      setOpenSubmenu(null);
+                      setOpenNestedSubmenu(null);
+                    }}
                   >
                     <Link
                       href={item.href}
@@ -85,7 +157,7 @@ export default function Header() {
                     
                     {/* Dropdown Menu */}
                     <AnimatePresence>
-                      {isOtrosServiciosOpen && (
+                      {openSubmenu === item.name && (
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -94,14 +166,65 @@ export default function Header() {
                           className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                         >
                           <div className="py-2">
-                            {item.submenuItems?.map((subItem) => (
-                              <Link
-                                key={subItem.name}
-                                href={subItem.href}
-                                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              >
-                                {subItem.name}
-                              </Link>
+                            {item.submenuItems?.map((subItem: any) => (
+                              subItem.isGroup ? (
+                                // Group item with nested submenu
+                                <div 
+                                  key={subItem.name}
+                                  className="relative"
+                                  onMouseEnter={() => setOpenNestedSubmenu(subItem.name)}
+                                  onMouseLeave={() => setOpenNestedSubmenu(null)}
+                                >
+                                  <button
+                                    className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-colors ${
+                                      subItem.disabled 
+                                        ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' 
+                                        : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                    disabled={subItem.disabled}
+                                  >
+                                    <span>{subItem.name}</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                  
+                                  {/* Nested submenu */}
+                                  {!subItem.disabled && openNestedSubmenu === subItem.name && (
+                                    <motion.div
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      exit={{ opacity: 0, x: -10 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="absolute left-full top-0 ml-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+                                    >
+                                      <div className="py-2">
+                                        {subItem.items?.map((nestedItem: any) => (
+                                          <Link
+                                            key={nestedItem.name}
+                                            href={nestedItem.href}
+                                            className={`block px-4 py-3 text-sm transition-colors ${
+                                              nestedItem.disabled
+                                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                                : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            }`}
+                                            onClick={(e) => nestedItem.disabled && e.preventDefault()}
+                                          >
+                                            {nestedItem.name}
+                                          </Link>
+                                        ))}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </div>
+                              ) : (
+                                // Regular submenu item
+                                <Link
+                                  key={subItem.name}
+                                  href={subItem.href}
+                                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  {subItem.name}
+                                </Link>
+                              )
                             ))}
                           </div>
                         </motion.div>
@@ -149,10 +272,18 @@ export default function Header() {
                   href="/dashboard"
                   className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 >
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium text-sm">
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center overflow-hidden">
+                    {user.avatar ? (
+                      <img 
+                        src={user.avatar} 
+                        alt={user.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white font-medium text-sm">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <span className="hidden sm:block text-sm font-medium">
                     {user.name}
@@ -208,7 +339,7 @@ export default function Header() {
                     {item.hasSubmenu ? (
                       <div>
                         <button
-                          onClick={() => setIsOtrosServiciosOpen(!isOtrosServiciosOpen)}
+                          onClick={() => setOpenSubmenu(openSubmenu === item.name ? null : item.name)}
                           className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                             isActive(item.href)
                               ? 'text-primary bg-primary/10'
@@ -219,12 +350,12 @@ export default function Header() {
                             <item.icon className="w-4 h-4" />
                             <span>{item.name}</span>
                           </div>
-                          <ChevronDown className={`w-4 h-4 transition-transform ${isOtrosServiciosOpen ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 transition-transform ${openSubmenu === item.name ? 'rotate-180' : ''}`} />
                         </button>
                         
                         {/* Mobile Submenu */}
                         <AnimatePresence>
-                          {isOtrosServiciosOpen && (
+                          {openSubmenu === item.name && (
                             <motion.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
@@ -232,18 +363,71 @@ export default function Header() {
                               transition={{ duration: 0.3 }}
                               className="ml-4 mt-2 space-y-1"
                             >
-                              {item.submenuItems?.map((subItem) => (
-                                <Link
-                                  key={subItem.name}
-                                  href={subItem.href}
-                                  onClick={() => {
-                                    setIsMobileMenuOpen(false);
-                                    setIsOtrosServiciosOpen(false);
-                                  }}
-                                  className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                                >
-                                  {subItem.name}
-                                </Link>
+                              {item.submenuItems?.map((subItem: any) => (
+                                subItem.isGroup ? (
+                                  // Group with nested items
+                                  <div key={subItem.name}>
+                                    <button
+                                      onClick={() => setOpenNestedSubmenu(openNestedSubmenu === subItem.name ? null : subItem.name)}
+                                      className={`flex items-center justify-between w-full px-4 py-2 text-sm rounded-lg transition-colors ${
+                                        subItem.disabled 
+                                          ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' 
+                                          : 'text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                                      }`}
+                                      disabled={subItem.disabled}
+                                    >
+                                      <span className="font-medium">{subItem.name}</span>
+                                      <ChevronRight className={`w-4 h-4 transition-transform ${openNestedSubmenu === subItem.name ? 'rotate-90' : ''}`} />
+                                    </button>
+                                    
+                                    {/* Mobile Nested Submenu */}
+                                    {!subItem.disabled && openNestedSubmenu === subItem.name && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="ml-4 mt-1 space-y-1"
+                                      >
+                                        {subItem.items?.map((nestedItem: any) => (
+                                          <Link
+                                            key={nestedItem.name}
+                                            href={nestedItem.href}
+                                            onClick={(e) => {
+                                              if (nestedItem.disabled) {
+                                                e.preventDefault();
+                                              } else {
+                                                setIsMobileMenuOpen(false);
+                                                setOpenSubmenu(null);
+                                                setOpenNestedSubmenu(null);
+                                              }
+                                            }}
+                                            className={`block px-4 py-2 text-sm rounded-lg transition-colors ${
+                                              nestedItem.disabled
+                                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                                : 'text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800'
+                                            }`}
+                                          >
+                                            {nestedItem.name}
+                                          </Link>
+                                        ))}
+                                      </motion.div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  // Regular submenu item
+                                  <Link
+                                    key={subItem.name}
+                                    href={subItem.href}
+                                    onClick={() => {
+                                      setIsMobileMenuOpen(false);
+                                      setOpenSubmenu(null);
+                                    }}
+                                    className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                  >
+                                    {subItem.name}
+                                  </Link>
+                                )
                               ))}
                             </motion.div>
                           )}

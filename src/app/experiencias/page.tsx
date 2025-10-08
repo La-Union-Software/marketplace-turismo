@@ -6,25 +6,146 @@ import { Grid, List, Search, MapPin, DollarSign, Clock, Users, Mountain, Chevron
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, ServiceCategory } from '@/types';
 import PostCard from '@/components/ui/PostCard';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { mainCategoryMapping, categoryAmenities, otrosServiciosGroups, facturacionOptions } from '@/services/dummyData';
 
-const CLASES_CATEGORIES: ServiceCategory[] = ['Clases de sky/snowboard', 'Cabalgatas'];
+const OTROS_SERVICIOS_CATEGORIES: ServiceCategory[] = mainCategoryMapping['otros-servicios'] as ServiceCategory[];
+
+// Categories that should show "(proximamente)" in the filter dropdown
+const PROXIMAMENTE_CATEGORIES = [
+  'Clases de surf',
+  'Clases de wingfoil', 
+  'Clases de wing surf',
+  'Alquiler equipo de surf',
+  'Alquiler equipo de wingfoil',
+  'Alquiler equipo de wing surf',
+  'Alquiler de carpa',
+  'Alquiler de sombrilla',
+  'Alquiler',
+  'Excursiones lacustres',
+  'Excursiones terrestres',
+  'Experiencias 4x4',
+  'Cabalgatas',
+  'Excursiones aéreas',
+  'Fotografía'
+];
+
+// Helper function to get display name for filter dropdown
+const getFilterDisplayName = (category: ServiceCategory): string => {
+  return PROXIMAMENTE_CATEGORIES.includes(category) 
+    ? `${category} (proximamente)` 
+    : category;
+};
 
 export default function ClasesPage() {
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BasePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 50000 });
-  const [locationFilter, setLocationFilter] = useState('');
-  const [durationFilter, setDurationFilter] = useState<string>('all');
-  const [groupSizeFilter, setGroupSizeFilter] = useState<string>('all');
-  const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [citySearchTerm, setCitySearchTerm] = useState<string>('');
+  const [filteredCities, setFilteredCities] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [selectedAmenities, setSelectedAmenities] = useState<Record<string, boolean>>({});
+  const [selectedFacturacion, setSelectedFacturacion] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage] = useState(12);
   const router = useRouter();
+
+  // Update category when URL changes
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [searchParams]);
+
+  // Clear selected amenities and facturación when category changes
+  useEffect(() => {
+    setSelectedAmenities({});
+    setSelectedFacturacion({});
+  }, [selectedCategory]);
+
+  // Load states on component mount
+  useEffect(() => {
+    const fetchStates = async () => {
+      setLoadingStates(true);
+      try {
+        const response = await fetch('/api/locations/states?country=AR');
+        const data = await response.json();
+        setStates(data.states || data);
+      } catch (error) {
+        console.error('Error fetching states:', error);
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+
+    fetchStates();
+  }, []);
+
+  // Load cities when state changes
+  useEffect(() => {
+    if (selectedState) {
+      const fetchCities = async () => {
+        setLoadingCities(true);
+        try {
+          const response = await fetch(`/api/locations/cities?country=AR&state=${selectedState}&limit=500`);
+          const data = await response.json();
+          const citiesData = data.cities || data;
+          setCities(citiesData);
+          setFilteredCities(citiesData);
+        } catch (error) {
+          console.error('Error fetching cities:', error);
+          setCities([]);
+          setFilteredCities([]);
+        } finally {
+          setLoadingCities(false);
+        }
+      };
+
+      fetchCities();
+    } else {
+      setCities([]);
+      setFilteredCities([]);
+    }
+  }, [selectedState]);
+
+  // Filter cities based on search term
+  useEffect(() => {
+    if (citySearchTerm.trim() === '') {
+      setFilteredCities(cities);
+    } else {
+      const filtered = cities.filter(city =>
+        city.name.toLowerCase().includes(citySearchTerm.toLowerCase())
+      );
+      setFilteredCities(filtered);
+    }
+  }, [citySearchTerm, cities]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.city-dropdown-container')) {
+        setShowCityDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -37,8 +158,8 @@ export default function ClasesPage() {
         console.log('All posts:', allPosts.length);
         console.log('Sample post:', allPosts[0]);
         
-        const clasesPosts = allPosts.filter(post => {
-          const matchesCategory = CLASES_CATEGORIES.includes(post.category);
+        const otrosServiciosPosts = allPosts.filter(post => {
+          const matchesCategory = OTROS_SERVICIOS_CATEGORIES.includes(post.category);
           const matchesStatus = post.status === 'published' || post.status === 'approved';
           const isEnabled = post.isEnabled !== false; // Default to true if undefined
           
@@ -55,8 +176,8 @@ export default function ClasesPage() {
           return matchesCategory && matchesStatus && isEnabled;
         });
         
-        console.log('Filtered clases posts:', clasesPosts.length);
-        setPosts(clasesPosts);
+        console.log('Filtered otros servicios posts:', otrosServiciosPosts.length);
+        setPosts(otrosServiciosPosts);
       } catch (err) {
         console.error('Error fetching posts:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch posts');
@@ -68,30 +189,66 @@ export default function ClasesPage() {
     fetchPosts();
   }, []);
 
+  const handleCitySearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCitySearchTerm(e.target.value);
+    setShowCityDropdown(true);
+  };
+
+  const handleCitySelect = (city: any) => {
+    setSelectedCity(city.name);
+    setCitySearchTerm(city.name);
+    setShowCityDropdown(false);
+  };
+
   const filteredPosts = posts.filter(post => {
     const matchesSearch = searchTerm === '' || 
                          post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          post.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesLocation = locationFilter === '' || 
-                           post.location.toLowerCase().includes(locationFilter.toLowerCase());
+    // Check location filters - support both new address structure and old location string
+    const matchesLocation = () => {
+      // If no location filters are selected, show all posts
+      if (!selectedState && !selectedCity) return true;
+      
+      // Check if post has address structure
+      if (post.address) {
+        // For state: compare with both state code and state name to support both old and new data
+        const selectedStateObj = states.find(s => s.code === selectedState);
+        const stateMatch = !selectedState || 
+                          post.address.state === selectedState || // Match by code (e.g., "buenos_aires")
+                          post.address.state === selectedStateObj?.name; // Match by name (e.g., "Buenos Aires")
+        
+        const cityMatch = !selectedCity || post.address.city === selectedCity;
+        return stateMatch && cityMatch;
+      }
+      
+      // Fallback to old location string matching
+      const locationString = post.location.toLowerCase();
+      const selectedStateObj = states.find(s => s.code === selectedState);
+      const stateMatch = !selectedState || 
+                        locationString.includes(selectedState.toLowerCase()) ||
+                        (selectedStateObj && locationString.includes(selectedStateObj.name.toLowerCase()));
+      const cityMatch = !selectedCity || locationString.includes(selectedCity.toLowerCase());
+      return stateMatch && cityMatch;
+    };
     
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
     
     const matchesPrice = post.price >= priceRange.min && post.price <= priceRange.max;
     
-    // Duration filter
-    const matchesDuration = durationFilter === 'all' || 
-                           (post.specificFields?.duration && 
-                            post.specificFields.duration.toString().toLowerCase().includes(durationFilter.toLowerCase()));
+    // Amenities filter - check if post has all selected amenities
+    const matchesAmenities = Object.entries(selectedAmenities).every(([amenity, isSelected]) => {
+      if (!isSelected) return true; // If not selected in filter, don't check
+      return post.specificFields?.[amenity] === true; // Must have this amenity
+    });
     
-    // Group size filter
-    const matchesGroupSize = groupSizeFilter === 'all' || 
-                            (post.specificFields?.groupSize && 
-                             Number(post.specificFields.groupSize) >= Number(groupSizeFilter));
+    // Facturación filter - check if post has all selected facturación options
+    const matchesFacturacion = Object.entries(selectedFacturacion).every(([option, isSelected]) => {
+      if (!isSelected) return true; // If not selected in filter, don't check
+      return post.specificFields?.[option] === true; // Must have this facturación option
+    });
     
-    return matchesSearch && matchesLocation && matchesCategory && matchesPrice && 
-           matchesDuration && matchesGroupSize;
+    return matchesSearch && matchesLocation() && matchesCategory && matchesPrice && matchesAmenities && matchesFacturacion;
   });
 
   // Pagination
@@ -177,19 +334,89 @@ export default function ClasesPage() {
                 </div>
               </div>
 
-              {/* Location Filter */}
+              {/* Location Filters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />
                   Ubicación
                 </label>
-                <input
-                  type="text"
-                  placeholder="Ciudad o provincia..."
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
+                <div className="space-y-3">
+                  {/* State Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Provincia/Estado
+                    </label>
+                    <select
+                      value={selectedState}
+                      onChange={(e) => {
+                        setSelectedState(e.target.value);
+                        setSelectedCity(''); // Reset city when state changes
+                        setCitySearchTerm('');
+                      }}
+                      disabled={loadingStates}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                    >
+                      <option value="">Seleccionar provincia/estado</option>
+                      {states.map((state) => (
+                        <option key={state.id} value={state.code}>
+                          {state.name}
+                        </option>
+                      ))}
+                    </select>
+                    {loadingStates && (
+                      <p className="text-xs text-gray-500 mt-1">Cargando provincias...</p>
+                    )}
+                  </div>
+
+                  {/* City Filter */}
+                  <div className="relative city-dropdown-container">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Ciudad
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={citySearchTerm}
+                        onChange={handleCitySearchChange}
+                        onFocus={() => setShowCityDropdown(true)}
+                        placeholder={!selectedState ? "Selecciona una provincia primero" : "Buscar ciudad..."}
+                        disabled={!selectedState || loadingCities}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                      />
+                      
+                      {/* Dropdown */}
+                      {showCityDropdown && selectedState && !loadingCities && filteredCities.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {filteredCities.slice(0, 50).map((city) => (
+                            <button
+                              key={city.id}
+                              type="button"
+                              onClick={() => handleCitySelect(city)}
+                              className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
+                            >
+                              {city.name}
+                            </button>
+                          ))}
+                          {filteredCities.length > 50 && (
+                            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                              Mostrando las primeras 50 ciudades. Usa la búsqueda para filtrar.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {loadingCities && (
+                      <p className="text-xs text-gray-500 mt-1">Cargando ciudades...</p>
+                    )}
+                    {!selectedState && (
+                      <p className="text-xs text-gray-500 mt-1">Selecciona una provincia primero</p>
+                    )}
+                    {selectedState && !loadingCities && cities.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No se encontraron ciudades</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Category Filter */}
@@ -204,8 +431,14 @@ export default function ClasesPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="all">Todas las actividades</option>
-                  {CLASES_CATEGORIES.map(category => (
-                    <option key={category} value={category}>{category}</option>
+                  {Object.entries(otrosServiciosGroups).map(([groupName, categories]) => (
+                    <optgroup key={groupName} label={groupName}>
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {getFilterDisplayName(category)}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -246,55 +479,99 @@ export default function ClasesPage() {
                 </div>
               </div>
 
-              {/* Duration Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Duración
-                </label>
-                <select
-                  value={durationFilter}
-                  onChange={(e) => setDurationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="all">Cualquier duración</option>
-                  <option value="hora">Por hora</option>
-                  <option value="medio día">Medio día</option>
-                  <option value="día completo">Día completo</option>
-                  <option value="varios días">Varios días</option>
-                </select>
-              </div>
+              {/* Información Específica Checkboxes - Only for class categories */}
+              {selectedCategory !== 'all' && 
+               (selectedCategory === 'Clases de Esquí' || 
+                selectedCategory === 'Clases de snowboard' || 
+                selectedCategory === 'Clases de surf' ||
+                selectedCategory === 'Clases de wingfoil' ||
+                selectedCategory === 'Clases de wing surf') && 
+               categoryAmenities[selectedCategory as keyof typeof categoryAmenities] && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Información Específica
+                  </label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {categoryAmenities[selectedCategory as keyof typeof categoryAmenities]?.map((amenity) => (
+                      <label key={amenity} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedAmenities[amenity])}
+                          onChange={(e) => setSelectedAmenities({
+                            ...selectedAmenities,
+                            [amenity]: e.target.checked
+                          })}
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {amenity}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {/* Group Size Filter */}
+              {/* Facturación - Available for all categories */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Users className="w-4 h-4 inline mr-1" />
-                  Tamaño de Grupo
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Facturación
                 </label>
-                <select
-                  value={groupSizeFilter}
-                  onChange={(e) => setGroupSizeFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="all">Cualquier tamaño</option>
-                  <option value="1">1+ persona</option>
-                  <option value="2">2+ personas</option>
-                  <option value="4">4+ personas</option>
-                  <option value="6">6+ personas</option>
-                  <option value="10">10+ personas</option>
-                </select>
+                <div className="space-y-2">
+                  {facturacionOptions.map((option) => (
+                    <label key={option} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedFacturacion[option])}
+                        onChange={(e) => {
+                          const newSelectedFacturacion = { ...selectedFacturacion };
+                          
+                          if (option === 'No emite factura') {
+                            // If "No emite factura" is checked, uncheck the other two
+                            if (e.target.checked) {
+                              newSelectedFacturacion['Emite factura C'] = false;
+                              newSelectedFacturacion['Emite factura A'] = false;
+                            }
+                          } else {
+                            // If "Emite factura C" or "Emite factura A" is checked, uncheck "No emite factura"
+                            if (e.target.checked) {
+                              newSelectedFacturacion['No emite factura'] = false;
+                            }
+                          }
+                          
+                          newSelectedFacturacion[option] = e.target.checked;
+                          setSelectedFacturacion(newSelectedFacturacion);
+                        }}
+                        disabled={
+                          (option !== 'No emite factura' && Boolean(selectedFacturacion['No emite factura'])) ||
+                          (option === 'No emite factura' && (Boolean(selectedFacturacion['Emite factura C']) || Boolean(selectedFacturacion['Emite factura A'])))
+                        }
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <span className={`text-sm ${
+                        (option !== 'No emite factura' && Boolean(selectedFacturacion['No emite factura'])) ||
+                        (option === 'No emite factura' && (Boolean(selectedFacturacion['Emite factura C']) || Boolean(selectedFacturacion['Emite factura A'])))
+                          ? 'text-gray-400 dark:text-gray-500'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {option}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Reset Filters */}
               <button
                 onClick={() => {
                   setSearchTerm('');
-                  setLocationFilter('');
+                  setSelectedState('');
+                  setSelectedCity('');
+                  setCitySearchTerm('');
                   setSelectedCategory('all');
                   setPriceRange({ min: 0, max: 50000 });
-                  setDurationFilter('all');
-                  setGroupSizeFilter('all');
-                  setLevelFilter('all');
+                  setSelectedAmenities({});
+                  setSelectedFacturacion({});
                 }}
                 className="w-full px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
@@ -374,10 +651,13 @@ export default function ClasesPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: index * 0.05 }}
-                        className="cursor-pointer"
-                        onClick={() => handlePostClick(post.id)}
                       >
-                        <PostCard post={post} />
+                        <PostCard 
+                          post={post} 
+                          onClick={() => handlePostClick(post.id)}
+                          showStatus={false}
+                          imageHeight="md"
+                        />
                       </motion.div>
                     ))}
                   </div>

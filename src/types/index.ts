@@ -10,9 +10,31 @@ export type ServiceCategory =
   | 'Alquiler de autos'
   | 'Alquiler de bicicletas'
   | 'Alquiler de kayaks'
-  // Clases/instructorados
-  | 'Clases de sky/snowboard'
-  | 'Cabalgatas';
+  // Otros servicios - Clases e instructorados
+  | 'Clases de Esquí'
+  | 'Clases de snowboard'
+  | 'Clases de surf'
+  | 'Clases de wingfoil'
+  | 'Clases de wing surf'
+  // Otros servicios - Alquileres
+  | 'Alquiler equipo de esquí'
+  | 'Alquiler equipo de snowboard'
+  | 'Alquiler ropa de nieve'
+  | 'Alquiler equipo de surf'
+  | 'Alquiler equipo de wingfoil'
+  | 'Alquiler equipo de wing surf'
+  | 'Alquiler de carpa'
+  | 'Alquiler de sombrilla'
+  | 'Alquiler'
+  // Otros servicios - Excursiones
+  | 'Excursiones lacustres'
+  | 'Excursiones terrestres'
+  | 'Experiencias 4x4'
+  | 'Cabalgatas'
+  | 'Excursiones aéreas'
+  // Otros servicios - Fotografía
+  | 'Vuelo de drone'
+  | 'Fotografía';
 
 // Role and Permission System
 export type UserRole = 'superadmin' | 'publisher' | 'client';
@@ -76,6 +98,13 @@ export interface BasePost {
   price: number;
   currency: string;
   location: string;
+  address?: {
+    country: string;
+    state: string;
+    city: string;
+    postalCode: string;
+    address: string; // Street address
+  };
   images: string[]; // Array of image IDs from the subcollection
   specificFields: Record<string, unknown>; // Specific information fields based on category
   cancellationPolicies: CancellationPolicy[]; // Cancellation policies for the post

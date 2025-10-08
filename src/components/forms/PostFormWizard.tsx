@@ -17,7 +17,13 @@ import {
   X
 } from 'lucide-react';
 import { ServiceCategory, BasePost, Pricing, FixedPricing, DynamicPricing, DynamicPricingSeason, Weekday, PostImage, CancellationPolicy } from '@/types';
-import { serviceCategories, categoryFields, mainCategoryMapping, categoryAmenities } from '@/services/dummyData';
+
+interface State {
+  id: string;
+  name: string;
+  code: string;
+}
+import { serviceCategories, categoryFields, mainCategoryMapping, categoryAmenities, otrosServiciosGroups, facturacionOptions } from '@/services/dummyData';
 import { generateId } from '@/lib/utils';
 import AddressSection from '@/components/ui/AddressSection';
 import { fileToBase64, filesToBase64, compressBase64Image } from '@/lib/imageUtils';
@@ -141,6 +147,8 @@ export default function PostFormWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
+  const [states, setStates] = useState<State[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
   const { user } = useAuth();
   
   const [formData, setFormData] = useState<PostFormData>({
@@ -183,14 +191,24 @@ export default function PostFormWizard({
       const mainImage = sortedImages[0]?.data || '';
       const additionalImages = sortedImages.slice(1).map(img => img.data);
 
+      console.log('postData.location', postData.location);
+      console.log('postData.address', postData.address);
+
+      
       const initialFormData = {
         mainCategory,
         title: postData.title,
         description: postData.description,
         category: postData.category as ServiceCategory,
         location: postData.location,
-        address: {
-          country: 'AR', // Default to Argentina
+        address: postData.address ? {
+          country: postData.address.country === 'Argentina' ? 'AR' : postData.address.country,
+          state: postData.address.state, // Keep as is - will be handled by AddressSection
+          city: postData.address.city,
+          postalCode: postData.address.postalCode,
+          address: postData.address.address
+        } : {
+          country: 'AR', // Default to Argentina code
           state: '',
           city: '',
           postalCode: '',
@@ -215,6 +233,26 @@ export default function PostFormWizard({
     }
   }, [editMode, postData, images]);
 
+  // Load states when country changes for display purposes
+  useEffect(() => {
+    if (formData.address.country) {
+      const fetchStates = async () => {
+        setLoadingStates(true);
+        try {
+          const response = await fetch(`/api/locations/states?country=${formData.address.country}`);
+          const data = await response.json();
+          setStates(data);
+        } catch (error) {
+          console.error('Error fetching states in PostFormWizard:', error);
+        } finally {
+          setLoadingStates(false);
+        }
+      };
+      fetchStates();
+    } else {
+      setStates([]);
+    }
+  }, [formData.address.country]);
 
   const updateFormData = (updates: Partial<PostFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -242,6 +280,12 @@ export default function PostFormWizard({
     if (!formData.mainCategory) return [];
     const categories = mainCategoryMapping[formData.mainCategory as keyof typeof mainCategoryMapping] || [];
     return categories as ServiceCategory[];
+  };
+
+  // Helper function to get state name for display
+  const getSelectedStateName = () => {
+    const selectedState = states.find(s => s.code === formData.address.state || s.name === formData.address.state);
+    return selectedState?.name || formData.address.state; // Fallback to code if name not found
   };
 
 
@@ -391,11 +435,18 @@ export default function PostFormWizard({
     updateFormData({ address });
     
     // Update location field with formatted address
+    // Convert country code to name for display
+    const countryName = address.country === 'AR' ? 'Argentina' : address.country;
+    
+    // Get state name for display in location field
+    const selectedState = states.find(s => s.code === address.state || s.name === address.state);
+    const stateName = selectedState?.name || address.state; // Fallback to code if name not found
+    
     const locationParts = [
       address.address,
       address.city,
-      address.state,
-      address.country
+      stateName,
+      countryName
     ].filter(Boolean);
     
     updateFormData({
@@ -445,6 +496,7 @@ export default function PostFormWizard({
         description: formData.description,
         category: formData.category as ServiceCategory,
         location: formData.location,
+        address: formData.address, // Save address as map property
         specificFields: formData.specificFields, // Include specific fields
         cancellationPolicies: formData.cancellationPolicies, // Include cancellation policies
         isActive: formData.isActive,
@@ -666,11 +718,26 @@ export default function PostFormWizard({
                 <option value="">
                   {formData.mainCategory ? 'Selecciona una categoría' : 'Primero selecciona una categoría principal'}
                 </option>
-                {getFilteredCategories().map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
+                
+                {/* For Otros Servicios, use optgroups */}
+                {formData.mainCategory === 'otros-servicios' ? (
+                  Object.entries(otrosServiciosGroups).map(([groupName, categories]) => (
+                    <optgroup key={groupName} label={groupName}>
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+                ) : (
+                  /* For other categories, use simple options */
+                  getFilteredCategories().map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -795,63 +862,7 @@ export default function PostFormWizard({
               Información Específica
             </h3>
             <div className="space-y-6">
-              {Object.entries(fields).map(([fieldName, options]) => {
-                // Skip PropertyType fields for Alojamientos
-                if (fieldName === 'propertyType') return null;
-                
-                // Handle numeric fields (like maxPeople)
-                if (typeof options === 'string' && options === 'Cantidad máxima de personas') {
-                  return (
-                    <div key={fieldName}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        {options} *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={String(formData.specificFields[fieldName] || '')}
-                        onChange={(e) => updateFormData({
-                          specificFields: {
-                            ...formData.specificFields,
-                            [fieldName]: parseInt(e.target.value) || 1
-                          }
-                        })}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="Ej: 4"
-                      />
-                    </div>
-                  );
-                }
-                
-                // Handle regular select fields
-                return (
-                  <div key={fieldName}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} *
-                    </label>
-                    <select
-                      value={String(formData.specificFields[fieldName] || '')}
-                      onChange={(e) => updateFormData({
-                        specificFields: {
-                          ...formData.specificFields,
-                          [fieldName]: e.target.value
-                        }
-                      })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">Seleccionar {fieldName}</option>
-                      {Array.isArray(options) && options.map((option: string) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-
-              {/* Características y Servicios Checkboxes */}
+              {/* Características y Servicios Checkboxes - Only for Alojamiento */}
               {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
@@ -880,66 +891,373 @@ export default function PostFormWizard({
                 </div>
               )}
 
-              {/* Common specific fields for all categories */}
-              {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) ? (
-                // Special fields for Alojamientos
+              {/* Información Específica Checkboxes - For Clases categories (Otros Servicios) */}
+              {formData.category && 
+               (formData.category === 'Clases de Esquí' || 
+                formData.category === 'Clases de snowboard' || 
+                formData.category === 'Clases de surf' || 
+                formData.category === 'Clases de wingfoil' || 
+                formData.category === 'Clases de wing surf') && 
+               categoryAmenities[formData.category as keyof typeof categoryAmenities] && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Texto para Voucher
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                    Información Específica
                   </label>
-                  <textarea
-                    value={String(formData.specificFields.voucherText || '')}
-                    onChange={(e) => updateFormData({
-                      specificFields: {
-                        ...formData.specificFields,
-                        voucherText: e.target.value
-                      }
-                    })}
-                    rows={4}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Texto que aparecerá en el voucher del cliente..."
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {categoryAmenities[formData.category as keyof typeof categoryAmenities]?.map((amenity) => (
+                      <label key={amenity} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(formData.specificFields[amenity])}
+                          onChange={(e) => updateFormData({
+                            specificFields: {
+                              ...formData.specificFields,
+                              [amenity]: e.target.checked
+                            }
+                          })}
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {amenity}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                // Default fields for other categories
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Incluye
-                    </label>
-                    <textarea
-                      value={String(formData.specificFields.includes || '')}
-                      onChange={(e) => updateFormData({
-                        specificFields: {
-                          ...formData.specificFields,
-                          includes: e.target.value
-                        }
-                      })}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Qué incluye tu servicio? (separar por comas)"
-                    />
+              )}
+
+              {/* Vehicle-specific fields for Vehículos categories */}
+              {formData.category && mainCategoryMapping['alquiler-vehiculos']?.includes(formData.category as ServiceCategory) && (
+                // Special fields for Vehículos
+                <div className="space-y-6">
+                  {/* Vehicle-specific fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Cantidad de personas *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={Number(formData.specificFields.maxPeople || '')}
+                        onChange={(e) => updateFormData({
+                          specificFields: {
+                            ...formData.specificFields,
+                            maxPeople: parseInt(e.target.value) || 0
+                          }
+                        })}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Ej: 4"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Horario de retiro *
+                      </label>
+                      <input
+                        type="time"
+                        value={String(formData.specificFields.pickupTime || '')}
+                        onChange={(e) => updateFormData({
+                          specificFields: {
+                            ...formData.specificFields,
+                            pickupTime: e.target.value
+                          }
+                        })}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Horario de devolución *
+                      </label>
+                      <input
+                        type="time"
+                        value={String(formData.specificFields.returnTime || '')}
+                        onChange={(e) => updateFormData({
+                          specificFields: {
+                            ...formData.specificFields,
+                            returnTime: e.target.value
+                          }
+                        })}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
                   </div>
 
+                  {/* Category-specific checkboxes */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Requisitos
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                      Servicios Adicionales
                     </label>
-                    <textarea
-                      value={String(formData.specificFields.requirements || '')}
-                      onChange={(e) => updateFormData({
-                        specificFields: {
-                          ...formData.specificFields,
-                          requirements: e.target.value
-                        }
-                      })}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Qué requisitos necesitan los clientes? (separar por comas)"
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {formData.category === 'Alquiler de autos' && (
+                        <>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.deliveryPoints)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  deliveryPoints: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Entrega en puntos a convenir</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.childSeat)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  childSeat: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Silla para niños</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.snowChains)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  snowChains: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Cadenas para nieve</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.countryPermission)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  countryPermission: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Permiso para salir del país</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.spareWheel)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  spareWheel: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Rueda de auxilio</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.gnc)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  gnc: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">GNC</span>
+                          </label>
+                        </>
+                      )}
+
+                      {formData.category === 'Alquiler de bicicletas' && (
+                        <>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.deliveryPoints)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  deliveryPoints: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Entrega en puntos a convenir</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.helmet)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  helmet: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Casco</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.vest)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  vest: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Chaleco</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.extraHours)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  extraHours: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Horas extras</span>
+                          </label>
+                        </>
+                      )}
+
+                      {formData.category === 'Alquiler de kayaks' && (
+                        <>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.deliveryPoints)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  deliveryPoints: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Entrega en puntos a convenir</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.lifeJacket)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  lifeJacket: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Poncho salvavidas</span>
+                          </label>
+                          <label className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(formData.specificFields.paddles)}
+                              onChange={(e) => updateFormData({
+                                specificFields: {
+                                  ...formData.specificFields,
+                                  paddles: e.target.checked
+                                }
+                              })}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Remos y salvaremos</span>
+                          </label>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               )}
+
+              {/* Facturación - Available for all categories */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Facturación
+                </label>
+                <div className="space-y-2">
+                  {facturacionOptions.map((option) => (
+                    <label key={option} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.specificFields[option])}
+                        onChange={(e) => {
+                          const newSpecificFields = { ...formData.specificFields };
+                          
+                          if (option === 'No emite factura') {
+                            // If "No emite factura" is checked, uncheck the other two
+                            if (e.target.checked) {
+                              newSpecificFields['Emite factura C'] = false;
+                              newSpecificFields['Emite factura A'] = false;
+                            }
+                          } else {
+                            // If "Emite factura C" or "Emite factura A" is checked, uncheck "No emite factura"
+                            if (e.target.checked) {
+                              newSpecificFields['No emite factura'] = false;
+                            }
+                          }
+                          
+                          newSpecificFields[option] = e.target.checked;
+                          updateFormData({ specificFields: newSpecificFields });
+                        }}
+                        disabled={
+                          (option !== 'No emite factura' && Boolean(formData.specificFields['No emite factura'])) ||
+                          (option === 'No emite factura' && (Boolean(formData.specificFields['Emite factura C']) || Boolean(formData.specificFields['Emite factura A'])))
+                        }
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <span className={`text-sm ${
+                        (option !== 'No emite factura' && Boolean(formData.specificFields['No emite factura'])) ||
+                        (option === 'No emite factura' && (Boolean(formData.specificFields['Emite factura C']) || Boolean(formData.specificFields['Emite factura A'])))
+                          ? 'text-gray-400 dark:text-gray-500'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {option}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Texto para Voucher - Available for all categories (at the end) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Texto para Voucher
+                </label>
+                <textarea
+                  value={String(formData.specificFields.voucherText || '')}
+                  onChange={(e) => updateFormData({
+                    specificFields: {
+                      ...formData.specificFields,
+                      voucherText: e.target.value
+                    }
+                  })}
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Texto que aparecerá en el voucher del cliente..."
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1495,8 +1813,8 @@ export default function PostFormWizard({
                 {[
                   formData.address.address,
                   formData.address.city,
-                  formData.address.state,
-                  formData.address.country
+                  getSelectedStateName(),
+                  formData.address.country === 'AR' ? 'Argentina' : formData.address.country
                 ].filter(Boolean).join(', ')}
                 {formData.address.postalCode && ` (${formData.address.postalCode})`}
               </p>
@@ -1578,9 +1896,17 @@ export default function PostFormWizard({
               const getFieldDisplayName = (fieldKey: string) => {
                 switch (fieldKey) {
                   case 'maxPeople':
-                    return 'Cantidad máxima de personas';
+                    return 'Cantidad de personas';
                   case 'voucherText':
                     return 'Texto para Voucher';
+                  case 'checkIn':
+                    return 'Check In';
+                  case 'checkOut':
+                    return 'Check Out';
+                  case 'pickupTime':
+                    return 'Horario de retiro';
+                  case 'returnTime':
+                    return 'Horario de devolución';
                   default:
                     return fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
                 }
@@ -1597,11 +1923,135 @@ export default function PostFormWizard({
             })}
           </div>
           
+          {/* Facturación - Available for all categories */}
+          {(() => {
+            const facturacionSelected = facturacionOptions.filter(option => formData.specificFields[option] === true);
+            if (facturacionSelected.length > 0) {
+              return (
+                <div className="mt-6">
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                    Facturación
+                  </h4>
+                  <div className="space-y-2">
+                    {facturacionSelected.map((option) => (
+                      <div key={option} className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <span className="text-gray-900 dark:text-white">{option}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Texto para Voucher - Available for all categories */}
+          {(() => {
+            const voucherText = formData.specificFields.voucherText;
+            if (voucherText && typeof voucherText === 'string' && voucherText.trim()) {
+              return (
+                <div className="mt-6">
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                    Texto para Voucher
+                  </h4>
+                  <p className="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                    {voucherText}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Características y Servicios for Alojamiento categories */}
           {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
             <div className="mt-6">
               <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
                 Características y Servicios
+              </h4>
+              <div className="space-y-2">
+                {categoryAmenities[formData.category as keyof typeof categoryAmenities]?.map((amenity) => {
+                  const isSelected = formData.specificFields[amenity] === true;
+                  if (!isSelected) return null;
+                  
+                  return (
+                    <div key={amenity} className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="text-gray-900 dark:text-white">{amenity}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Servicios Adicionales for Vehículos categories */}
+          {formData.category && mainCategoryMapping['alquiler-vehiculos']?.includes(formData.category as ServiceCategory) && (
+            <div className="mt-6">
+              <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                Servicios Adicionales
+              </h4>
+              <div className="space-y-2">
+                {Object.entries(formData.specificFields).map(([key, value]) => {
+                  // Only show boolean values that are true (selected checkboxes)
+                  if (typeof value !== 'boolean' || !value) return null;
+                  
+                  // Get the display name for vehicle-specific fields
+                  const getVehicleFieldDisplayName = (fieldKey: string) => {
+                    switch (fieldKey) {
+                      case 'deliveryPoints':
+                        return 'Entrega en puntos a convenir';
+                      case 'childSeat':
+                        return 'Silla para niños';
+                      case 'snowChains':
+                        return 'Cadenas para nieve';
+                      case 'countryPermission':
+                        return 'Permiso para salir del país';
+                      case 'spareWheel':
+                        return 'Rueda de auxilio';
+                      case 'gnc':
+                        return 'GNC';
+                      case 'helmet':
+                        return 'Casco';
+                      case 'vest':
+                        return 'Chaleco';
+                      case 'extraHours':
+                        return 'Horas extras';
+                      case 'lifeJacket':
+                        return 'Poncho salvavidas';
+                      case 'paddles':
+                        return 'Remos y salvaremos';
+                      default:
+                        return null; // Skip other fields
+                    }
+                  };
+                  
+                  const displayName = getVehicleFieldDisplayName(key);
+                  if (!displayName) return null;
+                  
+                  return (
+                    <div key={key} className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="text-gray-900 dark:text-white">{displayName}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Información Específica for Clases categories */}
+          {formData.category && 
+           (formData.category === 'Clases de Esquí' || 
+            formData.category === 'Clases de snowboard' || 
+            formData.category === 'Clases de surf' || 
+            formData.category === 'Clases de wingfoil' || 
+            formData.category === 'Clases de wing surf') && 
+           categoryAmenities[formData.category as keyof typeof categoryAmenities] && (
+            <div className="mt-6">
+              <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                Información Específica
               </h4>
               <div className="space-y-2">
                 {categoryAmenities[formData.category as keyof typeof categoryAmenities]?.map((amenity) => {

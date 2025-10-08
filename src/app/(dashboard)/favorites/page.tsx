@@ -211,12 +211,12 @@ export default function FavoritesPage() {
                   transition={{ duration: 0.4, delay: index * 0.05 }}
                   className="relative"
                 >
-                  <div 
-                    className="cursor-pointer"
+                  <PostCard 
+                    post={post} 
                     onClick={() => handlePostClick(post.id)}
-                  >
-                    <PostCard post={post} isGridView={true} />
-                  </div>
+                    showStatus={false}
+                    imageHeight="md"
+                  />
                   
                   {/* Remove from favourites button */}
                   <button

@@ -1,4 +1,5 @@
 import { Booking } from '@/types';
+import { formatAddressForDisplay } from '@/lib/utils';
 
 /**
  * Voucher Service for generating PDF vouchers
@@ -94,7 +95,10 @@ class VoucherService {
       addSpace(3);
       addText(`Servicio: ${booking.post.title}`, 11);
       addText(`Categoría: ${booking.post.category}`, 11);
-      addText(`Ubicación: ${booking.post.location}`, 11);
+      const locationText = booking.post.address 
+        ? formatAddressForDisplay(booking.post.address) 
+        : 'Ubicación no disponible';
+      addText(`Ubicación: ${locationText}`, 11);
       
       addSpace(5);
       addLine();
@@ -106,6 +110,19 @@ class VoucherService {
       addText(`Fecha de inicio: ${this.formatDate(booking.startDate)}`, 11);
       addText(`Fecha de fin: ${this.formatDate(booking.endDate)}`, 11);
       addText(`Número de huéspedes: ${booking.guestCount}`, 11);
+      
+      // Check In and Check Out times for accommodation posts
+      if (booking.post.specificFields?.checkIn || booking.post.specificFields?.checkOut) {
+        addSpace(3);
+        addText('HORARIOS DE CHECK IN/OUT', 12, true);
+        addSpace(2);
+        if (booking.post.specificFields.checkIn) {
+          addText(`Check In: ${this.formatTime(booking.post.specificFields.checkIn as string)}`, 11);
+        }
+        if (booking.post.specificFields.checkOut) {
+          addText(`Check Out: ${this.formatTime(booking.post.specificFields.checkOut as string)}`, 11);
+        }
+      }
       
       addSpace(5);
       addLine();
@@ -153,6 +170,17 @@ class VoucherService {
       
       if (booking.paymentData) {
         addText(`Método de pago: ${booking.paymentData.method || 'N/A'}`, 11);
+      }
+      
+      // Provider clarifications section for accommodation posts
+      if (booking.post.specificFields?.voucherText) {
+        addSpace(5);
+        addLine();
+        addSpace(5);
+        
+        addText('ACLARACIONES DEL PRESTADOR', 14, true);
+        addSpace(3);
+        addText(booking.post.specificFields.voucherText as string, 11);
       }
       
       addSpace(10);
@@ -235,6 +263,31 @@ class VoucherService {
       style: 'currency',
       currency: currency
     }).format(amount);
+  }
+  
+  /**
+   * Format time from HH:MM format to readable format
+   */
+  private formatTime(timeString: string): string {
+    if (!timeString) return '';
+    
+    try {
+      const [hours, minutes] = timeString.split(':');
+      const hour = parseInt(hours, 10);
+      const minute = parseInt(minutes, 10);
+      
+      const time = new Date();
+      time.setHours(hour, minute, 0, 0);
+      
+      return time.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return timeString; // Return original string if formatting fails
+    }
   }
 }
 

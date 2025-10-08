@@ -6,7 +6,7 @@ import { Grid, List, Search, MapPin, DollarSign, Calendar, Bed, Home, ChevronLef
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, ServiceCategory } from '@/types';
 import PostCard from '@/components/ui/PostCard';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { categoryAmenities } from '@/services/dummyData';
 
 const ALOJAMIENTO_CATEGORIES: ServiceCategory[] = ['Hotel', 'Casa', 'Departamento', 'Cabaña', 'Camping', 'Domo'];
@@ -24,19 +24,108 @@ const getAllAmenities = () => {
 };
 
 export default function AlojamientosPage() {
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BasePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 50000 });
-  const [locationFilter, setLocationFilter] = useState('');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [citySearchTerm, setCitySearchTerm] = useState<string>('');
+  const [filteredCities, setFilteredCities] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [bedroomsFilter, setBedroomsFilter] = useState<string>('all');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage] = useState(12);
   const router = useRouter();
+
+  // Update category when URL changes
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [searchParams]);
+
+  // Load states on component mount
+  useEffect(() => {
+    const fetchStates = async () => {
+      setLoadingStates(true);
+      try {
+        const response = await fetch('/api/locations/states?country=AR');
+        const data = await response.json();
+        setStates(data.states || data);
+      } catch (error) {
+        console.error('Error fetching states:', error);
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+
+    fetchStates();
+  }, []);
+
+  // Load cities when state changes
+  useEffect(() => {
+    if (selectedState) {
+      const fetchCities = async () => {
+        setLoadingCities(true);
+        try {
+          const response = await fetch(`/api/locations/cities?country=AR&state=${selectedState}&limit=500`);
+          const data = await response.json();
+          const citiesData = data.cities || data;
+          setCities(citiesData);
+          setFilteredCities(citiesData);
+        } catch (error) {
+          console.error('Error fetching cities:', error);
+          setCities([]);
+          setFilteredCities([]);
+        } finally {
+          setLoadingCities(false);
+        }
+      };
+
+      fetchCities();
+    } else {
+      setCities([]);
+      setFilteredCities([]);
+    }
+  }, [selectedState]);
+
+  // Filter cities based on search term
+  useEffect(() => {
+    if (citySearchTerm.trim() === '') {
+      setFilteredCities(cities);
+    } else {
+      const filtered = cities.filter(city =>
+        city.name.toLowerCase().includes(citySearchTerm.toLowerCase())
+      );
+      setFilteredCities(filtered);
+    }
+  }, [citySearchTerm, cities]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.city-dropdown-container')) {
+        setShowCityDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -69,13 +158,48 @@ export default function AlojamientosPage() {
     fetchPosts();
   }, []);
 
+  const handleCitySearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCitySearchTerm(e.target.value);
+    setShowCityDropdown(true);
+  };
+
+  const handleCitySelect = (city: any) => {
+    setSelectedCity(city.name);
+    setCitySearchTerm(city.name);
+    setShowCityDropdown(false);
+  };
+
   const filteredPosts = posts.filter(post => {
     const matchesSearch = searchTerm === '' || 
                          post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          post.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesLocation = locationFilter === '' || 
-                           post.location.toLowerCase().includes(locationFilter.toLowerCase());
+    // Check location filters - support both new address structure and old location string
+    const matchesLocation = () => {
+      // If no location filters are selected, show all posts
+      if (!selectedState && !selectedCity) return true;
+      
+      // Check if post has address structure
+      if (post.address) {
+        // For state: compare with both state code and state name to support both old and new data
+        const selectedStateObj = states.find(s => s.code === selectedState);
+        const stateMatch = !selectedState || 
+                          post.address.state === selectedState || // Match by code (e.g., "buenos_aires")
+                          post.address.state === selectedStateObj?.name; // Match by name (e.g., "Buenos Aires")
+        
+        const cityMatch = !selectedCity || post.address.city === selectedCity;
+        return stateMatch && cityMatch;
+      }
+      
+      // Fallback to old location string matching
+      const locationString = post.location.toLowerCase();
+      const selectedStateObj = states.find(s => s.code === selectedState);
+      const stateMatch = !selectedState || 
+                        locationString.includes(selectedState.toLowerCase()) ||
+                        (selectedStateObj && locationString.includes(selectedStateObj.name.toLowerCase()));
+      const cityMatch = !selectedCity || locationString.includes(selectedCity.toLowerCase());
+      return stateMatch && cityMatch;
+    };
     
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
     
@@ -92,7 +216,7 @@ export default function AlojamientosPage() {
                               post.specificFields?.[amenity] === true
                             );
     
-    return matchesSearch && matchesLocation && matchesCategory && matchesPrice && 
+    return matchesSearch && matchesLocation() && matchesCategory && matchesPrice && 
            matchesMaxPeople && matchesAmenities;
   });
 
@@ -179,19 +303,89 @@ export default function AlojamientosPage() {
                 </div>
               </div>
 
-              {/* Location Filter */}
+              {/* Location Filters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />
                   Ubicación
                 </label>
-                <input
-                  type="text"
-                  placeholder="Ciudad o provincia..."
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
+                <div className="space-y-3">
+                  {/* State Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Provincia/Estado
+                    </label>
+                    <select
+                      value={selectedState}
+                      onChange={(e) => {
+                        setSelectedState(e.target.value);
+                        setSelectedCity(''); // Reset city when state changes
+                        setCitySearchTerm('');
+                      }}
+                      disabled={loadingStates}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                    >
+                      <option value="">Seleccionar provincia/estado</option>
+                      {states.map((state) => (
+                        <option key={state.id} value={state.code}>
+                          {state.name}
+                        </option>
+                      ))}
+                    </select>
+                    {loadingStates && (
+                      <p className="text-xs text-gray-500 mt-1">Cargando provincias...</p>
+                    )}
+                  </div>
+
+                  {/* City Filter */}
+                  <div className="relative city-dropdown-container">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Ciudad
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={citySearchTerm}
+                        onChange={handleCitySearchChange}
+                        onFocus={() => setShowCityDropdown(true)}
+                        placeholder={!selectedState ? "Selecciona una provincia primero" : "Buscar ciudad..."}
+                        disabled={!selectedState || loadingCities}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                      />
+                      
+                      {/* Dropdown */}
+                      {showCityDropdown && selectedState && !loadingCities && filteredCities.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {filteredCities.slice(0, 50).map((city) => (
+                            <button
+                              key={city.id}
+                              type="button"
+                              onClick={() => handleCitySelect(city)}
+                              className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
+                            >
+                              {city.name}
+                            </button>
+                          ))}
+                          {filteredCities.length > 50 && (
+                            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                              Mostrando las primeras 50 ciudades. Usa la búsqueda para filtrar.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {loadingCities && (
+                      <p className="text-xs text-gray-500 mt-1">Cargando ciudades...</p>
+                    )}
+                    {!selectedState && (
+                      <p className="text-xs text-gray-500 mt-1">Selecciona una provincia primero</p>
+                    )}
+                    {selectedState && !loadingCities && cities.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No se encontraron ciudades</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Category Filter */}
@@ -311,7 +505,9 @@ export default function AlojamientosPage() {
               <button
                 onClick={() => {
                   setSearchTerm('');
-                  setLocationFilter('');
+                  setSelectedState('');
+                  setSelectedCity('');
+                  setCitySearchTerm('');
                   setSelectedCategory('all');
                   setPriceRange({ min: 0, max: 50000 });
                   setBedroomsFilter('all');
@@ -395,10 +591,13 @@ export default function AlojamientosPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: index * 0.05 }}
-                        className="cursor-pointer"
-                        onClick={() => handlePostClick(post.id)}
                       >
-                        <PostCard post={post} isGridView={viewMode === 'grid'} />
+                        <PostCard 
+                          post={post} 
+                          onClick={() => handlePostClick(post.id)}
+                          showStatus={false}
+                          imageHeight="md"
+                        />
                       </motion.div>
                     ))}
                   </div>

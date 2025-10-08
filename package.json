@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "create-superadmin": "node scripts/create-superadmin.js",
-    "check-firebase": "node scripts/check-firebase-config.js"
+    "check-firebase": "node scripts/check-firebase-config.js",
+    "test-locations": "node scripts/test-locations-data.js",
+    "populate-locations": "node scripts/populate-locations.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

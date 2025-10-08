@@ -217,12 +217,13 @@ export const serviceCategories: ServiceCategory[] = [
   'Alquiler de autos',
   'Alquiler de bicicletas',
   'Alquiler de kayaks',
-  // Otros servicios
-  'Clases de sky',
+  // Otros servicios - Clases e instructorados
+  'Clases de Esquí',
   'Clases de snowboard',
   'Clases de surf',
   'Clases de wingfoil',
   'Clases de wing surf',
+  // Otros servicios - Alquileres
   'Alquiler equipo de esquí',
   'Alquiler equipo de snowboard',
   'Alquiler ropa de nieve',
@@ -232,11 +233,13 @@ export const serviceCategories: ServiceCategory[] = [
   'Alquiler de carpa',
   'Alquiler de sombrilla',
   'Alquiler',
+  // Otros servicios - Excursiones
   'Excursiones lacustres',
   'Excursiones terrestres',
   'Experiencias 4x4',
   'Cabalgatas',
   'Excursiones aéreas',
+  // Otros servicios - Fotografía
   'Vuelo de drone',
   'Fotografía',
 ];
@@ -257,7 +260,7 @@ export const mainCategoryMapping = {
     'Alquiler de kayaks',
   ],
   'otros-servicios': [
-    'Clases de sky',
+    'Clases de Esquí',
     'Clases de snowboard',
     'Clases de surf',
     'Clases de wingfoil',
@@ -276,6 +279,39 @@ export const mainCategoryMapping = {
     'Experiencias 4x4',
     'Cabalgatas',
     'Excursiones aéreas',
+    'Vuelo de drone',
+    'Fotografía',
+  ],
+};
+
+// Otros Servicios grouped structure for optgroups
+export const otrosServiciosGroups = {
+  'Clases e instructorados': [
+    'Clases de Esquí',
+    'Clases de snowboard',
+    'Clases de surf',
+    'Clases de wingfoil',
+    'Clases de wing surf',
+  ],
+  'Alquileres': [
+    'Alquiler equipo de esquí',
+    'Alquiler equipo de snowboard',
+    'Alquiler ropa de nieve',
+    'Alquiler equipo de surf',
+    'Alquiler equipo de wingfoil',
+    'Alquiler equipo de wing surf',
+    'Alquiler de carpa',
+    'Alquiler de sombrilla',
+    'Alquiler',
+  ],
+  'Excursiones': [
+    'Excursiones lacustres',
+    'Excursiones terrestres',
+    'Experiencias 4x4',
+    'Cabalgatas',
+    'Excursiones aéreas',
+  ],
+  'Fotografía': [
     'Vuelo de drone',
     'Fotografía',
   ],
@@ -312,21 +348,49 @@ export const categoryFields = {
     transmission: ['Manual', 'Automático'],
     fuelType: ['Gasolina', 'Diésel', 'Eléctrico', 'Híbrido'],
     seats: ['2 plazas', '4 plazas', '5 plazas', '7+ plazas'],
+    // New vehicle-specific fields
+    maxPeople: 'Cantidad de personas',
+    pickupTime: 'Horario de retiro',
+    returnTime: 'Horario de devolución',
+    // Checkbox options
+    deliveryPoints: 'Entrega en puntos a convenir',
+    childSeat: 'Silla para niños',
+    snowChains: 'Cadenas para nieve',
+    countryPermission: 'Permiso para salir del país',
+    spareWheel: 'Rueda de auxilio',
+    gnc: 'GNC',
   },
   'Alquiler de bicicletas': {
     bikeType: ['Montaña', 'Carretera', 'Ciudad', 'Eléctrica'],
     duration: ['Hora', 'Día', 'Semana'],
     includes: ['Casco', 'Herramientas', 'Mapa', 'Seguro', 'Candado'],
+    // New vehicle-specific fields
+    maxPeople: 'Cantidad de personas',
+    pickupTime: 'Horario de retiro',
+    returnTime: 'Horario de devolución',
+    // Checkbox options
+    deliveryPoints: 'Entrega en puntos a convenir',
+    helmet: 'Casco',
+    vest: 'Chaleco',
+    extraHours: 'Horas extras',
   },
   'Alquiler de kayaks': {
     kayakType: ['Individual', 'Doble', 'Inflable', 'Rígido'],
     duration: ['Hora', 'Medio día', 'Día completo'],
     includes: ['Chaleco salvavidas', 'Remo', 'Instrucciones', 'Seguro'],
+    // New vehicle-specific fields
+    maxPeople: 'Cantidad de personas',
+    pickupTime: 'Horario de retiro',
+    returnTime: 'Horario de devolución',
+    // Checkbox options
+    deliveryPoints: 'Entrega en puntos a convenir',
+    lifeJacket: 'Poncho salvavidas',
+    paddles: 'Remos y salvaremos',
   },
   
   // Otros servicios
-  'Clases de sky': {
-    servicio: ['Clases de sky'],
+  'Clases de Esquí': {
+    servicio: ['Clases de Esquí'],
     level: ['Principiante', 'Intermedio', 'Avanzado', 'Experto'],
     duration: ['1 hora', '2 horas', 'Medio día', 'Día completo'],
     includes: ['Instructor certificado', 'Equipo básico', 'Seguro', 'Transporte'],
@@ -453,9 +517,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   'Casa': [
@@ -466,9 +530,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   'Departamento': [
@@ -479,9 +543,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   'Cabaña': [
@@ -492,9 +556,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   'Camping': [
@@ -505,9 +569,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   'Domo': [
@@ -518,9 +582,9 @@ export const categoryAmenities = {
     'Petfriendly',
     'Apto discapacidad',
     'WiFi',
-    'Seguridad Privada',
+    'Cámaras de vigilancia',
     'Ropa de cama',
-    'Ropa Blanca',
+    'Toallas',
     'Servicio de limpieza',
   ],
   
@@ -546,7 +610,7 @@ export const categoryAmenities = {
   ],
   
   // Otros servicios
-  'Clases de sky': [
+  'Clases de Esquí': [
     'Clase individual',
     'Clase a grupo cerrado',
     'Clase grupal abierta al público',
@@ -684,4 +748,11 @@ export const categoryAmenities = {
     'Entrega digital',
     'Fotos impresas opcionales',
   ],
-}; 
+};
+
+// Facturación options for all categories
+export const facturacionOptions = [
+  'Emite factura C',
+  'Emite factura A',
+  'No emite factura',
+]; 

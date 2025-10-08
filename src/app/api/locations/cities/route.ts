@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { argentinaCities } from '@/data/argentinaCities';
-import { externalLocationService } from '@/services/externalLocationService';
+import { firebaseLocationService } from '@/services/firebaseLocationService';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const stateCode = searchParams.get('state');
     const search = searchParams.get('search');
-    const useExternal = searchParams.get('external') === 'true';
+    const countryCode = searchParams.get('country') || 'AR';
     const limit = parseInt(searchParams.get('limit') || '100');
 
     if (!stateCode) {
@@ -17,41 +16,20 @@ export async function GET(request: Request) {
       );
     }
 
-    let cities;
-
-    if (useExternal) {
-      // Use external API for comprehensive city data
-      try {
-        const externalCities = await externalLocationService.getCitiesWithFallback('AR', stateCode);
-        cities = externalCities.map(city => ({
-          id: city.id,
-          name: city.name,
-          code: city.stateCode + '-' + city.name.substring(0, 3).toUpperCase()
-        }));
-      } catch (externalError) {
-        console.warn('External API failed, falling back to local data:', externalError.message);
-        cities = argentinaCities[stateCode as keyof typeof argentinaCities] || [];
-      }
-    } else {
-      // Use local database
-      cities = argentinaCities[stateCode as keyof typeof argentinaCities] || [];
-    }
-
-    // Filter cities by search term if provided
-    if (search) {
-      cities = cities.filter(city => 
-        city.name.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    // Limit results for performance
-    cities = cities.slice(0, limit);
+    // Use Firebase service to get cities
+    const cities = await firebaseLocationService.getCities(
+      countryCode, 
+      stateCode, 
+      search || undefined, 
+      limit
+    );
 
     return NextResponse.json({
       cities,
       total: cities.length,
-      source: useExternal ? 'external' : 'local',
-      state: stateCode
+      source: 'firebase',
+      state: stateCode,
+      country: countryCode
     });
   } catch (error) {
     console.error('Error fetching cities:', error);
