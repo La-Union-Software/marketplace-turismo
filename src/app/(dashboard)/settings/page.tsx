@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Bell, Shield, Globe, CreditCard, Link } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Bell, Shield, Globe, CreditCard, Link, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePermissions } from '@/services/permissionsService';
 import MercadoPagoForm from '@/components/forms/MercadoPagoForm';
@@ -13,6 +13,30 @@ export default function SettingsPage() {
   const permissions = usePermissions(user?.roles || []);
   const [showMercadoPagoForm, setShowMercadoPagoForm] = useState(false);
   const [showMercadoPagoConnectForm, setShowMercadoPagoConnectForm] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Check for OAuth callback messages in URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthStatus = urlParams.get('oauth');
+    const message = urlParams.get('message');
+
+    if (oauthStatus && message) {
+      setOauthMessage({
+        type: oauthStatus as 'success' | 'error',
+        text: decodeURIComponent(message)
+      });
+
+      // Clear URL params
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+
+      // Auto-hide message after 5 seconds
+      setTimeout(() => {
+        setOauthMessage(null);
+      }, 5000);
+    }
+  }, []);
 
   const settingsSections = [
     {
@@ -67,6 +91,36 @@ export default function SettingsPage() {
   return (
     <div className="w-full max-w-none">
       <div className="space-y-8">
+        {/* OAuth Success/Error Message */}
+        <AnimatePresence>
+          {oauthMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className={`flex items-center space-x-3 p-4 rounded-lg border ${
+                oauthMessage.type === 'success'
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              }`}
+            >
+              {oauthMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-5 h-5 flex-shrink-0" />
+              )}
+              <p className="text-sm font-medium flex-1">{oauthMessage.text}</p>
+              <button
+                onClick={() => setOauthMessage(null)}
+                className="text-current hover:opacity-70 transition-opacity"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -103,17 +103,27 @@ export default function MercadoPagoConnectForm({ onClose }: MercadoPagoConnectFo
       setIsConnecting(true);
       setMessage(null);
 
-      // In a real implementation, this would redirect to MercadoPago OAuth
-      // For now, we'll show a message about the OAuth flow
-      setMessage({ 
-        type: 'success', 
-        text: 'OAuth flow would be implemented here. This would redirect to MercadoPago for account authorization.' 
-      });
+      // Call the OAuth authorization endpoint to get the auth URL
+      const response = await fetch('/api/mercadopago/oauth/authorize');
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate authorization URL');
+      }
+
+      const data = await response.json();
+      
+      console.log('✅ [MercadoPago Connect] Redirecting to OAuth authorization...');
+      
+      // Redirect to MercadoPago OAuth authorization page
+      window.location.href = data.authUrl;
 
     } catch (error) {
-      console.error('Error connecting account:', error);
-      setMessage({ type: 'error', text: 'Error connecting account. Please try again.' });
-    } finally {
+      console.error('❌ [MercadoPago Connect] Error connecting account:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Error connecting account. Please try again.' 
+      });
       setIsConnecting(false);
     }
   };
