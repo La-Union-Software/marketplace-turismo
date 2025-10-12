@@ -281,12 +281,12 @@ export default function MiPlanPage() {
             <p className="text-gray-600 mb-4">
               Suscríbete a un plan para comenzar a crear publicaciones
             </p>
-            <Button asChild>
-              <a href="/suscribirse">
+            <a href="/suscribirse">
+              <Button>
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Suscribirse
-              </a>
-            </Button>
+              </Button>
+            </a>
           </CardContent>
         </Card>
       )}
