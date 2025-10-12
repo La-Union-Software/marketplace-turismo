@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, Users } from 'mercadopago';
 import { MercadoPagoAccount } from '@/types';
+import { subscriptionService } from './subscriptionService';
 
 export interface MarketplaceConnection {
   id: string;
@@ -81,30 +82,18 @@ class MercadoPagoMarketplaceService {
       // Import firebaseDB here to avoid circular dependencies
       const { firebaseDB } = await import('./firebaseService');
 
-      // Check if user has active subscription
-      const user = await firebaseDB.users.getById(userId);
-      if (!user) {
-        result.errors.push('User not found');
+      // Check if user has active subscription using the subscription service
+      const subscriptionValidation = await subscriptionService.validatePublisherSubscription(userId);
+      
+      if (!subscriptionValidation.hasActiveSubscription) {
+        result.errors.push(subscriptionValidation.error || 'No active subscription found. Please subscribe to a plan to create posts.');
         return result;
       }
 
-      // Check for active subscription
-      const activeSubscription = await this.getActiveUserSubscription(userId);
-      if (activeSubscription) {
-        result.hasActiveSubscription = true;
-        result.subscriptionPlan = activeSubscription.planName;
-        
-        // Get subscription plan details to determine post limits
-        const plans = await firebaseDB.plans.getAll();
-        const userPlan = plans.find(plan => plan.id === activeSubscription.planId);
-        
-        if (userPlan) {
-          result.postLimit = userPlan.maxPosts;
-        }
-      } else {
-        result.errors.push('No active subscription found. Please subscribe to a plan to create posts.');
-        return result;
-      }
+      result.hasActiveSubscription = true;
+      result.subscriptionPlan = subscriptionValidation.subscription?.planName;
+      result.postLimit = subscriptionValidation.subscription?.metadata?.maxPosts;
+      result.remainingPosts = subscriptionValidation.remainingPosts;
 
       // Check for marketplace connection
       const marketplaceConnection = await this.getUserMarketplaceConnection(userId);
@@ -115,16 +104,13 @@ class MercadoPagoMarketplaceService {
         return result;
       }
 
-      // Check current posts count
-      if (result.postLimit) {
-        const currentPostsCount = await this.getUserPostsCount(userId);
-        result.currentPostsCount = currentPostsCount;
-        result.remainingPosts = Math.max(0, result.postLimit - currentPostsCount);
+      // Check post limits using subscription service
+      const postValidation = await subscriptionService.canCreatePost(userId);
+      result.currentPostsCount = (result.postLimit || 0) - (result.remainingPosts || 0);
 
-        if (currentPostsCount >= result.postLimit) {
-          result.errors.push(`Post limit reached. You can create up to ${result.postLimit} posts with your current plan.`);
-          return result;
-        }
+      if (!postValidation.canCreate) {
+        result.errors.push(postValidation.error || 'Cannot create post at this time.');
+        return result;
       }
 
       // If we get here, everything is valid
@@ -138,35 +124,6 @@ class MercadoPagoMarketplaceService {
     }
   }
 
-  /**
-   * Get active user subscription
-   */
-  private async getActiveUserSubscription(userId: string): Promise<any> {
-    try {
-      const { firebaseDB } = await import('./firebaseService');
-      // This would need to be implemented based on your subscription model
-      // For now, we'll assume subscriptions are stored in a collection
-      const subscriptionsRef = firebaseDB.db.collection('userSubscriptions');
-      const snapshot = await subscriptionsRef
-        .where('userId', '==', userId)
-        .where('status', '==', 'active')
-        .limit(1)
-        .get();
-
-      if (snapshot.empty) {
-        return null;
-      }
-
-      const subscription = snapshot.docs[0].data();
-      return {
-        id: snapshot.docs[0].id,
-        ...subscription
-      };
-    } catch (error) {
-      console.error('Error getting user subscription:', error);
-      return null;
-    }
-  }
 
   /**
    * Get user's marketplace connection

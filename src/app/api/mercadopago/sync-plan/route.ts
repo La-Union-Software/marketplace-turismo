@@ -91,17 +91,17 @@ export async function POST(request: NextRequest) {
     const frequencyType = frequencyTypeMap[plan.billingCycle] || 'months';
 
     // Get base URL with fallback
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asia-forworn-willena.ngrok-free.dev';
     
     // Ensure URL is valid
     let backUrl: string;
     try {
-      new URL(baseUrl); // Validate URL
-      backUrl = `${baseUrl}/subscription/complete`;
+      const url = new URL(baseUrl);
+      backUrl = `${url.origin}/subscription/complete`;
     } catch {
-      // Fallback to localhost if invalid
-      backUrl = 'http://localhost:3000/subscription/complete';
-      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using localhost fallback');
+      // Fallback to ngrok URL if invalid (MercadoPago doesn't accept localhost)
+      backUrl = 'https://asia-forworn-willena.ngrok-free.dev/subscription/complete';
+      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using ngrok fallback');
     }
 
     // Prepare plan data for MercadoPago

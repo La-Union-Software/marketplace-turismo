@@ -51,18 +51,24 @@ export async function POST(request: NextRequest) {
     const preference = new Preference(config);
 
     // Get base URL with fallback
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asia-forworn-willena.ngrok-free.dev';
     
-    // Ensure URL is valid
-    let validReturnUrl: string;
+    // Ensure URL is valid and remove trailing slash
+    let validBaseUrl: string;
     try {
-      new URL(baseUrl); // Validate URL
-      validReturnUrl = returnUrl || `${baseUrl}/payment/complete`;
-    } catch {
-      // Fallback to localhost if invalid
-      validReturnUrl = returnUrl || 'http://localhost:3000/payment/complete';
-      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using localhost fallback');
+      const url = new URL(baseUrl);
+      validBaseUrl = url.origin; // This removes trailing slash and gives us the clean base URL
+      console.log('✅ [MercadoPago Subscription] Using base URL:', validBaseUrl);
+    } catch (error) {
+      // Fallback to ngrok URL if invalid (MercadoPago doesn't accept localhost)
+      validBaseUrl = 'https://asia-forworn-willena.ngrok-free.dev';
+      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using ngrok fallback:', baseUrl);
     }
+
+    // Set up return URLs - always use production URL for MercadoPago compatibility
+    const successUrl = `${validBaseUrl}/payment/complete`;
+    const failureUrl = `${validBaseUrl}/payment/failed`;
+    const pendingUrl = `${validBaseUrl}/payment/pending`;
 
     // Create preference data
     const preferenceData = {
@@ -91,12 +97,12 @@ export async function POST(request: NextRequest) {
         installments: 1
       },
       back_urls: {
-        success: validReturnUrl,
-        failure: `${baseUrl}/payment/failed`,
-        pending: `${baseUrl}/payment/pending`
+        success: successUrl,
+        failure: failureUrl,
+        pending: pendingUrl
       },
       auto_return: 'approved',
-      notification_url: `${baseUrl}/api/mercadopago/subscription-webhook`,
+      notification_url: `${validBaseUrl}/api/mercadopago/subscription-webhook`,
       external_reference: `subscription_${planId}_${userId}`,
       metadata: {
         planId: plan.id,
@@ -112,7 +118,10 @@ export async function POST(request: NextRequest) {
       price: plan.price,
       currency: plan.currency,
       userEmail: user.email,
-      returnUrl: validReturnUrl
+      successUrl: successUrl,
+      failureUrl: failureUrl,
+      pendingUrl: pendingUrl,
+      notificationUrl: `${validBaseUrl}/api/mercadopago/subscription-webhook`
     });
 
     // Create the preference

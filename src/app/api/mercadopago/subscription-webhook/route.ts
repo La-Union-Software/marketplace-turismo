@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
 
     const { type, data } = body;
 
+    console.log('🔔 [MercadoPago Subscription Webhook] Processing notification:', { type, data });
+
     if (type === 'payment') {
       const paymentId = data?.id;
       if (!paymentId) {
@@ -24,6 +26,19 @@ export async function POST(request: NextRequest) {
       
       if (paymentDetails) {
         await processSubscriptionPayment(paymentDetails);
+      }
+    } else if (type === 'preapproval') {
+      const subscriptionId = data?.id;
+      if (!subscriptionId) {
+        console.error('❌ [MercadoPago Subscription Webhook] No subscription ID in webhook data');
+        return NextResponse.json({ error: 'No subscription ID' }, { status: 400 });
+      }
+
+      // Get subscription details from MercadoPago
+      const subscriptionDetails = await getSubscriptionDetails(subscriptionId);
+      
+      if (subscriptionDetails) {
+        await processSubscriptionStatusChange(subscriptionDetails);
       }
     }
 
@@ -199,6 +214,176 @@ async function createUserSubscription(subscriptionData: any) {
     return docRef.id;
   } catch (error) {
     console.error('Error creating user subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get subscription details from MercadoPago
+ */
+async function getSubscriptionDetails(subscriptionId: string) {
+  try {
+    const accessToken = process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN;
+    
+    if (!accessToken) {
+      throw new Error('MercadoPago access token not configured');
+    }
+
+    const response = await fetch(`https://api.mercadopago.com/v1/preapproval/${subscriptionId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get subscription details: ${response.statusText}`);
+    }
+
+    const subscription = await response.json();
+    
+    console.log('🔄 [MercadoPago Subscription Webhook] Subscription details:', {
+      id: subscription.id,
+      status: subscription.status,
+      payer_email: subscription.payer_email,
+      external_reference: subscription.external_reference
+    });
+
+    return subscription;
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error getting subscription details:', error);
+    return null;
+  }
+}
+
+/**
+ * Process subscription status changes
+ */
+async function processSubscriptionStatusChange(subscription: any) {
+  try {
+    const { status, external_reference, payer_email } = subscription;
+
+    // Extract data from external_reference
+    const referenceData = external_reference || '';
+    if (!referenceData || !referenceData.startsWith('subscription_')) {
+      console.error('❌ [MercadoPago Subscription Webhook] Invalid external reference:', referenceData);
+      return;
+    }
+
+    const [, planId, userId] = referenceData.split('_');
+    
+    if (!planId || !userId) {
+      console.error('❌ [MercadoPago Subscription Webhook] Missing planId or userId in reference:', referenceData);
+      return;
+    }
+
+    console.log('🔄 [MercadoPago Subscription Webhook] Processing subscription status change:', {
+      subscriptionId: subscription.id,
+      status,
+      userId,
+      planId
+    });
+
+    // Find the subscription record in our database
+    const subscriptionRecord = await findUserSubscriptionByMercadoPagoId(subscription.id);
+    
+    if (!subscriptionRecord) {
+      console.error('❌ [MercadoPago Subscription Webhook] Subscription record not found:', subscription.id);
+      return;
+    }
+
+    // Update subscription status based on MercadoPago status
+    let newStatus: string;
+    let shouldAssignRole = false;
+
+    switch (status) {
+      case 'authorized':
+        newStatus = 'active';
+        shouldAssignRole = true;
+        console.log('✅ [MercadoPago Subscription Webhook] Subscription authorized, activating...');
+        break;
+      case 'cancelled':
+        newStatus = 'cancelled';
+        console.log('❌ [MercadoPago Subscription Webhook] Subscription cancelled');
+        break;
+      case 'paused':
+        newStatus = 'paused';
+        console.log('⏸️ [MercadoPago Subscription Webhook] Subscription paused');
+        break;
+      default:
+        console.log('ℹ️ [MercadoPago Subscription Webhook] Subscription status:', status);
+        return; // Don't update for unknown statuses
+    }
+
+    // Update subscription record
+    await updateUserSubscription(subscriptionRecord.id, {
+      status: newStatus,
+      mercadoPagoStatus: status,
+      updatedAt: new Date(),
+      metadata: {
+        ...subscriptionRecord.metadata,
+        lastStatusUpdate: new Date(),
+        mercadoPagoStatus: status
+      }
+    });
+
+    // Assign or remove publisher role based on status
+    if (shouldAssignRole) {
+      await firebaseDB.users.assignRole(userId, 'publisher', 'system');
+      console.log('✅ [MercadoPago Subscription Webhook] Publisher role assigned to user:', userId);
+    } else if (status === 'cancelled') {
+      // Optionally remove publisher role when subscription is cancelled
+      // await firebaseDB.users.removeRole(userId, 'publisher', 'system');
+      console.log('ℹ️ [MercadoPago Subscription Webhook] Subscription cancelled for user:', userId);
+    }
+
+    console.log('✅ [MercadoPago Subscription Webhook] Subscription status updated:', {
+      subscriptionId: subscriptionRecord.id,
+      newStatus,
+      userId
+    });
+
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error processing subscription status change:', error);
+  }
+}
+
+/**
+ * Find user subscription by MercadoPago subscription ID
+ */
+async function findUserSubscriptionByMercadoPagoId(mercadoPagoSubscriptionId: string) {
+  try {
+    const subscriptionsRef = firebaseDB.db.collection('userSubscriptions');
+    const snapshot = await subscriptionsRef
+      .where('mercadoPagoSubscriptionId', '==', mercadoPagoSubscriptionId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const subscription = snapshot.docs[0].data();
+    return {
+      id: snapshot.docs[0].id,
+      ...subscription
+    };
+  } catch (error) {
+    console.error('Error finding subscription by MercadoPago ID:', error);
+    return null;
+  }
+}
+
+/**
+ * Update user subscription record
+ */
+async function updateUserSubscription(subscriptionId: string, updates: any) {
+  try {
+    const subscriptionRef = firebaseDB.db.collection('userSubscriptions').doc(subscriptionId);
+    await subscriptionRef.update(updates);
+  } catch (error) {
+    console.error('Error updating user subscription:', error);
     throw error;
   }
 }

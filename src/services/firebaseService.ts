@@ -1539,4 +1539,88 @@ export const firebaseDB = {
     },
   },
 
+  // User Subscriptions operations
+  subscriptions: {
+    async create(subscriptionData: any): Promise<string> {
+      try {
+        const subscriptionsRef = collection(db, 'userSubscriptions');
+        const docRef = await addDoc(subscriptionsRef, {
+          ...subscriptionData,
+          createdAt: subscriptionData.createdAt || new Date(),
+          updatedAt: subscriptionData.updatedAt || new Date(),
+        });
+        console.log('✅ [Firebase] Subscription created:', docRef.id);
+        return docRef.id;
+      } catch (error) {
+        console.error('Error creating subscription:', error);
+        throw new Error('Failed to create subscription');
+      }
+    },
+
+    async getById(subscriptionId: string): Promise<UserSubscription | null> {
+      try {
+        const subscriptionRef = doc(db, 'userSubscriptions', subscriptionId);
+        const subscriptionSnap = await getDoc(subscriptionRef);
+        
+        if (!subscriptionSnap.exists()) {
+          return null;
+        }
+
+        const data = subscriptionSnap.data();
+        return {
+          id: subscriptionSnap.id,
+          ...data,
+          startDate: data.startDate?.toDate?.() || new Date(data.startDate),
+          endDate: data.endDate?.toDate?.() || (data.endDate ? new Date(data.endDate) : undefined),
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+        } as UserSubscription;
+      } catch (error) {
+        console.error('Error getting subscription:', error);
+        return null;
+      }
+    },
+
+    async update(subscriptionId: string, updates: Partial<UserSubscription>): Promise<void> {
+      try {
+        const subscriptionRef = doc(db, 'userSubscriptions', subscriptionId);
+        await updateDoc(subscriptionRef, {
+          ...updates,
+          updatedAt: new Date(),
+        });
+        console.log('✅ [Firebase] Subscription updated:', subscriptionId);
+      } catch (error) {
+        console.error('Error updating subscription:', error);
+        throw new Error('Failed to update subscription');
+      }
+    },
+
+    async getByUserId(userId: string): Promise<UserSubscription[]> {
+      try {
+        const subscriptionsRef = collection(db, 'userSubscriptions');
+        const q = query(
+          subscriptionsRef,
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        
+        return querySnapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            startDate: data.startDate?.toDate?.() || new Date(data.startDate),
+            endDate: data.endDate?.toDate?.() || (data.endDate ? new Date(data.endDate) : undefined),
+            createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+          } as UserSubscription;
+        });
+      } catch (error) {
+        console.error('Error getting user subscriptions:', error);
+        return [];
+      }
+    },
+  },
+
 };

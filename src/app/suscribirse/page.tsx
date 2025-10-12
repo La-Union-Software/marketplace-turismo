@@ -233,27 +233,26 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
     setError(null);
 
     try {
-      console.log('🛒 [Subscription Payment] Creating preference for plan:', plan.name);
+      console.log('🛒 [Subscription Payment] Creating recurring subscription for plan:', plan.name);
 
-      const response = await fetch('/api/mercadopago/subscription-preference', {
+      const response = await fetch('/api/mercadopago/subscription-create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           planId: plan.id,
-          userId: user.id,
-          returnUrl: `${window.location.origin}/payment/complete`
+          userId: user.id
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment preference');
+        throw new Error(errorData.error || 'Failed to create subscription');
       }
 
       const result = await response.json();
-      console.log('✅ [Subscription Payment] Preference created:', result.preferenceId);
+      console.log('✅ [Subscription Payment] Subscription created:', result.subscriptionId);
 
       // Redirect to MercadoPago Checkout Pro
       if (result.initPoint) {
@@ -330,7 +329,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
             ) : (
               <>
                 <CreditCard className="w-4 h-4" />
-                <span>Pagar con MercadoPago</span>
+                <span>Suscribirse con MercadoPago</span>
               </>
             )}
           </button>
@@ -350,6 +349,9 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Aceptamos todas las tarjetas y métodos de pago
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+            ⚡ Suscripción recurrente automática
           </p>
         </div>
       </motion.div>
