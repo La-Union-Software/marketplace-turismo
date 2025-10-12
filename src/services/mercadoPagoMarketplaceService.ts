@@ -1,4 +1,3 @@
-import { MercadoPagoConfig, Users } from 'mercadopago';
 import { MercadoPagoAccount } from '@/types';
 import { subscriptionService } from './subscriptionService';
 
@@ -26,33 +25,22 @@ export interface PublisherValidationResult {
 }
 
 class MercadoPagoMarketplaceService {
-  private client: Users | null = null;
+  private baseUrl = 'https://api.mercadopago.com';
 
   constructor() {
-    this.initializeClient();
-  }
-
-  private initializeClient() {
-    const publicKey = process.env.NEXAR_MARKETPLACE_PUBLIC_KEY;
-    const accessToken = process.env.NEXAR_MARKETPLACE_ACCESS_TOKEN;
-
-    if (publicKey && accessToken) {
-      const config = new MercadoPagoConfig({ 
-        accessToken: accessToken,
-        options: { timeout: 5000 }
-      });
-      this.client = new Users(config);
-      console.log('✅ [MercadoPago Marketplace] Client initialized');
-    } else {
-      console.warn('⚠️ [MercadoPago Marketplace] Missing environment variables');
-    }
+    console.log('✅ [MercadoPago Marketplace] Service initialized');
   }
 
   /**
    * Check if marketplace service is configured
    */
   isConfigured(): boolean {
-    return this.client !== null;
+    const publicKey = process.env.NEXAR_MARKETPLACE_PUBLIC_KEY;
+    const accessToken = process.env.NEXAR_MARKETPLACE_ACCESS_TOKEN;
+    const appId = process.env.NEXAR_MARKETPLACE_APP_ID;
+    const clientSecret = process.env.NEXAR_MARKETPLACE_CLIENT_SECRET;
+
+    return !!(publicKey && accessToken && appId && clientSecret);
   }
 
   /**
