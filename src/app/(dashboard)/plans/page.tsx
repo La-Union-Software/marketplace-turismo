@@ -325,10 +325,15 @@ export default function PlansPage() {
                     <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(plan.isActive)}`}>
                       {plan.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    {plan.mercadoPagoPlanId && (
-                      <div className="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400">
-                        <Link className="w-3 h-3" />
-                        <span>MercadoPago</span>
+                    {plan.mercadoPagoPlanId ? (
+                      <div className="flex items-center space-x-1 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Synced</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded">
+                        <XCircle className="w-3 h-3" />
+                        <span>Not Synced</span>
                       </div>
                     )}
                   </div>
@@ -369,6 +374,23 @@ export default function PlansPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Not Synced Warning */}
+                {!plan.mercadoPagoPlanId && (
+                  <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <XCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mb-1">
+                          MercadoPago Sync Failed
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          This plan couldn't be synced with MercadoPago. Try manual sync or check your configuration.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex space-x-2">

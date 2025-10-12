@@ -116,10 +116,10 @@ export default function MercadoPagoForm({ onClose }: MercadoPagoFormProps) {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Mercado Pago
+                MercadoPago Suscripción
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Payment Gateway Configuration
+                Configura las credenciales para gestionar planes de suscripción
               </p>
             </div>
           </div>

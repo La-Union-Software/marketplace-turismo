@@ -211,7 +211,7 @@ export default function SuscribirsePage() {
   );
 }
 
-// Payment Form Component
+// Payment Form Component using MercadoPago Checkout Pro
 interface PaymentFormProps {
   plan: SubscriptionPlan;
   onBack: () => void;
@@ -219,50 +219,55 @@ interface PaymentFormProps {
 }
 
 function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
-  const { user, assignRole } = useAuth();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentData, setPaymentData] = useState({
-    cardNumber: '',
-    cardHolder: '',
-    expiryDate: '',
-    cvv: '',
-    email: user?.email || ''
-  });
+  const { user } = useAuth();
+  const [isCreatingPreference, setIsCreatingPreference] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setIsProcessing(true);
-    
-    try {
-      // Mock payment process - simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock successful payment
-      // In real implementation, this would call Mercado Pago API
-      
-      // Assign publisher role to user using auth context
-      await assignRole(user.id, 'publisher');
-      
-      // Create user subscription record
-      // This would be implemented in the real version
-      
-      // Force a page reload to refresh the auth context
-      // This ensures the user's new role is loaded
-      // window.location.reload();
-      
-      onSuccess();
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('Error en el pago. Por favor, intenta de nuevo.');
-    } finally {
-      setIsProcessing(false);
+  const handlePayment = async () => {
+    if (!user) {
+      setError('Debes estar logueado para realizar el pago');
+      return;
     }
-  };
 
-  const handleInputChange = (field: keyof typeof paymentData, value: string) => {
-    setPaymentData(prev => ({ ...prev, [field]: value }));
+    setIsCreatingPreference(true);
+    setError(null);
+
+    try {
+      console.log('🛒 [Subscription Payment] Creating preference for plan:', plan.name);
+
+      const response = await fetch('/api/mercadopago/subscription-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: plan.id,
+          userId: user.id,
+          returnUrl: `${window.location.origin}/payment/complete`
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create payment preference');
+      }
+
+      const result = await response.json();
+      console.log('✅ [Subscription Payment] Preference created:', result.preferenceId);
+
+      // Redirect to MercadoPago Checkout Pro
+      if (result.initPoint) {
+        window.location.href = result.initPoint;
+      } else {
+        throw new Error('No payment URL received');
+      }
+
+    } catch (error) {
+      console.error('❌ [Subscription Payment] Error:', error);
+      setError(error instanceof Error ? error.message : 'Error al procesar el pago');
+    } finally {
+      setIsCreatingPreference(false);
+    }
   };
 
   return (
@@ -279,7 +284,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
             <CreditCard className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Información de Pago
+            Confirmar Suscripción
           </h2>
           <p className="text-gray-600 dark:text-gray-300">
             Plan: <span className="font-semibold">{plan.name}</span>
@@ -289,111 +294,62 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
           </p>
         </div>
 
-        {/* Payment Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Número de Tarjeta
-            </label>
-            <input
-              type="text"
-              value={paymentData.cardNumber}
-              onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-              placeholder="1234 5678 9012 3456"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              required
-            />
-          </div>
+        {/* Plan Details */}
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+            Incluye:
+          </h3>
+          <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+            <li>• Hasta {plan.maxPosts} publicaciones</li>
+            <li>• Hasta {plan.maxBookings} reservas</li>
+            {plan.features.slice(0, 3).map((feature, index) => (
+              <li key={index}>• {feature}</li>
+            ))}
+          </ul>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Titular de la Tarjeta
-            </label>
-            <input
-              type="text"
-              value={paymentData.cardHolder}
-              onChange={(e) => handleInputChange('cardHolder', e.target.value)}
-              placeholder="Nombre Apellido"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              required
-            />
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Fecha de Vencimiento
-              </label>
-              <input
-                type="text"
-                value={paymentData.expiryDate}
-                onChange={(e) => handleInputChange('expiryDate', e.target.value)}
-                placeholder="MM/AA"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                CVV
-              </label>
-              <input
-                type="text"
-                value={paymentData.cvv}
-                onChange={(e) => handleInputChange('cvv', e.target.value)}
-                placeholder="123"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                required
-              />
-            </div>
-          </div>
+        {/* Payment Button */}
+        <div className="space-y-4">
+          <button
+            onClick={handlePayment}
+            disabled={isCreatingPreference}
+            className="w-full px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
+            {isCreatingPreference ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Preparando pago...</span>
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4" />
+                <span>Pagar con MercadoPago</span>
+              </>
+            )}
+          </button>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={paymentData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              required
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              Volver
-            </button>
-            <button
-              type="submit"
-              disabled={isProcessing}
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Procesando...</span>
-                </>
-              ) : (
-                <>
-                  <CreditCard className="w-4 h-4" />
-                  <span>Pagar ${plan.price}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+          <button
+            onClick={onBack}
+            className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Volver a Planes
+          </button>
+        </div>
 
         {/* Security Notice */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            🔒 Tu información está protegida con encriptación SSL de 256 bits
+            🔒 Pago seguro procesado por MercadoPago
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Aceptamos todas las tarjetas y métodos de pago
           </p>
         </div>
       </motion.div>

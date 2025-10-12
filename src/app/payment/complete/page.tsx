@@ -1,347 +1,192 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Clock, CreditCard, Calendar, MapPin, User, Mail, Phone, Check } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { firebaseDB } from '@/services/firebaseService';
-import { Booking } from '@/types';
 
-function PaymentCompleteContent() {
+type PaymentStatus = 'approved' | 'rejected' | 'pending' | 'loading';
+
+export default function PaymentCompletePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'success' | 'pending' | 'failed' | 'unknown'>('unknown');
-
-  const bookingId = searchParams.get('booking');
-  const status = searchParams.get('status');
-  const type = searchParams.get('type');
-  const transactionId = searchParams.get('transactionid');
+  const { user, refreshUser } = useAuth();
+  const [status, setStatus] = useState<PaymentStatus>('loading');
+  const [message, setMessage] = useState('');
+  const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);
 
   useEffect(() => {
-    const fetchBookingAndStatus = async () => {
-      if (!bookingId || !user) {
-        setError('Parámetros de pago inválidos');
-        setLoading(false);
-        return;
-      }
+    const paymentStatus = searchParams.get('status');
+    const paymentId = searchParams.get('payment_id');
+    const externalReference = searchParams.get('external_reference');
 
-      try {
-        setLoading(true);
-        setError(null);
+    console.log('🔍 [Payment Complete] URL params:', {
+      status: paymentStatus,
+      paymentId,
+      externalReference
+    });
 
-        // Fetch booking
-        const bookingData = await firebaseDB.bookings.getById(bookingId);
-        if (!bookingData) {
-          setError('Reserva no encontrada');
-          return;
-        }
-
-        // Check if user has permission to view this booking
-        if (bookingData.clientId !== user.id && bookingData.ownerId !== user.id) {
-          setError('No tienes permisos para ver esta reserva');
-          return;
-        }
-
-        setBooking(bookingData);
-
-        // Determine payment status from URL parameters
-        if (status === 'success') {
-          setPaymentStatus('success');
-        } else if (status === 'failed') {
-          setPaymentStatus('failed');
-        } else if (status === 'pending') {
-          setPaymentStatus('pending');
-        } else {
-          setPaymentStatus('unknown');
-        }
-
-        // Payment status is determined by URL parameters for mock checkout
-
-      } catch (err) {
-        console.error('Error fetching booking:', err);
-        setError(err instanceof Error ? err.message : 'Error al cargar la reserva');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBookingAndStatus();
-  }, [bookingId, user, status, type, transactionId]);
+    if (paymentStatus === 'approved') {
+      setStatus('approved');
+      setMessage('¡Pago exitoso! Tu suscripción ha sido activada.');
+      
+      // Refresh user data to get updated roles
+      setTimeout(() => {
+        refreshUser?.();
+      }, 2000);
+      
+      // Redirect to dashboard after 5 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 5000);
+    } else if (paymentStatus === 'rejected') {
+      setStatus('rejected');
+      setMessage('El pago fue rechazado. Por favor, intenta con otro método de pago.');
+    } else if (paymentStatus === 'pending') {
+      setStatus('pending');
+      setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
+    } else {
+      setStatus('rejected');
+      setMessage('Error en el procesamiento del pago. Por favor, contacta soporte.');
+    }
+  }, [searchParams, router, refreshUser]);
 
   const getStatusIcon = () => {
-    switch (paymentStatus) {
-      case 'success':
-        return <CheckCircle className="w-16 h-16 text-green-500" />;
-      case 'failed':
-        return <XCircle className="w-16 h-16 text-red-500" />;
+    switch (status) {
+      case 'approved':
+        return <CheckCircle className="h-16 w-16 text-green-500" />;
+      case 'rejected':
+        return <XCircle className="h-16 w-16 text-red-500" />;
       case 'pending':
-        return <Clock className="w-16 h-16 text-yellow-500" />;
+        return <Clock className="h-16 w-16 text-yellow-500" />;
       default:
-        return <CreditCard className="w-16 h-16 text-gray-500" />;
-    }
-  };
-
-  const getStatusTitle = () => {
-    switch (paymentStatus) {
-      case 'success':
-        return '¡Pago Exitoso!';
-      case 'failed':
-        return 'Pago Fallido';
-      case 'pending':
-        return 'Pago Pendiente';
-      default:
-        return 'Estado del Pago';
-    }
-  };
-
-  const getStatusMessage = () => {
-    switch (paymentStatus) {
-      case 'success':
-        return 'Tu pago ha sido procesado exitosamente. Tu reserva está confirmada. El propietario ha sido notificado.';
-      case 'failed':
-        return 'Tu pago no pudo ser procesado. Por favor, verifica los datos de tu tarjeta e intenta nuevamente.';
-      case 'pending':
-        return 'Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.';
-      default:
-        return 'No se pudo determinar el estado del pago.';
+        return <Clock className="h-16 w-16 text-blue-500 animate-spin" />;
     }
   };
 
   const getStatusColor = () => {
-    switch (paymentStatus) {
-      case 'success':
-        return 'text-green-600 dark:text-green-400';
-      case 'failed':
-        return 'text-red-600 dark:text-red-400';
+    switch (status) {
+      case 'approved':
+        return 'border-green-200 bg-green-50';
+      case 'rejected':
+        return 'border-red-200 bg-red-50';
       case 'pending':
-        return 'text-yellow-600 dark:text-yellow-400';
+        return 'border-yellow-200 bg-yellow-50';
       default:
-        return 'text-gray-600 dark:text-gray-400';
+        return 'border-blue-200 bg-blue-50';
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const handleContinue = () => {
+    if (status === 'approved') {
+      router.push('/dashboard');
+    } else {
+      router.push('/suscribirse');
+    }
   };
-
-  const formatPrice = (price: number, currency: string) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency
-    }).format(price);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Verificando estado del pago...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="text-red-500 mb-4">
-            <XCircle className="w-16 h-16 mx-auto" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Error
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
-          >
-            Volver a Reservas
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!booking) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Reserva no encontrada
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            La reserva que buscas no existe o no tienes permisos para verla.
-          </p>
-          <button
-            onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
-          >
-            Volver a Reservas
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto p-8">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className={`max-w-md w-full rounded-2xl border-2 p-8 text-center ${getStatusColor()}`}
+      >
+        {/* Status Icon */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="flex justify-center mb-6"
+        >
+          {getStatusIcon()}
+        </motion.div>
+
+        {/* Status Message */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          transition={{ delay: 0.3 }}
+          className="mb-6"
         >
-          <div className="mb-6">
-            {getStatusIcon()}
-          </div>
-          <h1 className={`text-3xl font-bold mb-2 ${getStatusColor()}`}>
-            {getStatusTitle()}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            {status === 'approved' && '¡Pago Exitoso!'}
+            {status === 'rejected' && 'Pago Rechazado'}
+            {status === 'pending' && 'Pago Pendiente'}
+            {status === 'loading' && 'Procesando...'}
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 text-lg">
-            {getStatusMessage()}
+          <p className="text-gray-600 dark:text-gray-300">
+            {message}
           </p>
         </motion.div>
 
+        {/* Subscription Details */}
+        {status === 'approved' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+          >
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+              Tu suscripción está activa
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Ahora puedes crear publicaciones y acceder a todas las funcionalidades de editor.
+            </p>
+          </motion.div>
+        )}
+
+        {/* Action Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="glass rounded-xl p-8 mb-8"
-        >
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Detalles de la Reserva
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {booking.post.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  {booking.post.category}
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600 dark:text-gray-300">{booking.post.location}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600 dark:text-gray-300">
-                  {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
-                </span>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600 dark:text-gray-300">{booking.client.name}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <CreditCard className="w-4 h-4 text-gray-400" />
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formatPrice(booking.totalAmount, booking.currency)}
-                </span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {booking.guestCount} {booking.guestCount === 1 ? 'viajero' : 'viajeros'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Publisher Information - Show when payment is successful */}
-          {paymentStatus === 'success' && booking.owner && (
-            <div className="mt-8 p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="flex items-start space-x-2 mb-4">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-1" />
-                <div>
-                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-1">
-                    Información del Proveedor
-                  </h3>
-                  <p className="text-sm text-green-700 dark:text-green-400">
-                    Puedes contactar al proveedor usando la información de abajo.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  <span className="text-green-700 dark:text-green-400">{booking.owner.name}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  <span className="text-green-700 dark:text-green-400">{booking.owner.email}</span>
-                </div>
-                {booking.owner.phone && (
-                  <div className="flex items-center space-x-2">
-                    <Phone className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-400">{booking.owner.phone}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
+          transition={{ delay: 0.5 }}
         >
           <button
-            onClick={() => router.push('/bookings')}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
+            onClick={handleContinue}
+            className={`w-full px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center justify-center space-x-2 ${
+              status === 'approved'
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Ver Mis Reservas
+            <span>
+              {status === 'approved' ? 'Ir al Dashboard' : 'Intentar de Nuevo'}
+            </span>
+            <ArrowRight className="h-4 w-4" />
           </button>
-          
-          {paymentStatus === 'failed' && (
-            <button
-              onClick={() => router.push(`/post/${booking.postId}`)}
-              className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-all duration-300"
-            >
-              Intentar Nuevamente
-            </button>
-          )}
         </motion.div>
-      </div>
+
+        {/* Auto-redirect notice */}
+        {status === 'approved' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-4 text-sm text-gray-500 dark:text-gray-400"
+          >
+            Te redirigiremos automáticamente en unos segundos...
+          </motion.div>
+        )}
+
+        {/* Support Info */}
+        {status === 'rejected' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-4 text-sm text-gray-500 dark:text-gray-400"
+          >
+            ¿Necesitas ayuda? Contacta a{' '}
+            <a href="mailto:soporte@tudominio.com" className="text-blue-600 hover:underline">
+              soporte@tudominio.com
+            </a>
+          </motion.div>
+        )}
+      </motion.div>
     </div>
-  );
-}
-
-export default function PaymentCompletePage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
-        </div>
-      </div>
-    }>
-      <PaymentCompleteContent />
-    </Suspense>
   );
 }

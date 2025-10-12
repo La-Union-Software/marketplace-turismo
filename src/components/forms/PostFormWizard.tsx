@@ -476,6 +476,38 @@ export default function PostFormWizard({
     setSubmitError(null);
 
     try {
+      // Validate publisher subscription and marketplace connection (only for new posts)
+      if (!editMode) {
+        console.log('🔍 [Post Creation] Validating publisher requirements...');
+        
+        const validationResponse = await fetch('/api/mercadopago/marketplace/validate-publisher', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: user.id }),
+        });
+
+        if (!validationResponse.ok) {
+          throw new Error('Failed to validate publisher requirements');
+        }
+
+        const validationResult = await validationResponse.json();
+        const validation = validationResult.validation;
+
+        console.log('📋 [Post Creation] Validation result:', validation);
+
+        if (!validation.isValid) {
+          const errorMessage = validation.errors.join(' ');
+          throw new Error(errorMessage);
+        }
+
+        // Show remaining posts info
+        if (validation.remainingPosts !== undefined && validation.remainingPosts <= 3) {
+          console.log(`⚠️ [Post Creation] Warning: Only ${validation.remainingPosts} posts remaining in current plan`);
+        }
+      }
+
       // Validate required fields
       if (!formData.title || !formData.description || !formData.category || !formData.mainImage) {
         throw new Error('Please fill in all required fields');

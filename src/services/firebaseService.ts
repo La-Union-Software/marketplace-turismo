@@ -595,7 +595,18 @@ export const firebaseDB = {
         };
         
         const docRef = await addDoc(plansRef, newPlan);
-        return docRef.id;
+        const planId = docRef.id;
+        
+        // Automatically sync with MercadoPago after creation
+        try {
+          await this.syncPlanWithMercadoPago(planId);
+          console.log('✅ Plan synced with MercadoPago:', planId);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync plan with MercadoPago (non-blocking):', syncError);
+          // Don't throw - plan was created successfully in our DB
+        }
+        
+        return planId;
       } catch (error) {
         console.error('Error creating subscription plan:', error);
         throw error;
@@ -629,6 +640,15 @@ export const firebaseDB = {
           updatedAt: new Date(),
           updatedBy: userId,
         });
+        
+        // Automatically sync with MercadoPago after update
+        try {
+          await this.syncPlanWithMercadoPago(planId);
+          console.log('✅ Plan synced with MercadoPago:', planId);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync plan with MercadoPago (non-blocking):', syncError);
+          // Don't throw - plan was updated successfully in our DB
+        }
       } catch (error) {
         console.error('Error updating subscription plan:', error);
         throw error;
@@ -638,7 +658,24 @@ export const firebaseDB = {
     // Delete plan
     async delete(planId: string): Promise<void> {
       try {
-        await deleteDoc(doc(db, 'subscriptionPlans', planId));
+        // Get the plan data before deletion to access mercadoPagoPlanId
+        const planRef = doc(db, 'subscriptionPlans', planId);
+        const planSnap = await getDoc(planRef);
+        const planData = planSnap.data() as SubscriptionPlan | undefined;
+        
+        // Delete from Firebase
+        await deleteDoc(planRef);
+        
+        // Automatically delete from MercadoPago if it was synced
+        if (planData?.mercadoPagoPlanId) {
+          try {
+            await this.deletePlanFromMercadoPago(planData.mercadoPagoPlanId);
+            console.log('✅ Plan deleted from MercadoPago:', planData.mercadoPagoPlanId);
+          } catch (syncError) {
+            console.error('⚠️ Failed to delete plan from MercadoPago (non-blocking):', syncError);
+            // Don't throw - plan was deleted successfully from our DB
+          }
+        }
       } catch (error) {
         console.error('Error deleting subscription plan:', error);
         throw error;
@@ -654,8 +691,124 @@ export const firebaseDB = {
           updatedAt: new Date(),
           updatedBy: userId,
         });
+        
+        // Automatically sync with MercadoPago after status change
+        try {
+          await this.syncPlanWithMercadoPago(planId);
+          console.log('✅ Plan status synced with MercadoPago:', planId);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync plan status with MercadoPago (non-blocking):', syncError);
+          // Don't throw - plan status was updated successfully in our DB
+        }
       } catch (error) {
         console.error('Error toggling plan active status:', error);
+        throw error;
+      }
+    },
+
+    // Helper function to sync a single plan with MercadoPago
+    async syncPlanWithMercadoPago(planId: string): Promise<void> {
+      try {
+        // Get the plan data
+        const planRef = doc(db, 'subscriptionPlans', planId);
+        const planSnap = await getDoc(planRef);
+        
+        if (!planSnap.exists()) {
+          throw new Error('Plan not found');
+        }
+
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        try {
+          const response = await fetch('/api/mercadopago/sync-plan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ planId }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(error.error || 'Failed to sync plan with MercadoPago');
+          }
+
+          const result = await response.json();
+          
+          console.log('🔍 [Firebase Sync] API Response:', {
+            success: result.success,
+            mercadoPagoPlanId: result.mercadoPagoPlanId,
+            message: result.message,
+            hasPlanId: !!result.mercadoPagoPlanId
+          });
+          
+          // Update the plan with MercadoPago ID
+          if (result.mercadoPagoPlanId) {
+            console.log('💾 [Firebase Sync] Updating Firebase with MercadoPago Plan ID:', {
+              planId: planId,
+              mercadoPagoPlanId: result.mercadoPagoPlanId,
+              planRef: planRef.path
+            });
+            
+            try {
+              await updateDoc(planRef, {
+                mercadoPagoPlanId: result.mercadoPagoPlanId,
+                updatedAt: new Date(),
+                updatedBy: 'mercado-pago-sync'
+              });
+              console.log('✅ [Firebase Sync] Firebase updated successfully');
+              
+              // Verify the update
+              const verifySnap = await getDoc(planRef);
+              const verifyData = verifySnap.data();
+              console.log('🔍 [Firebase Sync] Verification - Plan data after update:', {
+                planId: planId,
+                mercadoPagoPlanId: verifyData?.mercadoPagoPlanId,
+                updatedAt: verifyData?.updatedAt
+              });
+              
+            } catch (updateError) {
+              console.error('❌ [Firebase Sync] Failed to update Firebase:', updateError);
+              throw updateError;
+            }
+          } else {
+            console.error('❌ [Firebase Sync] No MercadoPago Plan ID in API response:', result);
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            throw new Error('Sync request timed out. Please try manual sync later.');
+          }
+          throw fetchError;
+        }
+      } catch (error) {
+        console.error('Error syncing plan with MercadoPago:', error);
+        throw error;
+      }
+    },
+
+    // Helper function to delete a plan from MercadoPago
+    async deletePlanFromMercadoPago(mercadoPagoPlanId: string): Promise<void> {
+      try {
+        const response = await fetch('/api/mercadopago/delete-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ mercadoPagoPlanId }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to delete plan from MercadoPago');
+        }
+      } catch (error) {
+        console.error('Error deleting plan from MercadoPago:', error);
         throw error;
       }
     }

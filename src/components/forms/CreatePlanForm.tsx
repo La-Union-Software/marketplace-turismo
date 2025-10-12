@@ -27,7 +27,7 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
     isVisible: true
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,13 +49,27 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
       const planId = await firebaseDB.plans.create(planData, user.id);
       console.log('✅ Plan created successfully:', planId);
       
-      setMessage({ type: 'success', text: 'Plan created successfully!' });
+      // Wait a bit to see if sync succeeds
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Close form after a short delay
+      // Check if plan was synced
+      const allPlans = await firebaseDB.plans.getAll();
+      const createdPlan = allPlans.find(p => p.id === planId);
+      
+      if (createdPlan?.mercadoPagoPlanId) {
+        setMessage({ type: 'success', text: 'Plan created and synced with MercadoPago successfully!' });
+      } else {
+        setMessage({ 
+          type: 'warning', 
+          text: 'Plan created, but MercadoPago sync failed. You can sync it manually later from the Plans page.' 
+        });
+      }
+      
+      // Close form after showing message
       setTimeout(() => {
         onPlanCreated();
         onClose();
-      }, 1500);
+      }, 3000);
     } catch (error) {
       console.error('Error creating plan:', error);
       setMessage({ type: 'error', text: 'Error creating plan. Please try again.' });
@@ -325,6 +339,8 @@ export default function CreatePlanForm({ onClose, onPlanCreated }: CreatePlanFor
             <div className={`flex items-center space-x-2 p-3 rounded-lg ${
               message.type === 'success' 
                 ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' 
+                : message.type === 'warning'
+                ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                 : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
             }`}>
               <span className="text-sm">{message.text}</span>

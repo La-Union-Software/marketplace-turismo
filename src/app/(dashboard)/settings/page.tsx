@@ -1,42 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { User, Bell, Shield, Globe, CreditCard, Link, CheckCircle, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { User, Bell, Shield, Globe, Link } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePermissions } from '@/services/permissionsService';
-import MercadoPagoForm from '@/components/forms/MercadoPagoForm';
-import MercadoPagoConnectForm from '@/components/forms/MercadoPagoConnectForm';
+import MarketplaceConnectionForm from '@/components/forms/MarketplaceConnectionForm';
+import PublisherStatus from '@/components/publisher/PublisherStatus';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const permissions = usePermissions(user?.roles || []);
-  const [showMercadoPagoForm, setShowMercadoPagoForm] = useState(false);
-  const [showMercadoPagoConnectForm, setShowMercadoPagoConnectForm] = useState(false);
-  const [oauthMessage, setOauthMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Check for OAuth callback messages in URL params
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const oauthStatus = urlParams.get('oauth');
-    const message = urlParams.get('message');
-
-    if (oauthStatus && message) {
-      setOauthMessage({
-        type: oauthStatus as 'success' | 'error',
-        text: decodeURIComponent(message)
-      });
-
-      // Clear URL params
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-
-      // Auto-hide message after 5 seconds
-      setTimeout(() => {
-        setOauthMessage(null);
-      }, 5000);
-    }
-  }, []);
+  const [showMarketplaceForm, setShowMarketplaceForm] = useState(false);
 
   const settingsSections = [
     {
@@ -45,6 +20,14 @@ export default function SettingsPage() {
       icon: User,
       href: '/settings/profile',
       color: 'from-blue-500 to-blue-600'
+    },
+    {
+      title: 'MercadoPago Marketplace',
+      description: 'Conecta tu cuenta de MercadoPago para recibir pagos',
+      icon: Link,
+      href: '#',
+      color: 'from-yellow-500 to-yellow-600',
+      onClick: () => setShowMarketplaceForm(true)
     },
     {
       title: 'Notificaciones',
@@ -69,58 +52,12 @@ export default function SettingsPage() {
     }
   ];
 
-  // Add MercadoPago sections for Superadmin users
-  if (permissions.hasRole('superadmin')) {
-    settingsSections.push({
-      title: 'MercadoPago Credentials',
-      description: 'Configura las credenciales de pago de MercadoPago',
-      icon: CreditCard,
-      href: '#',
-      color: 'from-blue-500 to-blue-600'
-    });
-
-    settingsSections.push({
-      title: 'Conectar con la cuenta principal de Mercado Pago',
-      description: 'Conecta tu cuenta principal para gestionar planes de suscripción',
-      icon: Link,
-      href: '#',
-      color: 'from-green-500 to-green-600'
-    });
-  }
+  // MercadoPago credentials are now configured via environment variables
+  // No need for UI forms anymore
 
   return (
     <div className="w-full max-w-none">
       <div className="space-y-8">
-        {/* OAuth Success/Error Message */}
-        <AnimatePresence>
-          {oauthMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className={`flex items-center space-x-3 p-4 rounded-lg border ${
-                oauthMessage.type === 'success'
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-              }`}
-            >
-              {oauthMessage.type === 'success' ? (
-                <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              ) : (
-                <XCircle className="w-5 h-5 flex-shrink-0" />
-              )}
-              <p className="text-sm font-medium flex-1">{oauthMessage.text}</p>
-              <button
-                onClick={() => setOauthMessage(null)}
-                className="text-current hover:opacity-70 transition-opacity"
-              >
-                ✕
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -144,14 +81,9 @@ export default function SettingsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               className="glass rounded-xl p-6 hover:transform hover:scale-105 transition-all duration-300 cursor-pointer"
-              onClick={() => {
-                if (section.title === 'MercadoPago Credentials') {
-                  setShowMercadoPagoForm(true);
-                } else if (section.title === 'Conectar con la cuenta principal de Mercado Pago') {
-                  setShowMercadoPagoConnectForm(true);
-                }
+              onClick={section.onClick || (() => {
                 // For other sections, you can add navigation logic here
-              }}
+              })}
             >
               <div className="flex items-start space-x-4">
                 <div className={`w-12 h-12 bg-gradient-to-br ${section.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -172,6 +104,19 @@ export default function SettingsPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Publisher Status */}
+        <PublisherStatus showDetails={true} />
+
+        {/* Marketplace Connection Form */}
+        <MarketplaceConnectionForm
+          isOpen={showMarketplaceForm}
+          onSuccess={() => {
+            setShowMarketplaceForm(false);
+            // Optionally refresh the page or show a success message
+          }}
+          onCancel={() => setShowMarketplaceForm(false)}
+        />
 
         {/* Account Info */}
         <motion.div
@@ -270,15 +215,6 @@ export default function SettingsPage() {
         </motion.div>
       </div>
 
-      {/* MercadoPago Credentials Form Modal */}
-      {showMercadoPagoForm && (
-        <MercadoPagoForm onClose={() => setShowMercadoPagoForm(false)} />
-      )}
-
-      {/* MercadoPago Connect Form Modal */}
-      {showMercadoPagoConnectForm && (
-        <MercadoPagoConnectForm onClose={() => setShowMercadoPagoConnectForm(false)} />
-      )}
     </div>
   );
 }

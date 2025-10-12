@@ -1,40 +1,21 @@
+import { MercadoPagoConfig, PreApprovalPlan } from 'mercadopago';
 import { MercadoPagoAccount, SubscriptionPlan, MercadoPagoPlan } from '@/types';
 import { firebaseDB } from './firebaseService';
 
 export interface MercadoPagoSubscriptionPlan {
-  id: string;
-  name: string;
-  description: string;
-  amount: number;
-  currency: string;
-  frequency: {
-    type: 'day' | 'week' | 'month' | 'year';
-    frequency: number;
-  };
-  repetitions: number; // 0 for unlimited
-  free_trial: {
-    frequency: number;
-    frequency_type: 'day' | 'week' | 'month' | 'year';
-  };
-  payment_methods: {
-    excluded_payment_types: string[];
-    excluded_payment_methods: string[];
-    installments: number;
-  };
-  back_urls: {
-    success: string;
-    failure: string;
-    pending: string;
-  };
-  auto_recurring: boolean;
   reason: string;
+  auto_recurring: {
+    frequency: number;
+    frequency_type: 'days' | 'months';
+    transaction_amount: number;
+    currency_id: string;
+  };
+  back_url: string;
   external_reference?: string;
 }
 
 class MercadoPagoPlansService {
-  private accessToken: string = '';
-  private publicKey: string = '';
-  private baseUrl: string = 'https://api.mercadopago.com';
+  private client: PreApprovalPlan | null = null;
 
   constructor(account?: MercadoPagoAccount) {
     if (account) {
@@ -43,149 +24,160 @@ class MercadoPagoPlansService {
   }
 
   setAccount(account: MercadoPagoAccount) {
-    this.accessToken = account.accessToken;
-    this.publicKey = account.publicKey;
+    const config = new MercadoPagoConfig({ 
+      accessToken: account.accessToken,
+      options: { timeout: 5000 }
+    });
+    this.client = new PreApprovalPlan(config);
   }
 
   /**
    * Create a subscription plan in MercadoPago
    */
   async createPlan(planData: MercadoPagoSubscriptionPlan): Promise<MercadoPagoPlan> {
-    if (!this.accessToken) {
+    if (!this.client) {
       throw new Error('MercadoPago account not configured');
     }
 
-    const response = await fetch(`${this.baseUrl}/preapproval_plan`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(planData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`MercadoPago API error: ${errorData.message || response.statusText}`);
+    try {
+      console.log('🚀 [MercadoPago SDK] Creating plan with data:', planData);
+      const result = await this.client.create({ body: planData });
+      console.log('📋 [MercadoPago SDK] Create plan response:', {
+        resultType: typeof result,
+        resultKeys: Object.keys(result || {}),
+        hasId: 'id' in result,
+        id: result?.id,
+        fullResult: result
+      });
+      return result as any;
+    } catch (error: any) {
+      console.error('MercadoPago API error details:', error.cause);
+      throw new Error(`MercadoPago API error: ${error.message || 'Unknown error'}`);
     }
-
-    return response.json();
   }
 
   /**
    * Get a subscription plan from MercadoPago
    */
   async getPlan(planId: string): Promise<MercadoPagoPlan> {
-    if (!this.accessToken) {
+    if (!this.client) {
       throw new Error('MercadoPago account not configured');
     }
 
-    const response = await fetch(`${this.baseUrl}/preapproval_plan/${planId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`MercadoPago API error: ${errorData.message || response.statusText}`);
+    try {
+      const result = await this.client.get({ id: planId });
+      return result as any;
+    } catch (error: any) {
+      throw new Error(`MercadoPago API error: ${error.message || 'Unknown error'}`);
     }
-
-    return response.json();
   }
 
   /**
    * Update a subscription plan in MercadoPago
    */
   async updatePlan(planId: string, updates: Partial<MercadoPagoSubscriptionPlan>): Promise<MercadoPagoPlan> {
-    if (!this.accessToken) {
+    if (!this.client) {
       throw new Error('MercadoPago account not configured');
     }
 
-    const response = await fetch(`${this.baseUrl}/preapproval_plan/${planId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updates),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`MercadoPago API error: ${errorData.message || response.statusText}`);
+    try {
+      const result = await this.client.update({ id: planId, body: updates });
+      return result as any;
+    } catch (error: any) {
+      throw new Error(`MercadoPago API error: ${error.message || 'Unknown error'}`);
     }
-
-    return response.json();
   }
 
   /**
    * Delete a subscription plan from MercadoPago
+   * Note: MercadoPago SDK doesn't support plan deletion via API
+   * Plans must be deactivated or deleted through the dashboard
    */
   async deletePlan(planId: string): Promise<void> {
-    if (!this.accessToken) {
+    if (!this.client) {
       throw new Error('MercadoPago account not configured');
     }
 
-    const response = await fetch(`${this.baseUrl}/preapproval_plan/${planId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`MercadoPago API error: ${errorData.message || response.statusText}`);
-    }
+    // MercadoPago doesn't support plan deletion via API
+    // We'll just log this for now
+    console.warn('⚠️ Plan deletion not supported by MercadoPago API. Plan must be deactivated manually in dashboard:', planId);
   }
 
   /**
    * Sync platform subscription plan with MercadoPago
    */
   async syncPlatformPlan(platformPlan: SubscriptionPlan): Promise<MercadoPagoPlan> {
+    // Convert billing cycle to MercadoPago format
+    const frequencyMap: Record<string, number> = {
+      daily: 1,
+      weekly: 7,
+      monthly: 1,
+      yearly: 12
+    };
+
+    const frequencyTypeMap: Record<string, 'days' | 'months'> = {
+      daily: 'days',
+      weekly: 'days',
+      monthly: 'months',
+      yearly: 'months'
+    };
+
+    const frequency = frequencyMap[platformPlan.billingCycle] || 1;
+    const frequencyType = frequencyTypeMap[platformPlan.billingCycle] || 'months';
+
+    // Get base URL with fallback
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    
+    // Ensure URL is valid
+    let backUrl: string;
+    try {
+      new URL(baseUrl); // Validate URL
+      backUrl = `${baseUrl}/subscription/complete`;
+    } catch {
+      // Fallback to localhost if invalid
+      backUrl = 'http://localhost:3000/subscription/complete';
+      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using localhost fallback');
+    }
+
     const mercadoPagoPlan: MercadoPagoSubscriptionPlan = {
-      id: platformPlan.id,
-      name: platformPlan.name,
-      description: platformPlan.description,
-      amount: platformPlan.price,
-      currency: platformPlan.currency,
-      frequency: {
-        type: platformPlan.billingCycle as 'day' | 'week' | 'month' | 'year',
-        frequency: 1, // Default to 1 cycle
-      },
-      repetitions: 0, // Unlimited for subscription plans
-      free_trial: {
-        frequency: platformPlan.trialDays || 0,
-        frequency_type: 'day',
-      },
-      payment_methods: {
-        excluded_payment_types: [],
-        excluded_payment_methods: [],
-        installments: 12,
-      },
-      back_urls: {
-        success: `${process.env.NEXT_PUBLIC_BASE_URL}/subscription/success`,
-        failure: `${process.env.NEXT_PUBLIC_BASE_URL}/subscription/failure`,
-        pending: `${process.env.NEXT_PUBLIC_BASE_URL}/subscription/pending`,
-      },
-      auto_recurring: true,
       reason: `Suscripción: ${platformPlan.name}`,
+      auto_recurring: {
+        frequency: frequency,
+        frequency_type: frequencyType,
+        transaction_amount: platformPlan.price,
+        currency_id: platformPlan.currency
+      },
+      back_url: backUrl,
       external_reference: platformPlan.id,
     };
 
+    let mercadoPagoPlanResult: MercadoPagoPlan;
+
     // Check if plan already exists in MercadoPago
-    try {
-      const existingPlan = await this.getPlan(platformPlan.id);
-      // Update existing plan
-      return await this.updatePlan(platformPlan.id, mercadoPagoPlan);
-    } catch (error) {
-      // Plan doesn't exist, create new one
-      return await this.createPlan(mercadoPagoPlan);
+    if (platformPlan.mercadoPagoPlanId) {
+      try {
+        // Try to get the existing plan first to verify it exists
+        console.log('🔍 [MercadoPago Sync] Checking if plan exists in MercadoPago:', platformPlan.mercadoPagoPlanId);
+        mercadoPagoPlanResult = await this.getPlan(platformPlan.mercadoPagoPlanId);
+        console.log('✅ [MercadoPago Sync] Plan exists in MercadoPago, updating it');
+        
+        // Plan exists, try to update it
+        mercadoPagoPlanResult = await this.updatePlan(platformPlan.mercadoPagoPlanId, mercadoPagoPlan);
+      } catch (error) {
+        // If get/update fails, the plan might not exist anymore, create a new one
+        console.log('⚠️ [MercadoPago Sync] Plan not found or update failed, creating new plan');
+        mercadoPagoPlanResult = await this.createPlan(mercadoPagoPlan);
+      }
+    } else {
+      // Create new plan
+      console.log('➕ [MercadoPago Sync] Creating new plan (no existing MercadoPago ID)');
+      mercadoPagoPlanResult = await this.createPlan(mercadoPagoPlan);
     }
+
+    // Note: Firebase update is handled by the calling function (firebaseService.ts)
+    // This prevents double-updates and race conditions
+
+    return mercadoPagoPlanResult;
   }
 
   /**
@@ -200,10 +192,53 @@ class MercadoPagoPlansService {
 
       for (const plan of platformPlans) {
         try {
-          await this.syncPlatformPlan(plan);
+          console.log('🔄 [MercadoPago Sync All] Processing plan:', {
+            planId: plan.id,
+            planName: plan.name,
+            hasExistingMercadoPagoId: !!plan.mercadoPagoPlanId,
+            existingMercadoPagoId: plan.mercadoPagoPlanId
+          });
+
+          const mercadoPagoPlan = await this.syncPlatformPlan(plan);
+          
+          // Save the MercadoPago Plan ID to Firebase if it's a new plan or if we don't have the ID stored
+          if (mercadoPagoPlan.id && !plan.mercadoPagoPlanId) {
+            try {
+              console.log('💾 [MercadoPago Sync All] Saving MercadoPago Plan ID to Firebase:', {
+                planId: plan.id,
+                mercadoPagoPlanId: mercadoPagoPlan.id
+              });
+              
+              await firebaseDB.plans.update(plan.id, {
+                mercadoPagoPlanId: mercadoPagoPlan.id
+              }, 'mercado-pago-sync-all');
+              
+              console.log('✅ [MercadoPago Sync All] MercadoPago Plan ID saved to Firebase');
+              
+              // Verify the update
+              const verifyPlans = await firebaseDB.plans.getAll();
+              const verifyPlan = verifyPlans.find(p => p.id === plan.id);
+              console.log('🔍 [MercadoPago Sync All] Verification - Plan after update:', {
+                planId: plan.id,
+                mercadoPagoPlanId: verifyPlan?.mercadoPagoPlanId,
+                updatedAt: verifyPlan?.updatedAt
+              });
+              
+            } catch (firebaseError) {
+              console.error('❌ [MercadoPago Sync All] Failed to save MercadoPago Plan ID to Firebase:', firebaseError);
+              // Don't fail the entire operation, just log the error
+            }
+          } else if (plan.mercadoPagoPlanId) {
+            console.log('⏭️ [MercadoPago Sync All] Plan already has MercadoPago ID, skipping Firebase update:', {
+              planId: plan.id,
+              existingMercadoPagoId: plan.mercadoPagoPlanId
+            });
+          }
+          
           results.push({ planId: plan.id, status: 'success' });
           success++;
         } catch (error) {
+          console.error('❌ [MercadoPago Sync All] Error syncing plan:', plan.id, error);
           results.push({ 
             planId: plan.id, 
             status: 'error', 
@@ -314,7 +349,7 @@ class MercadoPagoPlansService {
    * Check if account is configured
    */
   isConfigured(): boolean {
-    return !!(this.accessToken && this.publicKey);
+    return this.client !== null;
   }
 }
 
