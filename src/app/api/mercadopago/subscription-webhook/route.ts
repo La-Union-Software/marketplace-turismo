@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
       const paymentDetails = await getPaymentDetails(paymentId);
       
       if (paymentDetails) {
+        // Process payment using payment tracking service
+        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
+        await paymentTrackingService.processPaymentWebhook(paymentDetails);
+        
         await processSubscriptionPayment(paymentDetails);
       }
     } else if (type === 'preapproval') {
@@ -328,14 +332,21 @@ async function processSubscriptionStatusChange(subscription: any) {
       }
     });
 
-    // Assign or remove publisher role based on status
-    if (shouldAssignRole) {
-      await firebaseDB.users.assignRole(userId, 'publisher', 'system');
-      console.log('✅ [MercadoPago Subscription Webhook] Publisher role assigned to user:', userId);
-    } else if (status === 'cancelled') {
-      // Optionally remove publisher role when subscription is cancelled
-      // await firebaseDB.users.removeRole(userId, 'publisher', 'system');
-      console.log('ℹ️ [MercadoPago Subscription Webhook] Subscription cancelled for user:', userId);
+    // Use auth middleware to manage roles and posts
+    if (shouldAssignRole || status === 'cancelled') {
+      try {
+        const { authMiddleware } = await import('@/services/authMiddleware');
+        const { globalAuthMiddleware } = await import('@/services/globalAuthMiddleware');
+        
+        // Clear user cache to force refresh
+        globalAuthMiddleware.clearUserCache(userId);
+        
+        // Update user roles and posts
+        await authMiddleware.checkUserSubscriptionAndRoles(userId);
+        console.log('✅ [MercadoPago Subscription Webhook] User roles and posts updated via middleware for user:', userId);
+      } catch (error) {
+        console.error('❌ [MercadoPago Subscription Webhook] Error updating user via middleware:', error);
+      }
     }
 
     console.log('✅ [MercadoPago Subscription Webhook] Subscription status updated:', {

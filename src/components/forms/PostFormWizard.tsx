@@ -480,12 +480,15 @@ export default function PostFormWizard({
       if (!editMode) {
         console.log('🔍 [Post Creation] Validating publisher requirements...');
         
-        const validationResponse = await fetch('/api/mercadopago/marketplace/validate-publisher', {
+        const validationResponse = await fetch('/api/auth/middleware/check-permission', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ userId: user.id }),
+          body: JSON.stringify({ 
+            userId: user.id,
+            action: 'create_post'
+          }),
         });
 
         if (!validationResponse.ok) {
@@ -493,18 +496,17 @@ export default function PostFormWizard({
         }
 
         const validationResult = await validationResponse.json();
-        const validation = validationResult.validation;
 
-        console.log('📋 [Post Creation] Validation result:', validation);
+        console.log('📋 [Post Creation] Permission validation result:', validationResult);
 
-        if (!validation.isValid) {
-          const errorMessage = validation.errors.join(' ');
-          throw new Error(errorMessage);
+        if (!validationResult.allowed) {
+          throw new Error(validationResult.reason || 'You do not have permission to create posts');
         }
 
         // Show remaining posts info
-        if (validation.remainingPosts !== undefined && validation.remainingPosts <= 3) {
-          console.log(`⚠️ [Post Creation] Warning: Only ${validation.remainingPosts} posts remaining in current plan`);
+        const remainingPosts = validationResult.userStatus?.subscription?.remainingPosts;
+        if (remainingPosts !== undefined && remainingPosts <= 3) {
+          console.log(`⚠️ [Post Creation] Warning: Only ${remainingPosts} posts remaining in current plan`);
         }
       }
 

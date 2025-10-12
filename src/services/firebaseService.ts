@@ -1621,6 +1621,147 @@ export const firebaseDB = {
         return [];
       }
     },
+
+    async getByMercadoPagoId(mercadoPagoSubscriptionId: string): Promise<UserSubscription | null> {
+      try {
+        const subscriptionsRef = collection(db, 'userSubscriptions');
+        const q = query(
+          subscriptionsRef,
+          where('mercadoPagoSubscriptionId', '==', mercadoPagoSubscriptionId),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          return null;
+        }
+
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          startDate: data.startDate?.toDate?.() || new Date(data.startDate),
+          endDate: data.endDate?.toDate?.() || (data.endDate ? new Date(data.endDate) : undefined),
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+        } as UserSubscription;
+      } catch (error) {
+        console.error('Error getting subscription by MercadoPago ID:', error);
+        return null;
+      }
+    },
+  },
+
+  // Payment Records operations
+  payments: {
+    async create(paymentData: any): Promise<string> {
+      try {
+        const paymentsRef = collection(db, 'payments');
+        const docRef = await addDoc(paymentsRef, {
+          ...paymentData,
+          createdAt: paymentData.createdAt || new Date(),
+          updatedAt: paymentData.updatedAt || new Date(),
+        });
+        console.log('✅ [Firebase] Payment created:', docRef.id);
+        return docRef.id;
+      } catch (error) {
+        console.error('Error creating payment:', error);
+        throw new Error('Failed to create payment');
+      }
+    },
+
+    async getById(paymentId: string): Promise<any | null> {
+      try {
+        const paymentRef = doc(db, 'payments', paymentId);
+        const paymentSnap = await getDoc(paymentRef);
+        
+        if (!paymentSnap.exists()) {
+          return null;
+        }
+
+        const data = paymentSnap.data();
+        return {
+          id: paymentSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+          processedAt: data.processedAt?.toDate?.() || (data.processedAt ? new Date(data.processedAt) : undefined),
+        };
+      } catch (error) {
+        console.error('Error getting payment:', error);
+        return null;
+      }
+    },
+
+    async update(paymentId: string, updates: any): Promise<void> {
+      try {
+        const paymentRef = doc(db, 'payments', paymentId);
+        await updateDoc(paymentRef, {
+          ...updates,
+          updatedAt: new Date(),
+        });
+        console.log('✅ [Firebase] Payment updated:', paymentId);
+      } catch (error) {
+        console.error('Error updating payment:', error);
+        throw new Error('Failed to update payment');
+      }
+    },
+
+    async getByUserId(userId: string): Promise<any[]> {
+      try {
+        const paymentsRef = collection(db, 'payments');
+        const q = query(
+          paymentsRef,
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        
+        return querySnapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+            processedAt: data.processedAt?.toDate?.() || (data.processedAt ? new Date(data.processedAt) : undefined),
+          };
+        });
+      } catch (error) {
+        console.error('Error getting user payments:', error);
+        return [];
+      }
+    },
+
+    async getByMercadoPagoId(mercadoPagoPaymentId: string): Promise<any | null> {
+      try {
+        const paymentsRef = collection(db, 'payments');
+        const q = query(
+          paymentsRef,
+          where('mercadoPagoPaymentId', '==', mercadoPagoPaymentId),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          return null;
+        }
+
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+          processedAt: data.processedAt?.toDate?.() || (data.processedAt ? new Date(data.processedAt) : undefined),
+        };
+      } catch (error) {
+        console.error('Error getting payment by MercadoPago ID:', error);
+        return null;
+      }
+    },
   },
 
 };

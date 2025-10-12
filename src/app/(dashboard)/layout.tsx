@@ -62,6 +62,13 @@ export default function DashboardLayout({
       );
     }
 
+    // Add publisher-specific items
+    if (hasRole('publisher')) {
+      baseItems.push(
+        { name: 'Mi Plan', href: '/mi-plan', icon: Crown, roles: ['publisher'] }
+      );
+    }
+
     // Add client-only items
     if (hasRole('client')) {
       baseItems.push(

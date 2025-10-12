@@ -16,18 +16,70 @@ export default function PaymentCompletePage() {
   const [message, setMessage] = useState('');
   const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);
 
+  // Function to verify subscription status and trigger webhook
+  const verifySubscriptionStatus = async (preapprovalId: string) => {
+    try {
+      console.log('🔄 [Payment Complete] Verifying subscription status:', preapprovalId);
+      
+      // Simulate webhook call to update subscription status
+      const response = await fetch('/api/mercadopago/subscription-webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'preapproval',
+          data: {
+            id: preapprovalId
+          }
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ [Payment Complete] Subscription status updated successfully');
+      } else {
+        console.warn('⚠️ [Payment Complete] Failed to update subscription status');
+      }
+    } catch (error) {
+      console.error('❌ [Payment Complete] Error verifying subscription:', error);
+      // Don't fail the user experience, just log the error
+    }
+  };
+
   useEffect(() => {
     const paymentStatus = searchParams.get('status');
     const paymentId = searchParams.get('payment_id');
+    const preapprovalId = searchParams.get('preapproval_id');
     const externalReference = searchParams.get('external_reference');
 
     console.log('🔍 [Payment Complete] URL params:', {
       status: paymentStatus,
       paymentId,
+      preapprovalId,
       externalReference
     });
 
-    if (paymentStatus === 'approved') {
+    // Handle subscription completion (PreApprovalPlan)
+    if (preapprovalId) {
+      console.log('✅ [Payment Complete] Subscription completion detected:', preapprovalId);
+      setStatus('approved');
+      setMessage('¡Suscripción exitosa! Tu plan ha sido activado y puedes comenzar a publicar.');
+      
+      // Trigger webhook to update subscription status and roles via middleware
+      verifySubscriptionStatus(preapprovalId);
+      
+      // Refresh user data to get updated roles (middleware will handle role assignment)
+      setTimeout(() => {
+        refreshUser?.();
+      }, 3000); // Give middleware time to process
+      
+      // Redirect to dashboard after 5 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 5000);
+    }
+    // Handle regular payment completion
+    else if (paymentStatus === 'approved') {
       setStatus('approved');
       setMessage('¡Pago exitoso! Tu suscripción ha sido activada.');
       
@@ -47,8 +99,14 @@ export default function PaymentCompletePage() {
       setStatus('pending');
       setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
     } else {
-      setStatus('rejected');
-      setMessage('Error en el procesamiento del pago. Por favor, contacta soporte.');
+      // If no status or preapproval_id, check if we can determine success from other params
+      if (paymentId || externalReference) {
+        setStatus('pending');
+        setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
+      } else {
+        setStatus('rejected');
+        setMessage('Error en el procesamiento del pago. Por favor, contacta soporte.');
+      }
     }
   }, [searchParams, router, refreshUser]);
 

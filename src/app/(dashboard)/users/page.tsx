@@ -442,6 +442,15 @@ function UsersManagement() {
                         </button>
                         <button
                           onClick={() => {
+                            window.location.href = `/users/${user.id}`;
+                          }}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          title="View user details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
                             // TODO: Implement user edit
                           }}
                           className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded transition-colors"

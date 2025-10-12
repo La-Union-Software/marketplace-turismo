@@ -7,6 +7,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { usePermissions } from '@/services/permissionsService';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { globalAuthMiddleware } from '@/services/globalAuthMiddleware';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,8 @@ interface AuthContextType {
   hasPermission: (permissionId: string) => boolean;
   hasRole: (roleName: UserRole) => boolean;
   canPerformAction: (resource: string, action: string) => boolean;
+  // Global middleware
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,12 +40,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = firebaseAuth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         try {
-          // Get user data from database
-          const userData = await firebaseDB.users.getById(firebaseUser.uid);
-          if (userData) {
+          console.log('🔄 [Auth Context] User authenticated, checking global status:', firebaseUser.uid);
+          
+          // Use global middleware to check and update user status
+          const userStatus = await globalAuthMiddleware.checkGlobalUserStatus(firebaseUser.uid);
+          
+          if (userStatus) {
+            // Convert userStatus back to User format for compatibility
+            const userData: User = {
+              id: userStatus.id,
+              name: userStatus.name,
+              email: userStatus.email,
+              phone: '', // Add phone field if needed
+              avatar: '', // Add avatar field if needed
+              roles: userStatus.roles,
+              isActive: true,
+              emailVerified: firebaseUser.emailVerified,
+              createdAt: new Date(), // Add proper dates if needed
+              updatedAt: new Date(),
+              profileCompleted: false, // Add proper profile completion logic if needed
+            };
             setUser(userData);
+            console.log('✅ [Auth Context] User status updated:', {
+              userId: userData.id,
+              roles: userData.roles?.map(r => r.roleName),
+              hasActiveSubscription: userStatus.hasActiveSubscription
+            });
           } else {
-            // If user data doesn't exist in database, create it with default client role
+            // Fallback: create user with default client role if middleware fails
             const defaultRole = {
               roleId: 'role_client',
               roleName: 'client' as UserRole,
@@ -66,12 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
             setUser(newUser);
+            console.log('⚠️ [Auth Context] Created fallback user with default client role');
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          console.error('❌ [Auth Context] Error fetching user data:', error);
           setUser(null);
         }
       } else {
+        console.log('👋 [Auth Context] User logged out');
+        globalAuthMiddleware.clearAllCache(); // Clear cache when user logs out
         setUser(null);
       }
       setIsLoading(false);
@@ -152,6 +180,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async (): Promise<void> => {
+    if (!user?.id) return;
+
+    try {
+      console.log('🔄 [Auth Context] Refreshing user status via global middleware');
+      
+      // Clear cache and force refresh
+      globalAuthMiddleware.clearUserCache(user.id);
+      const userStatus = await globalAuthMiddleware.forceRefreshUserStatus(user.id);
+      
+      if (userStatus) {
+        // Convert userStatus back to User format for compatibility
+        const updatedUser: User = {
+          id: userStatus.id,
+          name: userStatus.name,
+          email: userStatus.email,
+          phone: user?.phone || '',
+          avatar: user?.avatar || '',
+          roles: userStatus.roles,
+          isActive: true,
+          emailVerified: user?.emailVerified || false,
+          createdAt: user?.createdAt || new Date(),
+          updatedAt: new Date(),
+          profileCompleted: user?.profileCompleted || false,
+        };
+        setUser(updatedUser);
+        console.log('✅ [Auth Context] User status refreshed:', {
+          userId: updatedUser.id,
+          roles: updatedUser.roles?.map(r => r.roleName),
+          hasActiveSubscription: userStatus.hasActiveSubscription
+        });
+      }
+    } catch (error) {
+      console.error('❌ [Auth Context] Error refreshing user:', error);
+    }
+  };
+
   const contextValue: AuthContextType = {
     user,
     login,
@@ -163,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasPermission: permissions.hasPermission,
     hasRole: permissions.hasRole,
     canPerformAction: permissions.canPerformAction,
+    refreshUser,
   };
 
   return (
