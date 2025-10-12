@@ -186,35 +186,6 @@ export default function DashboardLayout({
                   </div>
                 </div>
 
-                {/* User Plan Information */}
-                {userPlan && hasRole('publisher') && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {userPlan.name.toLowerCase().includes('basic') && <Zap className="w-4 h-4 text-blue-600" />}
-                        {userPlan.name.toLowerCase().includes('premium') && <Star className="w-4 h-4 text-yellow-600" />}
-                        {userPlan.name.toLowerCase().includes('enterprise') && <Crown className="w-4 h-4 text-purple-600" />}
-                        <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">
-                          {userPlan.name}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                        ${userPlan.price}
-                      </span>
-                    </div>
-                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Publicaciones:</span>
-                        <span className="font-medium">0 / {userPlan.maxPosts}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Reservas:</span>
-                        <span className="font-medium">0 / {userPlan.maxBookings}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <button 
                   onClick={handleLogout}
                   className="mt-4 w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

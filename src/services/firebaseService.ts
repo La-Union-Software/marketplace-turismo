@@ -21,7 +21,8 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
-  writeBatch
+  writeBatch,
+  limit
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, Post, BasePost, UserRole, UserRoleAssignment, MercadoPagoCredentials, MercadoPagoAccount, SubscriptionPlan, UserSubscription, ServiceCategory, Pricing, Booking, BookingStatus, Notification, NotificationType, Favourite, PostImage } from '@/types';

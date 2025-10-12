@@ -8,11 +8,16 @@ import { firebaseDB } from '@/services/firebaseService';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('🔔 [MercadoPago Subscription Webhook] Received notification:', body);
+    console.log('🔔 [MercadoPago Subscription Webhook] Received notification:', JSON.stringify(body, null, 2));
 
-    const { type, data } = body;
+    const { type, data, action } = body;
 
-    console.log('🔔 [MercadoPago Subscription Webhook] Processing notification:', { type, data });
+    console.log('🔔 [MercadoPago Subscription Webhook] Processing notification:', { 
+      type, 
+      action,
+      dataId: data?.id,
+      fullData: data 
+    });
 
     if (type === 'payment') {
       const paymentId = data?.id;
@@ -31,18 +36,47 @@ export async function POST(request: NextRequest) {
         
         await processSubscriptionPayment(paymentDetails);
       }
-    } else if (type === 'preapproval') {
+    } else if (type === 'preapproval' || type === 'subscription_preapproval') {
       const subscriptionId = data?.id;
       if (!subscriptionId) {
         console.error('❌ [MercadoPago Subscription Webhook] No subscription ID in webhook data');
         return NextResponse.json({ error: 'No subscription ID' }, { status: 400 });
       }
 
+      console.log('🔍 [MercadoPago Subscription Webhook] Preapproval notification received:', {
+        type,
+        action,
+        subscriptionId
+      });
+
       // Get subscription details from MercadoPago
       const subscriptionDetails = await getSubscriptionDetails(subscriptionId);
       
       if (subscriptionDetails) {
         await processSubscriptionStatusChange(subscriptionDetails);
+      } else {
+        console.warn('⚠️ [MercadoPago Subscription Webhook] Could not get subscription details, might be a plan ID instead of subscription ID');
+        
+        // Try to find subscription by MercadoPago ID in our database
+        const firebaseSubscription = await firebaseDB.subscriptions.getByMercadoPagoId(subscriptionId);
+        if (firebaseSubscription) {
+          console.log('📋 [MercadoPago Subscription Webhook] Found subscription in Firebase, updating status');
+          // If we have it in Firebase, we can update it based on the action
+          if (action === 'created' || action === 'updated') {
+            await firebaseDB.subscriptions.update(firebaseSubscription.id, {
+              status: 'active',
+              mercadoPagoStatus: 'authorized',
+              updatedAt: new Date(),
+              lastStatusUpdate: new Date()
+            });
+            
+            // Trigger auth middleware
+            const { authMiddleware } = await import('@/services/authMiddleware');
+            const { globalAuthMiddleware } = await import('@/services/globalAuthMiddleware');
+            globalAuthMiddleware.clearUserCache(firebaseSubscription.userId);
+            await authMiddleware.checkUserSubscriptionAndRoles(firebaseSubscription.userId);
+          }
+        }
       }
     }
 
@@ -227,13 +261,19 @@ async function createUserSubscription(subscriptionData: any) {
  */
 async function getSubscriptionDetails(subscriptionId: string) {
   try {
+    console.log('🔍 [MercadoPago Subscription Webhook] Fetching subscription details for:', subscriptionId);
+    
     const accessToken = process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN;
     
     if (!accessToken) {
       throw new Error('MercadoPago access token not configured');
     }
 
-    const response = await fetch(`https://api.mercadopago.com/v1/preapproval/${subscriptionId}`, {
+    // Try the correct endpoint (without /v1)
+    const url = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+    console.log('📡 [MercadoPago Subscription Webhook] Request URL:', url);
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -241,17 +281,22 @@ async function getSubscriptionDetails(subscriptionId: string) {
       },
     });
 
+    console.log('📡 [MercadoPago Subscription Webhook] Response status:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`Failed to get subscription details: ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error('❌ [MercadoPago Subscription Webhook] Error response body:', errorBody);
+      throw new Error(`Failed to get subscription details: ${response.status} ${response.statusText} - ${errorBody}`);
     }
 
     const subscription = await response.json();
     
-    console.log('🔄 [MercadoPago Subscription Webhook] Subscription details:', {
+    console.log('✅ [MercadoPago Subscription Webhook] Subscription details:', {
       id: subscription.id,
       status: subscription.status,
       payer_email: subscription.payer_email,
-      external_reference: subscription.external_reference
+      external_reference: subscription.external_reference,
+      reason: subscription.reason
     });
 
     return subscription;
@@ -286,11 +331,12 @@ async function processSubscriptionStatusChange(subscription: any) {
       subscriptionId: subscription.id,
       status,
       userId,
-      planId
+      planId,
+      external_reference
     });
 
-    // Find the subscription record in our database
-    const subscriptionRecord = await findUserSubscriptionByMercadoPagoId(subscription.id);
+    // Find the subscription record in our database (pass external_reference for fallback lookup)
+    const subscriptionRecord = await findUserSubscriptionByMercadoPagoId(subscription.id, external_reference);
     
     if (!subscriptionRecord) {
       console.error('❌ [MercadoPago Subscription Webhook] Subscription record not found:', subscription.id);
@@ -361,27 +407,71 @@ async function processSubscriptionStatusChange(subscription: any) {
 }
 
 /**
- * Find user subscription by MercadoPago subscription ID
+ * Find user subscription by MercadoPago subscription ID or external reference
  */
-async function findUserSubscriptionByMercadoPagoId(mercadoPagoSubscriptionId: string) {
+async function findUserSubscriptionByMercadoPagoId(mercadoPagoSubscriptionId: string, externalReference?: string) {
   try {
-    const subscriptionsRef = firebaseDB.db.collection('userSubscriptions');
-    const snapshot = await subscriptionsRef
-      .where('mercadoPagoSubscriptionId', '==', mercadoPagoSubscriptionId)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return null;
+    console.log('🔍 [MercadoPago Subscription Webhook] Looking for subscription:', {
+      mercadoPagoId: mercadoPagoSubscriptionId,
+      externalReference
+    });
+    
+    // Try to find by MercadoPago subscription ID first
+    let subscription = await firebaseDB.subscriptions.getByMercadoPagoId(mercadoPagoSubscriptionId);
+    
+    if (subscription) {
+      console.log('✅ [MercadoPago Subscription Webhook] Found subscription by MercadoPago ID:', {
+        id: subscription.id,
+        userId: subscription.userId,
+        status: subscription.status
+      });
+      return subscription;
     }
-
-    const subscription = snapshot.docs[0].data();
-    return {
-      id: snapshot.docs[0].id,
-      ...subscription
-    };
+    
+    // If not found and we have external_reference, try to find by userId and planId
+    if (externalReference && externalReference.startsWith('subscription_')) {
+      const parts = externalReference.split('_');
+      if (parts.length >= 3) {
+        const planId = parts[1];
+        const userId = parts[2];
+        
+        console.log('🔍 [MercadoPago Subscription Webhook] Trying to find by userId and planId:', { userId, planId });
+        
+        // Get all user subscriptions and find the one for this plan
+        const userSubscriptions = await firebaseDB.subscriptions.getByUserId(userId);
+        subscription = userSubscriptions.find(sub => 
+          sub.planId === planId && 
+          (sub.status === 'pending' || sub.status === 'active')
+        );
+        
+        if (subscription) {
+          console.log('✅ [MercadoPago Subscription Webhook] Found subscription by userId and planId:', {
+            id: subscription.id,
+            userId: subscription.userId,
+            planId: subscription.planId,
+            oldMercadoPagoId: subscription.mercadoPagoSubscriptionId,
+            newMercadoPagoId: mercadoPagoSubscriptionId
+          });
+          
+          // Update the mercadoPagoSubscriptionId to the actual subscription ID
+          await firebaseDB.subscriptions.update(subscription.id, {
+            mercadoPagoSubscriptionId: mercadoPagoSubscriptionId,
+            updatedAt: new Date()
+          });
+          
+          console.log('✅ [MercadoPago Subscription Webhook] Updated mercadoPagoSubscriptionId in Firebase');
+          
+          // Return the updated subscription
+          subscription.mercadoPagoSubscriptionId = mercadoPagoSubscriptionId;
+          return subscription;
+        }
+      }
+    }
+    
+    console.log('❌ [MercadoPago Subscription Webhook] No subscription found');
+    return null;
   } catch (error) {
-    console.error('Error finding subscription by MercadoPago ID:', error);
+    console.error('❌ [MercadoPago Subscription Webhook] Error finding subscription:', error);
     return null;
   }
 }
@@ -391,10 +481,17 @@ async function findUserSubscriptionByMercadoPagoId(mercadoPagoSubscriptionId: st
  */
 async function updateUserSubscription(subscriptionId: string, updates: any) {
   try {
-    const subscriptionRef = firebaseDB.db.collection('userSubscriptions').doc(subscriptionId);
-    await subscriptionRef.update(updates);
+    console.log('🔄 [MercadoPago Subscription Webhook] Updating subscription:', {
+      subscriptionId,
+      updates
+    });
+    
+    // Use the existing Firebase service method
+    await firebaseDB.subscriptions.update(subscriptionId, updates);
+    
+    console.log('✅ [MercadoPago Subscription Webhook] Subscription updated successfully');
   } catch (error) {
-    console.error('Error updating user subscription:', error);
+    console.error('❌ [MercadoPago Subscription Webhook] Error updating user subscription:', error);
     throw error;
   }
 }
