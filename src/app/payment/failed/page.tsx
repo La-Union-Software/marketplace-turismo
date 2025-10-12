@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { XCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
-export default function PaymentFailedPage() {
+function PaymentFailedContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -100,5 +100,30 @@ export default function PaymentFailedPage() {
         </motion.div>
       </motion.div>
     </div>
+  );
+}
+
+// Loading fallback component
+function PaymentFailedLoading() {
+  return (
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-2xl border-2 border-red-200 bg-red-50 p-8 text-center">
+        <div className="flex justify-center mb-6">
+          <XCircle className="h-16 w-16 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Cargando...
+        </h1>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function PaymentFailedPage() {
+  return (
+    <Suspense fallback={<PaymentFailedLoading />}>
+      <PaymentFailedContent />
+    </Suspense>
   );
 }

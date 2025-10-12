@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Clock, ArrowLeft, Mail } from 'lucide-react';
 
-export default function PaymentPendingPage() {
+function PaymentPendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -108,5 +108,30 @@ export default function PaymentPendingPage() {
         </motion.div>
       </motion.div>
     </div>
+  );
+}
+
+// Loading fallback component
+function PaymentPendingLoading() {
+  return (
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-2xl border-2 border-yellow-200 bg-yellow-50 p-8 text-center">
+        <div className="flex justify-center mb-6">
+          <Clock className="h-16 w-16 text-yellow-500 animate-spin" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Cargando...
+        </h1>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function PaymentPendingPage() {
+  return (
+    <Suspense fallback={<PaymentPendingLoading />}>
+      <PaymentPendingContent />
+    </Suspense>
   );
 }

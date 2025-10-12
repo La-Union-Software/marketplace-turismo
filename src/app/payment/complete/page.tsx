@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, ArrowRight } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 
 type PaymentStatus = 'approved' | 'rejected' | 'pending' | 'loading';
 
-export default function PaymentCompletePage() {
+function PaymentCompleteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, refreshUser } = useAuth();
@@ -246,5 +246,33 @@ export default function PaymentCompletePage() {
         )}
       </motion.div>
     </div>
+  );
+}
+
+// Loading fallback component
+function PaymentCompleteLoading() {
+  return (
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-2xl border-2 border-blue-200 bg-blue-50 p-8 text-center">
+        <div className="flex justify-center mb-6">
+          <Clock className="h-16 w-16 text-blue-500 animate-spin" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Procesando...
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300">
+          Cargando información del pago
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function PaymentCompletePage() {
+  return (
+    <Suspense fallback={<PaymentCompleteLoading />}>
+      <PaymentCompleteContent />
+    </Suspense>
   );
 }
