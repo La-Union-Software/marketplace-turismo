@@ -113,8 +113,12 @@ export async function POST(request: NextRequest) {
       frequency: frequency,
       frequencyType: frequencyType,
       userEmail: user.email,
-      billingCycle: plan.billingCycle
+      billingCycle: plan.billingCycle,
+      backUrl: subscriptionData.back_url,
+      externalReference: subscriptionData.external_reference
     });
+
+    console.log('🔗 [MercadoPago Subscription] Complete subscription data being sent to MercadoPago:', JSON.stringify(subscriptionData, null, 2));
 
     // Create the PreApprovalPlan
     const result = await preApprovalPlan.create({ body: subscriptionData });
@@ -124,6 +128,16 @@ export async function POST(request: NextRequest) {
       status: result.status,
       initPoint: result.init_point
     });
+
+    console.log('🔗 [MercadoPago Subscription] Complete MercadoPago response:', JSON.stringify(result, null, 2));
+
+    // Log webhook configuration info
+    const webhookUrl = `${validBaseUrl}/api/mercadopago/webhook`;
+    console.log('🔔 [MercadoPago Subscription] WEBHOOK CONFIGURATION INFO:');
+    console.log('🔔 [MercadoPago Subscription] Webhook URL to configure in MercadoPago dashboard:', webhookUrl);
+    console.log('🔔 [MercadoPago Subscription] Back URL (return URL):', subscriptionData.back_url);
+    console.log('🔔 [MercadoPago Subscription] External Reference:', subscriptionData.external_reference);
+    console.log('🔔 [MercadoPago Subscription] PreApprovalPlan ID:', result.id);
 
     // Create initial subscription record in our database (pending status)
     const subscriptionId = await createUserSubscription({
@@ -145,11 +159,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       subscriptionId: result.id,
       initPoint: result.init_point,
-      sandboxInitPoint: result.sandbox_init_point,
       publicKey: publicKey,
       localSubscriptionId: subscriptionId,
       plan: {
@@ -159,9 +172,16 @@ export async function POST(request: NextRequest) {
         currency: plan.currency,
         billingCycle: plan.billingCycle,
         maxPosts: plan.maxPosts,
-        maxBookings: plan.maxBookings
+        maxBookings: plan.maxBookings,
+        features: plan.features
       }
-    });
+    };
+
+    console.log('📤 [MercadoPago Subscription] Returning response to frontend:', JSON.stringify(responseData, null, 2));
+    console.log('📤 [MercadoPago Subscription] Frontend will redirect user to:', result.init_point);
+    console.log('📤 [MercadoPago Subscription] User will return to:', subscriptionData.back_url);
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('❌ [MercadoPago Subscription] Error:', error);

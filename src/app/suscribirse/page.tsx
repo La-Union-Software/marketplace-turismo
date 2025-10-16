@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { SubscriptionPlan } from '@/types';
 import { useRouter } from 'next/navigation';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 export default function SuscribirsePage() {
   const { user } = useAuth();
@@ -56,7 +57,7 @@ export default function SuscribirsePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Cargando planes...</p>
@@ -76,8 +77,7 @@ export default function SuscribirsePage() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-16">
+    <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -206,7 +206,6 @@ export default function SuscribirsePage() {
             </div>
           </div>
         </motion.div>
-      </div>
     </div>
   );
 }
@@ -270,7 +269,7 @@ function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+    <div className="flex items-center justify-center min-h-[600px]">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}

@@ -2373,12 +2373,12 @@ export default function PostFormWizard({
               onClick={nextStep}
               disabled={
                 (currentStep === 0 && !formData.mainCategory) ||
-                (currentStep === 1 && (!formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
+                (currentStep === 1 && (!formData.title || !formData.description || !formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
                 (currentStep === 2 && !formData.pricing)
               }
               className={`flex items-center px-6 py-2 rounded-lg transition-all duration-300 ${
                 (currentStep === 0 && !formData.mainCategory) ||
-                (currentStep === 1 && (!formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
+                (currentStep === 1 && (!formData.title || !formData.description || !formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
                 (currentStep === 2 && !formData.pricing)
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-primary text-white hover:bg-secondary'

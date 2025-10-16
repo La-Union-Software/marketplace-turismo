@@ -20,7 +20,11 @@ export async function middleware(request: NextRequest) {
     // Skip for API routes that don't need auth middleware
     if (pathname.startsWith('/api/auth/middleware') ||
         pathname.startsWith('/api/mercadopago/subscription-webhook') ||
+        pathname.startsWith('/api/mercadopago/webhook') ||
         pathname.startsWith('/api/mercadopago/subscription-create') ||
+        pathname.startsWith('/api/mercadopago/test-webhook') ||
+        pathname.startsWith('/api/mercadopago/webhook-config') ||
+        pathname.startsWith('/api/mercadopago/webhook-test') ||
         pathname.startsWith('/api/locations')) {
       return NextResponse.next();
     }

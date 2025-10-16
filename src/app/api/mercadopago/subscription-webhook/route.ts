@@ -7,12 +7,18 @@ import { firebaseDB } from '@/services/firebaseService';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Log request details
+    console.log('🔔 [MercadoPago Subscription Webhook] === WEBHOOK RECEIVED ===');
+    console.log('🔔 [MercadoPago Subscription Webhook] Headers:', Object.fromEntries(request.headers.entries()));
+    console.log('🔔 [MercadoPago Subscription Webhook] URL:', request.url);
+    console.log('🔔 [MercadoPago Subscription Webhook] Method:', request.method);
+    
     const body = await request.json();
-    console.log('🔔 [MercadoPago Subscription Webhook] Received notification:', JSON.stringify(body, null, 2));
+    console.log('🔔 [MercadoPago Subscription Webhook] Raw body:', JSON.stringify(body, null, 2));
 
     const { type, data, action } = body;
 
-    console.log('🔔 [MercadoPago Subscription Webhook] Processing notification:', { 
+    console.log('🔔 [MercadoPago Subscription Webhook] Parsed data:', { 
       type, 
       action,
       dataId: data?.id,
@@ -378,6 +384,39 @@ async function processSubscriptionStatusChange(subscription: any) {
       }
     });
 
+    // Record payment if subscription is authorized/active
+    if (status === 'authorized' || status === 'active') {
+      try {
+        console.log('💳 [MercadoPago Subscription Webhook] Recording payment for subscription');
+        
+        // Create payment record for the subscription
+        const paymentData = {
+          userId: subscriptionRecord.userId,
+          subscriptionId: subscriptionRecord.id,
+          mercadoPagoPaymentId: subscription.id, // Use subscription ID as payment ID for subscriptions
+          mercadoPagoSubscriptionId: subscription.id,
+          amount: subscriptionRecord.amount,
+          currency: subscriptionRecord.currency,
+          status: 'approved' as const,
+          statusDetail: 'subscription_authorized',
+          paymentMethod: 'subscription',
+          description: `Suscripción ${subscriptionRecord.planName}`,
+          externalReference: external_reference,
+          metadata: {
+            mercadoPagoData: subscription,
+            subscriptionType: 'recurring'
+          }
+        };
+        
+        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
+        await paymentTrackingService.createPaymentRecord(paymentData);
+        console.log('✅ [MercadoPago Subscription Webhook] Payment recorded successfully');
+      } catch (error) {
+        console.error('❌ [MercadoPago Subscription Webhook] Error recording payment:', error);
+        // Don't fail the webhook for payment recording errors
+      }
+    }
+
     // Use auth middleware to manage roles and posts
     if (shouldAssignRole || status === 'cancelled') {
       try {
@@ -517,5 +556,11 @@ function calculateEndDate(billingCycle: string): Date {
 }
 
 export async function GET() {
-  return NextResponse.json({ message: 'MercadoPago subscription webhook endpoint' });
+  console.log('🔍 [MercadoPago Subscription Webhook] GET request received - testing webhook endpoint');
+  return NextResponse.json({ 
+    message: 'MercadoPago subscription webhook endpoint',
+    status: 'active',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
 }

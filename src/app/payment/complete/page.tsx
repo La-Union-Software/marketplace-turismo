@@ -21,28 +21,46 @@ function PaymentCompleteContent() {
     try {
       console.log('🔄 [Payment Complete] Verifying subscription status:', preapprovalId);
       
-      // Simulate webhook call to update subscription status
-      const response = await fetch('/api/mercadopago/subscription-webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'preapproval',
-          data: {
-            id: preapprovalId
-          }
-        }),
-      });
+      // First, try to get subscription details from MercadoPago
+      const subscriptionResponse = await fetch(`/api/mercadopago/subscription-details?preapproval_id=${preapprovalId}`);
+      
+      if (subscriptionResponse.ok) {
+        const subscriptionData = await subscriptionResponse.json();
+        console.log('📊 [Payment Complete] Subscription details:', subscriptionData);
+        
+        // If subscription is authorized/active, trigger webhook
+        if (subscriptionData.status === 'authorized' || subscriptionData.status === 'active') {
+          const webhookResponse = await fetch('/api/mercadopago/subscription-webhook', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              type: 'preapproval',
+              data: {
+                id: preapprovalId
+              }
+            }),
+          });
 
-      if (response.ok) {
-        console.log('✅ [Payment Complete] Subscription status updated successfully');
+          if (webhookResponse.ok) {
+            console.log('✅ [Payment Complete] Subscription status updated successfully');
+            return true;
+          } else {
+            console.warn('⚠️ [Payment Complete] Failed to update subscription status');
+            return false;
+          }
+        } else {
+          console.log('ℹ️ [Payment Complete] Subscription not yet authorized:', subscriptionData.status);
+          return false;
+        }
       } else {
-        console.warn('⚠️ [Payment Complete] Failed to update subscription status');
+        console.warn('⚠️ [Payment Complete] Failed to get subscription details');
+        return false;
       }
     } catch (error) {
       console.error('❌ [Payment Complete] Error verifying subscription:', error);
-      // Don't fail the user experience, just log the error
+      return false;
     }
   };
 
@@ -59,24 +77,50 @@ function PaymentCompleteContent() {
       externalReference
     });
 
+    console.log('🔍 [Payment Complete] Complete URL:', window.location.href);
+    console.log('🔍 [Payment Complete] Search params:', window.location.search);
+    console.log('🔍 [Payment Complete] All search params:', Object.fromEntries(new URLSearchParams(window.location.search)));
+
     // Handle subscription completion (PreApprovalPlan)
     if (preapprovalId) {
       console.log('✅ [Payment Complete] Subscription completion detected:', preapprovalId);
-      setStatus('approved');
-      setMessage('¡Suscripción exitosa! Tu plan ha sido activado y puedes comenzar a publicar.');
       
-      // Trigger webhook to update subscription status and roles via middleware
-      verifySubscriptionStatus(preapprovalId);
+      // First set as pending while we verify
+      setStatus('pending');
+      setMessage('Verificando tu suscripción...');
       
-      // Refresh user data to get updated roles (middleware will handle role assignment)
-      setTimeout(() => {
-        refreshUser?.();
-      }, 3000); // Give middleware time to process
-      
-      // Redirect to dashboard after 5 seconds
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 5000);
+      // Verify subscription status and update accordingly
+      verifySubscriptionStatus(preapprovalId).then((isVerified) => {
+        if (isVerified) {
+          setStatus('approved');
+          setMessage('¡Suscripción exitosa! Tu plan ha sido activado y puedes comenzar a publicar.');
+          
+          // Refresh user data to get updated roles
+          setTimeout(() => {
+            refreshUser?.();
+          }, 2000);
+          
+          // Redirect to dashboard after 5 seconds
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 5000);
+        } else {
+          setStatus('pending');
+          setMessage('Tu suscripción está siendo procesada. Te notificaremos cuando esté confirmada.');
+          
+          // Try again in 10 seconds
+          setTimeout(() => {
+            verifySubscriptionStatus(preapprovalId).then((retryVerified) => {
+              if (retryVerified) {
+                setStatus('approved');
+                setMessage('¡Suscripción exitosa! Tu plan ha sido activado y puedes comenzar a publicar.');
+                refreshUser?.();
+                setTimeout(() => router.push('/dashboard'), 3000);
+              }
+            });
+          }, 10000);
+        }
+      });
     }
     // Handle regular payment completion
     else if (paymentStatus === 'approved') {
