@@ -5,22 +5,27 @@ import { motion } from 'framer-motion';
 import { FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { usePostCreation } from '@/hooks/usePostCreation';
 import PostFormWizard from '@/components/forms/PostFormWizard';
+import { useRouter } from 'next/navigation';
 
 export default function NewPostPage() {
+  const router = useRouter();
   const { 
     canCreatePost, 
     isLoading, 
     userPlan, 
+    postLimitReached,
+    remainingPosts,
+    errorMessage,
     redirectToSubscription, 
     redirectToPosts 
   } = usePostCreation();
 
   useEffect(() => {
-    if (!isLoading && canCreatePost === false) {
-      // User doesn't have publisher role or can't create posts
+    if (!isLoading && canCreatePost === false && !postLimitReached) {
+      // User doesn't have publisher role - redirect to subscription
       redirectToSubscription();
     }
-  }, [canCreatePost, isLoading, redirectToSubscription]);
+  }, [canCreatePost, isLoading, postLimitReached, redirectToSubscription]);
 
   if (isLoading) {
     return (
@@ -33,6 +38,73 @@ export default function NewPostPage() {
     );
   }
 
+  // Show post limit reached modal
+  if (canCreatePost === false && postLimitReached) {
+    return (
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="glass rounded-2xl max-w-md overflow-hidden"
+        >
+          <div className="p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Límite de publicaciones alcanzado
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {errorMessage}
+            </p>
+            
+            {userPlan && (
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Plan actual:
+                  </span>
+                  <span className="text-sm font-semibold text-primary">
+                    {userPlan.name}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Publicaciones:
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {userPlan.maxPosts} / {userPlan.maxPosts}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Para crear más publicaciones, mejora tu plan o elimina publicaciones existentes.
+            </p>
+          </div>
+          
+          <div className="flex gap-3 p-6 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-600">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="flex-1 px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-300 font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => router.push('/suscribirse/planes')}
+              className="flex-1 px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 font-medium"
+            >
+              Mejorar plan
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show general access denied (no publisher role or no subscription)
   if (canCreatePost === false) {
     return (
       <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -49,7 +121,7 @@ export default function NewPostPage() {
             Acceso Denegado
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            No tienes permisos para crear publicaciones. Redirigiendo a la página de suscripción...
+            {errorMessage || 'No tienes permisos para crear publicaciones. Redirigiendo a la página de suscripción...'}
           </p>
           <div className="animate-pulse">
             <div className="w-4 h-4 bg-primary rounded-full mx-auto"></div>
@@ -113,7 +185,7 @@ export default function NewPostPage() {
             >
               <CheckCircle className="w-4 h-4" />
               <span className="text-sm font-medium">
-                Plan: {userPlan.name} - {userPlan.maxPosts} publicaciones disponibles
+                Plan: {userPlan.name} - {remainingPosts} de {userPlan.maxPosts} publicaciones disponibles
               </span>
             </motion.div>
           )}

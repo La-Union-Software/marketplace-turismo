@@ -216,10 +216,10 @@ export default function PlansPage() {
         >
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Subscription Plans
+              Planes de Suscripción
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Manage subscription plans and pricing for your users
+              Gestiona los planes de suscripción y precios para tus usuarios
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
@@ -231,12 +231,12 @@ export default function PlansPage() {
               {isSyncing ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Syncing...</span>
+                  <span>Sincronizando...</span>
                 </>
               ) : (
                 <>
                   <RefreshCw className="w-5 h-5" />
-                  <span>Sync with MercadoPago</span>
+                  <span>Sincronizar con MercadoPago</span>
                 </>
               )}
             </button>
@@ -245,7 +245,7 @@ export default function PlansPage() {
               className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2 shadow-lg"
             >
               <Plus className="w-5 h-5" />
-              <span>Create Plan</span>
+              <span>Crear Plan</span>
             </button>
           </div>
         </motion.div>
@@ -288,17 +288,17 @@ export default function PlansPage() {
           >
             <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No Plans Created Yet
+              Aún No Hay Planes Creados
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Create your first subscription plan to start monetizing your platform
+              Crea tu primer plan de suscripción para comenzar a monetizar tu plataforma
             </p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2 mx-auto"
             >
               <Plus className="w-5 h-5" />
-              <span>Create First Plan</span>
+              <span>Crear Primer Plan</span>
             </button>
           </motion.div>
         ) : !isLoading && plans.length > 0 ? (
@@ -323,17 +323,17 @@ export default function PlansPage() {
                   </div>
                   <div className="flex flex-col space-y-2">
                     <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(plan.isActive)}`}>
-                      {plan.isActive ? 'Active' : 'Inactive'}
+                      {plan.isActive ? 'Activo' : 'Inactivo'}
                     </span>
                     {plan.mercadoPagoPlanId ? (
                       <div className="flex items-center space-x-1 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
                         <CheckCircle className="w-3 h-3" />
-                        <span>Synced</span>
+                        <span>Sincronizado</span>
                       </div>
                     ) : (
                       <div className="flex items-center space-x-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded">
                         <XCircle className="w-3 h-3" />
-                        <span>Not Synced</span>
+                        <span>No Sincronizado</span>
                       </div>
                     )}
                   </div>
@@ -356,13 +356,13 @@ export default function PlansPage() {
                   <div className="flex items-center space-x-3">
                     <FileText className="w-4 h-4 text-primary" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Up to {plan.maxPosts} posts
+                      Hasta {plan.maxPosts} publicaciones
                     </span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Calendar className="w-4 h-4 text-primary" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Up to {plan.maxBookings} bookings
+                      Hasta {plan.maxBookings} reservas
                     </span>
                   </div>
                   {plan.features.map((feature, idx) => (
@@ -382,10 +382,10 @@ export default function PlansPage() {
                       <XCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mb-1">
-                          MercadoPago Sync Failed
+                          Error de Sincronización con MercadoPago
                         </p>
                         <p className="text-xs text-amber-700 dark:text-amber-400">
-                          This plan couldn't be synced with MercadoPago. Try manual sync or check your configuration.
+                          Este plan no pudo ser sincronizado con MercadoPago. Intenta sincronización manual o verifica tu configuración.
                         </p>
                       </div>
                     </div>
@@ -399,7 +399,7 @@ export default function PlansPage() {
                     className="flex-1 px-3 py-2 text-sm text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors flex items-center justify-center space-x-1"
                   >
                     <Edit className="w-4 h-4" />
-                    <span>Edit</span>
+                    <span>Editar</span>
                   </button>
                   <button
                     onClick={() => handleToggleActive(plan.id, plan.isActive)}
@@ -410,7 +410,7 @@ export default function PlansPage() {
                     }`}
                   >
                     {plan.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    <span>{plan.isActive ? 'Deactivate' : 'Activate'}</span>
+                    <span>{plan.isActive ? 'Desactivar' : 'Activar'}</span>
                   </button>
                   <button
                     onClick={() => handleDeletePlan(plan.id)}

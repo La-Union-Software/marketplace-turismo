@@ -33,7 +33,7 @@ export interface SubscriptionRecord {
   mercadoPagoSubscriptionId: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'active' | 'cancelled' | 'paused' | 'expired';
+  status: 'pending' | 'active' | 'cancelled' | 'paused' | 'expired' | 'on_hold';
   mercadoPagoStatus: string;
   billingCycle: string;
   frequency: number;
@@ -178,8 +178,19 @@ class PaymentTrackingService {
       console.log('🔄 [Payment Tracking] Processing payment webhook:', {
         paymentId: mercadoPagoData.id,
         status: mercadoPagoData.status,
+        operationType: mercadoPagoData.operation_type,
         externalReference: mercadoPagoData.external_reference
       });
+
+      // Only process recurring payments (actual subscription charges)
+      if (mercadoPagoData.operation_type !== 'recurring_payment') {
+        console.log('⚠️ [Payment Tracking] Skipping non-recurring payment:', {
+          paymentId: mercadoPagoData.id,
+          operationType: mercadoPagoData.operation_type,
+          status: mercadoPagoData.status
+        });
+        return;
+      }
 
       // Check if payment already exists
       let paymentRecord = await this.getPaymentByMercadoPagoId(mercadoPagoData.id.toString());
@@ -197,12 +208,12 @@ class PaymentTrackingService {
           paymentMethodId: mercadoPagoData.payment_method?.id?.toString(),
           transactionId: mercadoPagoData.transaction_details?.external_resource_url,
           externalReference: mercadoPagoData.external_reference,
-          description: mercadoPagoData.description || `Payment for subscription`,
+          description: mercadoPagoData.description || `Recurring payment for subscription`,
           processedAt: new Date(),
           metadata: {
             mercadoPagoData,
-            userAgent: mercadoPagoData.metadata?.user_agent,
-            ipAddress: mercadoPagoData.metadata?.ip_address
+            ...(mercadoPagoData.metadata?.user_agent && { userAgent: mercadoPagoData.metadata.user_agent }),
+            ...(mercadoPagoData.metadata?.ip_address && { ipAddress: mercadoPagoData.metadata.ip_address })
           }
         };
 

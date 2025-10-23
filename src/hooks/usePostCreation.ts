@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { firebaseDB } from '@/services/firebaseService';
 import { SubscriptionPlan, UserSubscription } from '@/types';
+import { subscriptionService } from '@/services/subscriptionService';
 
 export function usePostCreation() {
   const { user, hasRole } = useAuth();
@@ -11,6 +12,9 @@ export function usePostCreation() {
   const [isLoading, setIsLoading] = useState(true);
   const [userPlan, setUserPlan] = useState<SubscriptionPlan | null>(null);
   const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null);
+  const [postLimitReached, setPostLimitReached] = useState(false);
+  const [remainingPosts, setRemainingPosts] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -25,48 +29,76 @@ export function usePostCreation() {
   const checkPostCreationAbility = async () => {
     try {
       setIsLoading(true);
+      setErrorMessage('');
+      setPostLimitReached(false);
       
-      console.log('Checking post creation ability for user:', user?.id);
-      console.log('User roles:', user?.roles);
-      console.log('Has publisher role:', hasRole('publisher'));
+      console.log('🔍 [usePostCreation] Checking post creation ability for user:', user?.id);
+      console.log('📋 [usePostCreation] User roles:', user?.roles);
+      console.log('✅ [usePostCreation] Has publisher role:', hasRole('publisher'));
 
       // Check if user has publisher role
       if (!hasRole('publisher')) {
-        console.log('User does not have publisher role, denying access');
+        console.log('❌ [usePostCreation] User does not have publisher role, denying access');
         setCanCreatePost(false);
+        setErrorMessage('No tienes permisos para crear publicaciones. Necesitas suscribirte a un plan.');
         setIsLoading(false);
         return;
       }
 
-      // For now, if user has publisher role, allow them to create posts
-      // In the future, this will check subscription and post limits
-      console.log('User has publisher role, allowing post creation');
+      console.log('✅ [usePostCreation] User has publisher role, checking subscription and post limits...');
+      
+      // Get user's active subscription
+      const subscription = await subscriptionService.getUserActiveSubscription(user!.id);
+      
+      if (!subscription) {
+        console.log('⚠️ [usePostCreation] No active subscription found');
+        setCanCreatePost(false);
+        setErrorMessage('No tienes una suscripción activa. Por favor suscríbete a un plan.');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📋 [usePostCreation] Active subscription found:', subscription);
+      setUserSubscription(subscription);
+
+      // Get plan details
+      const plans = await firebaseDB.plans.getAll();
+      const plan = plans.find(p => p.id === subscription.planId);
+
+      if (!plan) {
+        console.log('⚠️ [usePostCreation] Plan not found for subscription');
+        setCanCreatePost(false);
+        setErrorMessage('No se pudo encontrar tu plan. Por favor contacta soporte.');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📋 [usePostCreation] Plan details:', plan);
+      setUserPlan(plan);
+
+      // Check if user can create post using subscriptionService
+      const canCreateResult = await subscriptionService.canCreatePost(user!.id);
+      
+      console.log('📋 [usePostCreation] Can create post result:', canCreateResult);
+      
+      if (!canCreateResult.canCreate) {
+        console.log('⚠️ [usePostCreation] Post limit reached');
+        setCanCreatePost(false);
+        setPostLimitReached(true);
+        setRemainingPosts(canCreateResult.remainingPosts || 0);
+        setErrorMessage(canCreateResult.error || 'Has alcanzado el límite de publicaciones de tu plan.');
+        setIsLoading(false);
+        return;
+      }
+
+      // User can create posts
+      console.log('✅ [usePostCreation] User can create posts');
       setCanCreatePost(true);
-      
-      // Mock plan data for now
-      const mockPlan: SubscriptionPlan = {
-        id: 'mock-plan',
-        name: 'Basic Plan',
-        description: 'Basic publishing plan',
-        price: 9.99,
-        currency: 'USD',
-        billingCycle: 'monthly',
-        features: ['Basic publishing', 'Standard support'],
-        maxPosts: 10,
-        maxBookings: 5,
-        isActive: true,
-        isVisible: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'system',
-        updatedBy: 'system'
-      };
-      
-      setUserPlan(mockPlan);
-      setUserSubscription(null); // No subscription record yet
+      setRemainingPosts(canCreateResult.remainingPosts || 0);
     } catch (error) {
-      console.error('Error checking post creation ability:', error);
+      console.error('❌ [usePostCreation] Error checking post creation ability:', error);
       setCanCreatePost(false);
+      setErrorMessage('Error al verificar permisos. Por favor intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +155,9 @@ export function usePostCreation() {
     isLoading,
     userPlan,
     userSubscription,
+    postLimitReached,
+    remainingPosts,
+    errorMessage,
     redirectToSubscription,
     redirectToPosts,
     refreshCheck: checkPostCreationAbility,

@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, ServiceCategory, User } from '@/types';
 import PostCard from '@/components/ui/PostCard';
+import { useMercadoPagoAccount } from '@/hooks/useMercadoPagoAccount';
+import MercadoPagoAccountCard from '@/components/ui/mercado-pago-account-card';
 
 export default function PostsPage() {
   const { user, hasRole } = useAuth();
@@ -26,6 +28,8 @@ export default function PostsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage] = useState(9);
   const [showFilters, setShowFilters] = useState(false);
+  const [showMercadoPagoModal, setShowMercadoPagoModal] = useState(false);
+  const { hasActiveAccount, accountStatus } = useMercadoPagoAccount();
 
   // Redirect non-publisher users to subscription page
   useEffect(() => {
@@ -177,7 +181,14 @@ export default function PostsPage() {
                 {/* Nueva Publicación button - Hidden for superadmin users */}
                 {!hasRole('superadmin') && (
                   <button 
-                    onClick={() => router.push('/posts/new')}
+                    onClick={() => {
+                      // Check if user has MercadoPago account before navigating
+                      if (!hasActiveAccount) {
+                        setShowMercadoPagoModal(true);
+                      } else {
+                        router.push('/posts/new');
+                      }
+                    }}
                     className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -359,7 +370,14 @@ export default function PostsPage() {
               </p>
               {!hasRole('superadmin') && !searchTerm && filterStatus === 'all' && (
                 <button 
-                  onClick={() => router.push('/posts/new')}
+                  onClick={() => {
+                    // Check if user has MercadoPago account before navigating
+                    if (!hasActiveAccount) {
+                      setShowMercadoPagoModal(true);
+                    } else {
+                      router.push('/posts/new');
+                    }
+                  }}
                   className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
                 >
                   Crear Primera Publicación
@@ -478,6 +496,28 @@ export default function PostsPage() {
           )}
         </motion.div>
       </div>
+
+      {/* MercadoPago Account Modal */}
+      {showMercadoPagoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="max-w-md w-full">
+            <MercadoPagoAccountCard 
+              onStatusChange={(hasAccount) => {
+                if (hasAccount) {
+                  setShowMercadoPagoModal(false);
+                  router.push('/posts/new');
+                }
+              }}
+            />
+            <button
+              onClick={() => setShowMercadoPagoModal(false)}
+              className="mt-4 w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

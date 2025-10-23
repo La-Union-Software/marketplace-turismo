@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
+import { BasePost, Pricing, DynamicPricingSeason, Weekday } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -199,4 +200,156 @@ export function formatAddressForDisplay(address: string | { country: string; sta
   if (!city) return state;
   
   return `${city}, ${state}`;
+}
+
+/**
+ * Calculate the current price for a post based on dynamic pricing
+ * @param post - The post with pricing information
+ * @param targetDate - Optional target date (defaults to current date)
+ * @returns Object with price, currency, and pricing info
+ */
+export function calculateCurrentPrice(post: BasePost, targetDate?: Date): {
+  price: number;
+  currency: string;
+  isDynamic: boolean;
+  seasonInfo?: {
+    startDate: string;
+    endDate: string;
+    weekday: Weekday;
+  };
+} {
+  const date = targetDate || new Date();
+  
+  // If no pricing data, return the fixed price
+  if (!post.pricing) {
+    return {
+      price: post.price,
+      currency: post.currency,
+      isDynamic: false
+    };
+  }
+
+  // Handle fixed pricing
+  if (post.pricing.type === 'fixed') {
+    return {
+      price: post.pricing.price,
+      currency: post.pricing.currency,
+      isDynamic: false
+    };
+  }
+
+  // Handle dynamic pricing
+  if (post.pricing.type === 'dynamic') {
+    const currentDateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentWeekday = getWeekdayFromDate(date);
+    
+    // Find applicable season
+    const applicableSeason = post.pricing.seasons.find(season => {
+      return currentDateStr >= season.startDate && currentDateStr <= season.endDate;
+    });
+
+    if (applicableSeason) {
+      // Check if there's a price for the current weekday
+      const weekdayPrice = applicableSeason.weekdayPrices[currentWeekday];
+      
+      if (weekdayPrice !== undefined) {
+        return {
+          price: weekdayPrice,
+          currency: applicableSeason.currency,
+          isDynamic: true,
+          seasonInfo: {
+            startDate: applicableSeason.startDate,
+            endDate: applicableSeason.endDate,
+            weekday: currentWeekday
+          }
+        };
+      }
+    }
+
+    // If no applicable season or weekday price, return the minimum available price
+    const allPrices: number[] = [];
+    post.pricing.seasons.forEach(season => {
+      Object.values(season.weekdayPrices).forEach(price => {
+        if (price !== undefined) {
+          allPrices.push(price);
+        }
+      });
+    });
+
+    if (allPrices.length > 0) {
+      const minPrice = Math.min(...allPrices);
+      const seasonWithMinPrice = post.pricing.seasons.find(season => 
+        Object.values(season.weekdayPrices).includes(minPrice)
+      );
+      
+      return {
+        price: minPrice,
+        currency: seasonWithMinPrice?.currency || post.currency,
+        isDynamic: true
+      };
+    }
+  }
+
+  // Fallback to fixed price
+  return {
+    price: post.price,
+    currency: post.currency,
+    isDynamic: false
+  };
+}
+
+/**
+ * Get weekday from a date
+ */
+function getWeekdayFromDate(date: Date): Weekday {
+  const weekdays: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return weekdays[date.getDay()];
+}
+
+/**
+ * Calculate minimum price from dynamic pricing
+ */
+export function getMinPriceFromDynamicPricing(post: BasePost): number {
+  if (!post.pricing || post.pricing.type === 'fixed') {
+    return post.price;
+  }
+
+  if (post.pricing.type === 'dynamic') {
+    const allPrices: number[] = [];
+    post.pricing.seasons.forEach(season => {
+      Object.values(season.weekdayPrices).forEach(price => {
+        if (price !== undefined) {
+          allPrices.push(price);
+        }
+      });
+    });
+
+    return allPrices.length > 0 ? Math.min(...allPrices) : post.price;
+  }
+
+  return post.price;
+}
+
+/**
+ * Calculate maximum price from dynamic pricing
+ */
+export function getMaxPriceFromDynamicPricing(post: BasePost): number {
+  if (!post.pricing || post.pricing.type === 'fixed') {
+    return post.price;
+  }
+
+  if (post.pricing.type === 'dynamic') {
+    const allPrices: number[] = [];
+    post.pricing.seasons.forEach(season => {
+      Object.values(season.weekdayPrices).forEach(price => {
+        if (price !== undefined) {
+          allPrices.push(price);
+        }
+      });
+    });
+
+    return allPrices.length > 0 ? Math.max(...allPrices) : post.price;
+  }
+
+  return post.price;
 } 

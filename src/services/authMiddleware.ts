@@ -255,6 +255,31 @@ class AuthMiddlewareService {
               userStatus
             };
           }
+          
+          // Check MercadoPago account connection for publishers
+          if (userStatus.isPublisher) {
+            try {
+              const mercadoPagoAccount = await firebaseDB.mercadoPagoAccounts.getByUserId(userId);
+              if (!mercadoPagoAccount || !mercadoPagoAccount.isActive) {
+                return {
+                  allowed: false,
+                  reason: 'MercadoPago account connection required to create posts and receive payments from bookings',
+                  userStatus: {
+                    ...userStatus,
+                    mercadoPagoAccountRequired: true
+                  }
+                };
+              }
+            } catch (error) {
+              console.error('❌ [Auth Middleware] Error checking MercadoPago account:', error);
+              return {
+                allowed: false,
+                reason: 'Unable to verify MercadoPago account connection',
+                userStatus
+              };
+            }
+          }
+          
           return { allowed: true, userStatus };
 
         case 'create_booking':

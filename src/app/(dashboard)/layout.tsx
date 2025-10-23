@@ -62,10 +62,10 @@ export default function DashboardLayout({
       );
     }
 
-    // Add publisher-specific items
-    if (hasRole('publisher')) {
+    // Add Mi Plan for both client and publisher roles
+    if (hasRole('client') || hasRole('publisher')) {
       baseItems.push(
-        { name: 'Mi Plan', href: '/mi-plan', icon: Crown, roles: ['publisher'] }
+        { name: 'Mi Plan', href: '/mi-plan', icon: Crown, roles: ['client', 'publisher'] }
       );
     }
 
@@ -298,7 +298,7 @@ export default function DashboardLayout({
                 </div>
 
                 {/* User Plan Information */}
-                {userPlan && hasRole('publisher') && (
+                {userPlan && (hasRole('client') || hasRole('publisher')) && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">

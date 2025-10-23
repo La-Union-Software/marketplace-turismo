@@ -86,27 +86,27 @@ export default function CheckSubscriptionPage() {
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Check Subscription Status</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Verificar Estado de Suscripción</h1>
         <p className="text-gray-600 mt-1">
-          Manually verify and update your subscription status from MercadoPago
+          Verifica y actualiza manualmente el estado de tu suscripción desde MercadoPago
         </p>
       </div>
 
       {/* Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle>What does this do?</CardTitle>
+          <CardTitle>¿Qué hace esta herramienta?</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
           <p>
-            This tool checks your subscription status directly from MercadoPago and updates 
-            it in our database if needed.
+            Esta herramienta verifica el estado de tu suscripción directamente desde MercadoPago y lo actualiza 
+            en nuestra base de datos si es necesario.
           </p>
-          <p className="font-semibold text-gray-900">Use this if:</p>
+          <p className="font-semibold text-gray-900">Úsala si:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>Your subscription shows as "pending" but payment was completed</li>
-            <li>Your Publisher role wasn't assigned after payment</li>
-            <li>You want to verify your current subscription status</li>
+            <li>Tu suscripción aparece como "pendiente" pero el pago fue completado</li>
+            <li>Tu rol de Editor no fue asignado después del pago</li>
+            <li>Quieres verificar el estado actual de tu suscripción</li>
           </ul>
         </CardContent>
       </Card>
@@ -121,17 +121,17 @@ export default function CheckSubscriptionPage() {
           {isChecking ? (
             <>
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Checking...
+              Verificando...
             </>
           ) : (
             <>
               <RefreshCw className="w-5 h-5 mr-2" />
-              Check Subscription Status
+              Verificar Estado de Suscripción
             </>
           )}
         </Button>
         {!user && (
-          <span className="text-sm text-red-600">Please log in to check subscription status</span>
+          <span className="text-sm text-red-600">Por favor inicia sesión para verificar el estado de la suscripción</span>
         )}
       </div>
 
@@ -154,23 +154,23 @@ export default function CheckSubscriptionPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
-              Subscription Check Results
+              Resultados de Verificación de Suscripción
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600">Subscriptions Checked</p>
+                <p className="text-sm text-gray-600">Suscripciones Verificadas</p>
                 <p className="text-2xl font-bold text-blue-600">{result.checked}</p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-gray-600">Updated</p>
+                <p className="text-sm text-gray-600">Actualizadas</p>
                 <p className="text-2xl font-bold text-green-600">
                   {result.results?.filter((r: any) => r.updated).length || 0}
                 </p>
               </div>
               <div className="p-4 bg-yellow-50 rounded-lg">
-                <p className="text-sm text-gray-600">No Changes</p>
+                <p className="text-sm text-gray-600">Sin Cambios</p>
                 <p className="text-2xl font-bold text-yellow-600">
                   {result.results?.filter((r: any) => !r.updated && r.status !== 'error').length || 0}
                 </p>
@@ -183,22 +183,22 @@ export default function CheckSubscriptionPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(sub.mercadoPagoStatus || sub.firebaseStatus)}
-                    <span className="font-semibold">Subscription {index + 1}</span>
+                    <span className="font-semibold">Suscripción {index + 1}</span>
                   </div>
                   {sub.updated && (
                     <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
-                      UPDATED
+                      ACTUALIZADA
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-600">Subscription ID (Firebase)</p>
+                    <p className="text-gray-600">ID de Suscripción (Firebase)</p>
                     <p className="font-mono text-xs">{sub.subscriptionId}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">MercadoPago ID</p>
+                    <p className="text-gray-600">ID de MercadoPago</p>
                     <p className="font-mono text-xs">{sub.mercadoPagoId}</p>
                   </div>
                 </div>
@@ -207,13 +207,13 @@ export default function CheckSubscriptionPage() {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Firebase Status</p>
+                        <p className="text-gray-600">Estado Firebase</p>
                         <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${getStatusColor(sub.firebaseStatus)}`}>
                           {sub.firebaseStatus}
                         </span>
                       </div>
                       <div>
-                        <p className="text-gray-600">MercadoPago Status</p>
+                        <p className="text-gray-600">Estado MercadoPago</p>
                         <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${getStatusColor(sub.mercadoPagoStatus)}`}>
                           {sub.mercadoPagoStatus}
                         </span>
@@ -221,23 +221,23 @@ export default function CheckSubscriptionPage() {
                     </div>
 
                     <div className="text-sm">
-                      <p className="text-gray-600">Plan Name</p>
+                      <p className="text-gray-600">Nombre del Plan</p>
                       <p className="font-semibold">{sub.mercadoPagoDetails.reason}</p>
                     </div>
 
                     {sub.mercadoPagoDetails.payer_email && (
                       <div className="text-sm">
-                        <p className="text-gray-600">Payer Email</p>
+                        <p className="text-gray-600">Email del Pagador</p>
                         <p className="font-mono text-xs">{sub.mercadoPagoDetails.payer_email}</p>
                       </div>
                     )}
 
                     {sub.mercadoPagoDetails.auto_recurring && (
                       <div className="text-sm">
-                        <p className="text-gray-600">Billing</p>
+                        <p className="text-gray-600">Facturación</p>
                         <p>
                           {sub.mercadoPagoDetails.auto_recurring.transaction_amount}{' '}
-                          {sub.mercadoPagoDetails.auto_recurring.currency_id} every{' '}
+                          {sub.mercadoPagoDetails.auto_recurring.currency_id} cada{' '}
                           {sub.mercadoPagoDetails.auto_recurring.frequency}{' '}
                           {sub.mercadoPagoDetails.auto_recurring.frequency_type}
                         </p>
@@ -246,11 +246,11 @@ export default function CheckSubscriptionPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-500">
                       <div>
-                        <p>Created:</p>
+                        <p>Creado:</p>
                         <p>{new Date(sub.mercadoPagoDetails.date_created).toLocaleString()}</p>
                       </div>
                       <div>
-                        <p>Last Modified:</p>
+                        <p>Última Modificación:</p>
                         <p>{new Date(sub.mercadoPagoDetails.last_modified).toLocaleString()}</p>
                       </div>
                     </div>
@@ -272,7 +272,7 @@ export default function CheckSubscriptionPage() {
                 <div className="flex items-center">
                   <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
                   <span className="text-green-800 font-semibold">
-                    Status updated successfully! Refreshing your user data...
+                    ¡Estado actualizado exitosamente! Actualizando tus datos de usuario...
                   </span>
                 </div>
               </div>
@@ -284,23 +284,23 @@ export default function CheckSubscriptionPage() {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Troubleshooting Tips</CardTitle>
+          <CardTitle>Consejos para Solución de Problemas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
-          <p className="font-semibold text-gray-900">If status is still "pending":</p>
+          <p className="font-semibold text-gray-900">Si el estado sigue siendo "pendiente":</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Check if payment was actually processed in MercadoPago</li>
-            <li>Wait a few minutes and try checking again</li>
-            <li>Verify webhook URL is configured in MercadoPago</li>
-            <li>Check server logs for webhook errors</li>
+            <li>Verifica si el pago fue procesado realmente en MercadoPago</li>
+            <li>Espera unos minutos e intenta verificar nuevamente</li>
+            <li>Verifica que la URL del webhook esté configurada en MercadoPago</li>
+            <li>Revisa los logs del servidor para errores de webhook</li>
           </ol>
           
-          <p className="font-semibold text-gray-900 mt-4">If Publisher role is missing:</p>
+          <p className="font-semibold text-gray-900 mt-4">Si falta el rol de Editor:</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Make sure subscription status is "authorized" or "active"</li>
-            <li>Refresh this page after status update</li>
-            <li>Log out and log back in</li>
-            <li>Contact support if issue persists</li>
+            <li>Asegúrate de que el estado de la suscripción sea "autorizado" o "activo"</li>
+            <li>Actualiza esta página después de la actualización del estado</li>
+            <li>Cierra sesión e inicia sesión nuevamente</li>
+            <li>Contacta soporte si el problema persiste</li>
           </ol>
         </CardContent>
       </Card>

@@ -1765,4 +1765,107 @@ export const firebaseDB = {
     },
   },
 
+  // MercadoPago Accounts Collection
+  mercadoPagoAccounts: {
+    async create(accountData: any): Promise<string> {
+      try {
+        const docRef = await addDoc(collection(db, 'mercadoPagoAccounts'), {
+          ...accountData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log('✅ [Firebase] MercadoPago account created:', docRef.id);
+        return docRef.id;
+      } catch (error) {
+        console.error('Error creating MercadoPago account:', error);
+        throw new Error('Failed to create MercadoPago account');
+      }
+    },
+
+    async getByUserId(userId: string): Promise<any | null> {
+      try {
+        const accountsRef = collection(db, 'mercadoPagoAccounts');
+        const q = query(
+          accountsRef,
+          where('userId', '==', userId),
+          where('isActive', '==', true),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          return null;
+        }
+
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+          expiresAt: data.expiresAt?.toDate?.() || (data.expiresAt ? new Date(data.expiresAt) : undefined),
+        };
+      } catch (error) {
+        console.error('Error getting MercadoPago account by user ID:', error);
+        return null;
+      }
+    },
+
+    async update(accountId: string, updates: any): Promise<void> {
+      try {
+        const accountRef = doc(db, 'mercadoPagoAccounts', accountId);
+        await updateDoc(accountRef, {
+          ...updates,
+          updatedAt: new Date(),
+        });
+        console.log('✅ [Firebase] MercadoPago account updated:', accountId);
+      } catch (error) {
+        console.error('Error updating MercadoPago account:', error);
+        throw new Error('Failed to update MercadoPago account');
+      }
+    },
+
+    async deactivate(userId: string): Promise<void> {
+      try {
+        const accountsRef = collection(db, 'mercadoPagoAccounts');
+        const q = query(
+          accountsRef,
+          where('userId', '==', userId),
+          where('isActive', '==', true)
+        );
+        const querySnapshot = await getDocs(q);
+
+        const updatePromises = querySnapshot.docs.map(doc => 
+          updateDoc(doc.ref, {
+            isActive: false,
+            updatedAt: new Date(),
+          })
+        );
+
+        await Promise.all(updatePromises);
+        console.log('✅ [Firebase] MercadoPago accounts deactivated for user:', userId);
+      } catch (error) {
+        console.error('Error deactivating MercadoPago accounts:', error);
+        throw new Error('Failed to deactivate MercadoPago accounts');
+      }
+    },
+
+    async deleteByUserId(userId: string): Promise<void> {
+      try {
+        const accountsRef = collection(db, 'mercadoPagoAccounts');
+        const q = query(accountsRef, where('userId', '==', userId));
+        const querySnapshot = await getDocs(q);
+
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        
+        console.log(`✅ [Firebase] Deleted ${querySnapshot.size} MercadoPago account documents for user:`, userId);
+      } catch (error) {
+        console.error('Error deleting MercadoPago accounts:', error);
+        throw new Error('Failed to delete MercadoPago accounts');
+      }
+    },
+  },
+
 };

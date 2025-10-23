@@ -7,15 +7,12 @@ import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { SubscriptionPlan } from '@/types';
 import { useRouter } from 'next/navigation';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 export default function SuscribirsePage() {
   const { user } = useAuth();
   const router = useRouter();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   useEffect(() => {
     // Redirect if user is already a publisher or superadmin
@@ -46,13 +43,8 @@ export default function SuscribirsePage() {
   };
 
   const handlePlanSelect = (plan: SubscriptionPlan) => {
-    setSelectedPlan(plan);
-    setShowPaymentForm(true);
-  };
-
-  const handleBackToPlans = () => {
-    setSelectedPlan(null);
-    setShowPaymentForm(false);
+    // Redirect to the dashboard subscription page with card form
+    router.push(`/subscribe/${plan.id}`);
   };
 
   if (isLoading) {
@@ -66,16 +58,6 @@ export default function SuscribirsePage() {
     );
   }
 
-  if (showPaymentForm && selectedPlan) {
-    return (
-      <PaymentForm 
-        plan={selectedPlan} 
-        onBack={handleBackToPlans}
-        onSuccess={() => router.push('/dashboard')}
-      />
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -86,11 +68,11 @@ export default function SuscribirsePage() {
           className="text-center mb-16"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            Conviértete en <span className="gradient-text">Editor</span>
+            Publica tus servicios turisticos
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Accede a todas las herramientas necesarias para publicar y gestionar tus servicios turísticos. 
-            Elige el plan que mejor se adapte a tus necesidades.
+            Elegí el plan que mejor se adapte a tus necesidades.
           </p>
         </motion.div>
 
@@ -206,154 +188,6 @@ export default function SuscribirsePage() {
             </div>
           </div>
         </motion.div>
-    </div>
-  );
-}
-
-// Payment Form Component using MercadoPago Checkout Pro
-interface PaymentFormProps {
-  plan: SubscriptionPlan;
-  onBack: () => void;
-  onSuccess: () => void;
-}
-
-function PaymentForm({ plan, onBack, onSuccess }: PaymentFormProps) {
-  const { user } = useAuth();
-  const [isCreatingPreference, setIsCreatingPreference] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handlePayment = async () => {
-    if (!user) {
-      setError('Debes estar logueado para realizar el pago');
-      return;
-    }
-
-    setIsCreatingPreference(true);
-    setError(null);
-
-    try {
-      console.log('🛒 [Subscription Payment] Creating recurring subscription for plan:', plan.name);
-
-      const response = await fetch('/api/mercadopago/subscription-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId: plan.id,
-          userId: user.id
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create subscription');
-      }
-
-      const result = await response.json();
-      console.log('✅ [Subscription Payment] Subscription created:', result.subscriptionId);
-
-      // Redirect to MercadoPago Checkout Pro
-      if (result.initPoint) {
-        window.location.href = result.initPoint;
-      } else {
-        throw new Error('No payment URL received');
-      }
-
-    } catch (error) {
-      console.error('❌ [Subscription Payment] Error:', error);
-      setError(error instanceof Error ? error.message : 'Error al procesar el pago');
-    } finally {
-      setIsCreatingPreference(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-center min-h-[600px]">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-        className="glass rounded-2xl p-8 w-full max-w-md"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-            <CreditCard className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Confirmar Suscripción
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            Plan: <span className="font-semibold">{plan.name}</span>
-          </p>
-          <p className="text-lg font-bold text-primary">
-            ${plan.price}/{plan.billingCycle === 'monthly' ? 'mes' : plan.billingCycle === 'yearly' ? 'año' : plan.billingCycle}
-          </p>
-        </div>
-
-        {/* Plan Details */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-            Incluye:
-          </h3>
-          <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-            <li>• Hasta {plan.maxPosts} publicaciones</li>
-            <li>• Hasta {plan.maxBookings} reservas</li>
-            {plan.features.slice(0, 3).map((feature, index) => (
-              <li key={index}>• {feature}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        {/* Payment Button */}
-        <div className="space-y-4">
-          <button
-            onClick={handlePayment}
-            disabled={isCreatingPreference}
-            className="w-full px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          >
-            {isCreatingPreference ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Preparando pago...</span>
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-4 h-4" />
-                <span>Suscribirse con MercadoPago</span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={onBack}
-            className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            Volver a Planes
-          </button>
-        </div>
-
-        {/* Security Notice */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            🔒 Pago seguro procesado por MercadoPago
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Aceptamos todas las tarjetas y métodos de pago
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
-            ⚡ Suscripción recurrente automática
-          </p>
-        </div>
-      </motion.div>
     </div>
   );
 }

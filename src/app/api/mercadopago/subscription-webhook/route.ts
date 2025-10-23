@@ -8,22 +8,30 @@ import { firebaseDB } from '@/services/firebaseService';
 export async function POST(request: NextRequest) {
   try {
     // Log request details
-    console.log('🔔 [MercadoPago Subscription Webhook] === WEBHOOK RECEIVED ===');
-    console.log('🔔 [MercadoPago Subscription Webhook] Headers:', Object.fromEntries(request.headers.entries()));
-    console.log('🔔 [MercadoPago Subscription Webhook] URL:', request.url);
-    console.log('🔔 [MercadoPago Subscription Webhook] Method:', request.method);
-    
     const body = await request.json();
-    console.log('🔔 [MercadoPago Subscription Webhook] Raw body:', JSON.stringify(body, null, 2));
+    console.log('🔔 [MP Webhook] Received:', { method: request.method, type: body.type, action: body.action });
 
-    const { type, data, action } = body;
+    const { type, data, action, id: webhookId } = body;
 
-    console.log('🔔 [MercadoPago Subscription Webhook] Parsed data:', { 
-      type, 
-      action,
-      dataId: data?.id,
-      fullData: data 
-    });
+    // Validate webhook data
+    if (!type || !data?.id) {
+      console.error('❌ [MP Webhook] Invalid webhook data:', { type, data });
+      return NextResponse.json({ error: 'Invalid webhook data' }, { status: 400 });
+    }
+
+    // Check if we've already processed this webhook
+    const webhookSignature = `${type}_${data.id}_${action || 'default'}`;
+    const webhookCache = await checkWebhookCache(webhookSignature);
+    
+    if (webhookCache) {
+      console.log('⚠️ [MP Webhook] Duplicate webhook detected, skipping:', webhookSignature);
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
+    // Cache this webhook to prevent duplicates
+    await cacheWebhook(webhookSignature);
+
+    // Parse data for processing
 
     if (type === 'payment') {
       const paymentId = data?.id;
@@ -36,11 +44,27 @@ export async function POST(request: NextRequest) {
       const paymentDetails = await getPaymentDetails(paymentId);
       
       if (paymentDetails) {
-        // Process payment using payment tracking service
-        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
-        await paymentTrackingService.processPaymentWebhook(paymentDetails);
-        
-        await processSubscriptionPayment(paymentDetails);
+        // Only process recurring payments (actual subscription charges)
+        if (paymentDetails.operation_type === 'recurring_payment') {
+          console.log('💳 [MercadoPago Subscription Webhook] Processing recurring payment:', {
+            paymentId: paymentDetails.id,
+            operationType: paymentDetails.operation_type,
+            status: paymentDetails.status,
+            amount: paymentDetails.transaction_amount
+          });
+          
+          // Process payment using payment tracking service
+          const { paymentTrackingService } = await import('@/services/paymentTrackingService');
+          await paymentTrackingService.processPaymentWebhook(paymentDetails);
+          
+          await processSubscriptionPayment(paymentDetails);
+        } else {
+          console.log('⚠️ [MercadoPago Subscription Webhook] Skipping non-recurring payment:', {
+            paymentId: paymentDetails.id,
+            operationType: paymentDetails.operation_type,
+            status: paymentDetails.status
+          });
+        }
       }
     } else if (type === 'preapproval' || type === 'subscription_preapproval') {
       const subscriptionId = data?.id;
@@ -126,6 +150,7 @@ async function getPaymentDetails(paymentId: string) {
       id: payment.id,
       status: payment.status,
       status_detail: payment.status_detail,
+      operation_type: payment.operation_type,
       external_reference: payment.external_reference,
       transaction_amount: payment.transaction_amount
     });
@@ -144,11 +169,32 @@ async function processSubscriptionPayment(payment: any) {
   try {
     const { status, external_reference, metadata } = payment;
 
-    // Only process approved payments
-    if (status !== 'approved') {
-      console.log(`⚠️ [MercadoPago Subscription Webhook] Payment not approved. Status: ${status}`);
+    // Process different payment statuses
+    if (status === 'approved') {
+      console.log('✅ [MercadoPago Subscription Webhook] Payment approved, processing...');
+      await handleApprovedPayment(payment);
+    } else if (status === 'pending' || status === 'in_process') {
+      console.log('⏳ [MercadoPago Subscription Webhook] Payment pending/in process, setting subscription on hold...');
+      await handlePendingPayment(payment);
+    } else if (status === 'rejected' || status === 'cancelled') {
+      console.log('❌ [MercadoPago Subscription Webhook] Payment rejected/cancelled, updating subscription...');
+      await handleRejectedPayment(payment);
+    } else {
+      console.log(`⚠️ [MercadoPago Subscription Webhook] Payment not processed. Status: ${status}`);
       return;
     }
+
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error processing subscription payment:', error);
+  }
+}
+
+/**
+ * Handle approved payment - activate subscription
+ */
+async function handleApprovedPayment(payment: any) {
+  try {
+    const { external_reference, metadata } = payment;
 
     // Extract data from external_reference or metadata
     const referenceData = external_reference || metadata?.external_reference;
@@ -164,12 +210,25 @@ async function processSubscriptionPayment(payment: any) {
       return;
     }
 
-    console.log('🔄 [MercadoPago Subscription Webhook] Processing subscription for:', { planId, userId });
+    console.log('🔄 [MercadoPago Subscription Webhook] Processing approved payment for:', { planId, userId });
 
-    // Check if user already has an active subscription
-    const existingSubscription = await getActiveUserSubscription(userId);
+    // Check if user already has a subscription (active or on hold)
+    const existingSubscription = await getUserSubscription(userId);
     if (existingSubscription) {
-      console.log('⚠️ [MercadoPago Subscription Webhook] User already has active subscription:', existingSubscription.id);
+      console.log('⚠️ [MercadoPago Subscription Webhook] User already has subscription:', existingSubscription.id, 'Status:', existingSubscription.status);
+      
+      // If subscription is on hold, activate it
+      if (existingSubscription.status === 'on_hold') {
+        await activateSubscriptionFromHold(existingSubscription.id, payment);
+        return;
+      }
+      
+      // If already active, just update payment info
+      if (existingSubscription.status === 'active') {
+        await updateSubscriptionOnHold(existingSubscription.id, payment);
+        return;
+      }
+      
       return;
     }
 
@@ -203,7 +262,7 @@ async function processSubscriptionPayment(payment: any) {
     // Assign publisher role to user
     await firebaseDB.users.assignRole(userId, 'publisher', 'system');
 
-    console.log('✅ [MercadoPago Subscription Webhook] Subscription created successfully:', {
+    console.log('✅ [MercadoPago Subscription Webhook] Subscription activated successfully:', {
       subscriptionId,
       userId,
       planName: plan.name,
@@ -211,7 +270,220 @@ async function processSubscriptionPayment(payment: any) {
     });
 
   } catch (error) {
-    console.error('❌ [MercadoPago Subscription Webhook] Error processing subscription payment:', error);
+    console.error('❌ [MercadoPago Subscription Webhook] Error handling approved payment:', error);
+  }
+}
+
+/**
+ * Handle pending payment - set subscription on hold
+ */
+async function handlePendingPayment(payment: any) {
+  try {
+    const { external_reference, metadata } = payment;
+
+    // Extract data from external_reference or metadata
+    const referenceData = external_reference || metadata?.external_reference;
+    if (!referenceData || !referenceData.startsWith('subscription_')) {
+      console.error('❌ [MercadoPago Subscription Webhook] Invalid external reference:', referenceData);
+      return;
+    }
+
+    const [, planId, userId] = referenceData.split('_');
+    
+    if (!planId || !userId) {
+      console.error('❌ [MercadoPago Subscription Webhook] Missing planId or userId in reference:', referenceData);
+      return;
+    }
+
+    console.log('🔄 [MercadoPago Subscription Webhook] Processing pending payment for:', { planId, userId });
+
+    // Check if user already has a subscription (active or on hold)
+    const existingSubscription = await getUserSubscription(userId);
+    if (existingSubscription && (existingSubscription.status === 'active' || existingSubscription.status === 'on_hold')) {
+      console.log('⚠️ [MercadoPago Subscription Webhook] User already has subscription:', existingSubscription.id, 'Status:', existingSubscription.status);
+      
+      // If subscription is on hold and payment is pending, update it
+      if (existingSubscription.status === 'on_hold') {
+        await updateSubscriptionOnHold(existingSubscription.id, payment);
+      }
+      return;
+    }
+
+    // Get plan details
+    const plans = await firebaseDB.plans.getAll();
+    const plan = plans.find(p => p.id === planId);
+    
+    if (!plan) {
+      console.error('❌ [MercadoPago Subscription Webhook] Plan not found:', planId);
+      return;
+    }
+
+    // Create user subscription record with on_hold status
+    const subscriptionId = await createUserSubscription({
+      userId,
+      planId,
+      planName: plan.name,
+      paymentId: payment.id,
+      amount: payment.transaction_amount,
+      currency: payment.currency_id,
+      status: 'on_hold',
+      startDate: new Date(),
+      endDate: calculateEndDate(plan.billingCycle),
+      metadata: {
+        mercadoPagoPaymentId: payment.id,
+        paymentStatus: payment.status,
+        paymentStatusDetail: payment.status_detail,
+        onHoldReason: 'Payment pending accreditation',
+        onHoldAt: new Date()
+      }
+    });
+
+    console.log('⏳ [MercadoPago Subscription Webhook] Subscription set on hold:', {
+      subscriptionId,
+      userId,
+      planName: plan.name,
+      paymentId: payment.id,
+      status: 'on_hold'
+    });
+
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error handling pending payment:', error);
+  }
+}
+
+/**
+ * Update existing subscription that's on hold
+ */
+async function updateSubscriptionOnHold(subscriptionId: string, payment: any) {
+  try {
+    await firebaseDB.subscriptions.update(subscriptionId, {
+      updatedAt: new Date(),
+      metadata: {
+        mercadoPagoPaymentId: payment.id,
+        paymentStatus: payment.status,
+        paymentStatusDetail: payment.status_detail,
+        lastPaymentUpdate: new Date()
+      }
+    });
+
+    console.log('✅ [MercadoPago Subscription Webhook] Updated subscription on hold:', {
+      subscriptionId,
+      paymentId: payment.id,
+      status: payment.status
+    });
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error updating subscription on hold:', error);
+  }
+}
+
+/**
+ * Activate subscription that was on hold
+ */
+async function activateSubscriptionFromHold(subscriptionId: string, payment: any) {
+  try {
+    await firebaseDB.subscriptions.update(subscriptionId, {
+      status: 'active',
+      updatedAt: new Date(),
+      metadata: {
+        mercadoPagoPaymentId: payment.id,
+        paymentStatus: payment.status,
+        paymentStatusDetail: payment.status_detail,
+        activatedFromHoldAt: new Date(),
+        activatedFromHoldReason: 'Payment approved'
+      }
+    });
+
+    // Assign publisher role to user if not already assigned
+    const subscription = await firebaseDB.subscriptions.getById(subscriptionId);
+    if (subscription) {
+      await firebaseDB.users.assignRole(subscription.userId, 'publisher', 'system');
+    }
+
+    console.log('✅ [MercadoPago Subscription Webhook] Subscription activated from hold:', {
+      subscriptionId,
+      paymentId: payment.id,
+      status: 'active'
+    });
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error activating subscription from hold:', error);
+  }
+}
+
+/**
+ * Handle rejected payment
+ */
+async function handleRejectedPayment(payment: any) {
+  try {
+    const { external_reference, metadata } = payment;
+
+    // Extract data from external_reference or metadata
+    const referenceData = external_reference || metadata?.external_reference;
+    if (!referenceData || !referenceData.startsWith('subscription_')) {
+      console.error('❌ [MercadoPago Subscription Webhook] Invalid external reference:', referenceData);
+      return;
+    }
+
+    const [, planId, userId] = referenceData.split('_');
+    
+    if (!planId || !userId) {
+      console.error('❌ [MercadoPago Subscription Webhook] Missing planId or userId in reference:', referenceData);
+      return;
+    }
+
+    console.log('🔄 [MercadoPago Subscription Webhook] Processing rejected payment for:', { planId, userId });
+
+    // Find subscription and update it
+    const existingSubscription = await getUserSubscription(userId);
+    if (existingSubscription) {
+      await firebaseDB.subscriptions.update(existingSubscription.id, {
+        status: 'cancelled',
+        updatedAt: new Date(),
+        metadata: {
+          ...existingSubscription.metadata,
+          mercadoPagoPaymentId: payment.id,
+          paymentStatus: payment.status,
+          paymentStatusDetail: payment.status_detail,
+          cancelledAt: new Date(),
+          cancellationReason: 'Payment rejected'
+        }
+      });
+
+      console.log('❌ [MercadoPago Subscription Webhook] Subscription cancelled due to rejected payment:', {
+        subscriptionId: existingSubscription.id,
+        paymentId: payment.id,
+        status: payment.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error handling rejected payment:', error);
+  }
+}
+
+/**
+ * Get user subscription (active or on hold)
+ */
+async function getUserSubscription(userId: string) {
+  try {
+    const subscriptionsRef = firebaseDB.db.collection('userSubscriptions');
+    const snapshot = await subscriptionsRef
+      .where('userId', '==', userId)
+      .where('status', 'in', ['active', 'on_hold'])
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const subscription = snapshot.docs[0].data();
+    return {
+      id: snapshot.docs[0].id,
+      ...subscription
+    };
+  } catch (error) {
+    console.error('❌ [MercadoPago Subscription Webhook] Error getting user subscription:', error);
+    return null;
   }
 }
 
@@ -372,6 +644,16 @@ async function processSubscriptionStatusChange(subscription: any) {
         return; // Don't update for unknown statuses
     }
 
+    // Extract card information for future reuse
+    let cardId = subscriptionRecord.metadata?.cardId;
+    let cardTokenId = subscriptionRecord.metadata?.cardTokenId;
+    
+    // If subscription is authorized and we have card information from MercadoPago, extract it
+    if (status === 'authorized' && subscription.card_id) {
+      cardId = subscription.card_id;
+      console.log('💳 [MercadoPago Subscription Webhook] Extracted card_id for future reuse:', cardId);
+    }
+
     // Update subscription record
     await updateUserSubscription(subscriptionRecord.id, {
       status: newStatus,
@@ -380,42 +662,15 @@ async function processSubscriptionStatusChange(subscription: any) {
       metadata: {
         ...subscriptionRecord.metadata,
         lastStatusUpdate: new Date(),
-        mercadoPagoStatus: status
+        mercadoPagoStatus: status,
+        ...(cardId && { cardId }), // Store cardId for future plan changes
+        ...(cardTokenId && { cardTokenId }), // Keep cardTokenId if available
       }
     });
 
-    // Record payment if subscription is authorized/active
-    if (status === 'authorized' || status === 'active') {
-      try {
-        console.log('💳 [MercadoPago Subscription Webhook] Recording payment for subscription');
-        
-        // Create payment record for the subscription
-        const paymentData = {
-          userId: subscriptionRecord.userId,
-          subscriptionId: subscriptionRecord.id,
-          mercadoPagoPaymentId: subscription.id, // Use subscription ID as payment ID for subscriptions
-          mercadoPagoSubscriptionId: subscription.id,
-          amount: subscriptionRecord.amount,
-          currency: subscriptionRecord.currency,
-          status: 'approved' as const,
-          statusDetail: 'subscription_authorized',
-          paymentMethod: 'subscription',
-          description: `Suscripción ${subscriptionRecord.planName}`,
-          externalReference: external_reference,
-          metadata: {
-            mercadoPagoData: subscription,
-            subscriptionType: 'recurring'
-          }
-        };
-        
-        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
-        await paymentTrackingService.createPaymentRecord(paymentData);
-        console.log('✅ [MercadoPago Subscription Webhook] Payment recorded successfully');
-      } catch (error) {
-        console.error('❌ [MercadoPago Subscription Webhook] Error recording payment:', error);
-        // Don't fail the webhook for payment recording errors
-      }
-    }
+    // Note: We no longer create payment records for subscription authorization
+    // Only actual recurring payments (operation_type: 'recurring_payment') are saved
+    console.log('ℹ️ [MercadoPago Subscription Webhook] Subscription status updated, no payment record created for authorization');
 
     // Use auth middleware to manage roles and posts
     if (shouldAssignRole || status === 'cancelled') {
@@ -563,4 +818,48 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV
   });
+}
+
+// Webhook deduplication functions
+async function checkWebhookCache(webhookSignature: string): Promise<boolean> {
+  try {
+    // Use a simple in-memory cache for now (in production, use Redis or similar)
+    if (!global.webhookCache) {
+      global.webhookCache = new Map();
+    }
+    
+    return global.webhookCache.has(webhookSignature);
+  } catch (error) {
+    console.error('Error checking webhook cache:', error);
+    return false; // If cache fails, process the webhook
+  }
+}
+
+async function cacheWebhook(webhookSignature: string): Promise<void> {
+  try {
+    if (!global.webhookCache) {
+      global.webhookCache = new Map();
+    }
+    
+    // Cache for 24 hours (86400000 ms)
+    global.webhookCache.set(webhookSignature, Date.now());
+    
+    // Clean up old entries (older than 24 hours)
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    for (const [key, timestamp] of global.webhookCache.entries()) {
+      if (now - timestamp > maxAge) {
+        global.webhookCache.delete(key);
+      }
+    }
+  } catch (error) {
+    console.error('Error caching webhook:', error);
+    // Don't throw - caching failure shouldn't break webhook processing
+  }
+}
+
+// Extend global type for TypeScript
+declare global {
+  var webhookCache: Map<string, number> | undefined;
 }

@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
-import { Booking, BookingStatus, CancellationPenalty } from '@/types';
-import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
+import { Booking, BookingStatus } from '@/types';
+import { calculateCancellationPenalty, CancellationPenalty } from '@/lib/cancellationUtils';
 import { formatAddressForDisplay } from '@/lib/utils';
 import CancellationModal from '@/components/booking/CancellationModal';
 import PostImages from '@/components/ui/PostImages';
@@ -141,7 +141,7 @@ export default function BookingsPage() {
         userId: booking.clientId,
         type: 'payment_pending',
         title: 'Reserva aceptada - Pago pendiente',
-        message: `Tu reserva para "${booking.post.title}" ha sido aceptada. Completa el pago para confirmar.`,
+        message: `Tu reserva para "${booking.post?.title || 'Publicación eliminada'}" ha sido aceptada. Completa el pago para confirmar.`,
         isRead: false,
         data: {
           bookingId,
@@ -168,7 +168,7 @@ export default function BookingsPage() {
           userId: booking.clientId,
           type: 'booking_declined',
           title: 'Reserva rechazada',
-          message: `Tu reserva para "${booking.post.title}" ha sido rechazada`,
+          message: `Tu reserva para "${booking.post?.title || 'Publicación eliminada'}" ha sido rechazada`,
           isRead: false,
           data: {
             bookingId,
@@ -200,7 +200,7 @@ export default function BookingsPage() {
 
     // Calculate cancellation penalty
     const penalty = calculateCancellationPenalty(
-      booking.post.cancellationPolicies || [],
+      booking.post?.cancellationPolicies || [],
       booking.totalAmount,
       new Date(booking.startDate)
     );
@@ -551,17 +551,17 @@ export default function BookingsPage() {
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                        {booking.post.title}
+                        {booking.post?.title || 'Publicación eliminada'}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        {booking.post.category}
+                        {booking.post?.category || 'N/A'}
                       </p>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {booking.post.address ? formatAddressForDisplay(booking.post.address) : 'Ubicación no disponible'}
+                            {booking.post?.address ? formatAddressForDisplay(booking.post.address) : 'Ubicación no disponible'}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">

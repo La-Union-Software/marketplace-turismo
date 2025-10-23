@@ -25,6 +25,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/api/mercadopago/test-webhook') ||
         pathname.startsWith('/api/mercadopago/webhook-config') ||
         pathname.startsWith('/api/mercadopago/webhook-test') ||
+        pathname.startsWith('/api/mercadopago/plans') ||
         pathname.startsWith('/api/locations')) {
       return NextResponse.next();
     }

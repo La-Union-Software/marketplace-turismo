@@ -18,8 +18,10 @@ import {
   RefreshCw,
   TrendingUp,
   FileText,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
+import UnsubscribeModal from '@/components/ui/unsubscribe-modal';
 
 interface PaymentRecord {
   id: string;
@@ -61,6 +63,8 @@ export default function MiPlanPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUnsubscribeModal, setShowUnsubscribeModal] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -109,6 +113,60 @@ export default function MiPlanPage() {
     await loadUserData();
     if (refreshUser) {
       await refreshUser();
+    }
+  };
+
+  const handleUnsubscribe = async () => {
+    if (!subscription || !user?.id) return;
+
+    setIsUnsubscribing(true);
+    setError(null);
+
+    try {
+      console.log('🔄 [Mi Plan] Starting unsubscribe process for user:', user.id);
+
+      // Call unsubscribe API
+      const response = await fetch('/api/mercadopago/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          subscriptionId: subscription.id,
+          mercadoPagoSubscriptionId: subscription.mercadoPagoSubscriptionId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al cancelar la suscripción');
+      }
+
+      console.log('✅ [Mi Plan] Unsubscribe successful:', result);
+
+      // Close modal and refresh data
+      setShowUnsubscribeModal(false);
+      
+      // Force refresh user data and roles
+      if (refreshUser) {
+        await refreshUser();
+      }
+      
+      await loadUserData();
+
+      // Show success message and refresh the page to ensure all changes are reflected
+      alert('Suscripción cancelada exitosamente. Todos tus datos han sido eliminados.');
+      
+      // Force page refresh to ensure all UI updates are reflected
+      window.location.reload();
+
+    } catch (error) {
+      console.error('❌ [Mi Plan] Unsubscribe error:', error);
+      setError(error instanceof Error ? error.message : 'Error al cancelar la suscripción');
+    } finally {
+      setIsUnsubscribing(false);
     }
   };
 
@@ -262,12 +320,33 @@ export default function MiPlanPage() {
             </div>
 
             {subscription.status === 'active' && (
-              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-green-800 font-medium">
-                    Tu suscripción está activa. Puedes crear publicaciones según tu plan.
-                  </span>
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">
+                      Tu suscripción está activa. Puedes crear publicaciones según tu plan.
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.href = '/suscribirse/planes'}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Mejorar Plan
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUnsubscribeModal(true)}
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Darse de Baja
+                  </Button>
                 </div>
               </div>
             )}
@@ -384,6 +463,14 @@ export default function MiPlanPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unsubscribe Modal */}
+      <UnsubscribeModal
+        isOpen={showUnsubscribeModal}
+        onClose={() => setShowUnsubscribeModal(false)}
+        onConfirm={handleUnsubscribe}
+        isLoading={isUnsubscribing}
+      />
     </div>
   );
 }

@@ -10,8 +10,23 @@ import { BasePost, PostImage } from '@/types';
 import PostImages from '@/components/ui/PostImages';
 import BookingForm from '@/components/booking/BookingForm';
 import ShareModal from '@/components/ui/ShareModal';
-import { formatAddressForDisplay } from '@/lib/utils';
+import { formatAddressForDisplay, calculateCurrentPrice, getMinPriceFromDynamicPricing, getMaxPriceFromDynamicPricing } from '@/lib/utils';
 import { categoryAmenities, mainCategoryMapping } from '@/services/dummyData';
+import { Weekday } from '@/types';
+
+// Helper function to get weekday label in Spanish
+function getWeekdayLabel(weekday: Weekday): string {
+  const labels: Record<Weekday, string> = {
+    monday: 'Lunes',
+    tuesday: 'Martes',
+    wednesday: 'Miércoles',
+    thursday: 'Jueves',
+    friday: 'Viernes',
+    saturday: 'Sábado',
+    sunday: 'Domingo'
+  };
+  return labels[weekday];
+}
 
 // Function to mask phone numbers and email addresses
 const maskContactInfo = (text: string): string => {
@@ -118,8 +133,19 @@ export default function PostDetailPage() {
 
   const getMinPrice = () => {
     if (!post) return 0;
-    // For now, return the fixed price. In the future, this could calculate from dynamic pricing
-    return post.price;
+    return getMinPriceFromDynamicPricing(post);
+  };
+
+  const getCurrentPrice = () => {
+    if (!post) return { price: 0, currency: 'USD', isDynamic: false };
+    return calculateCurrentPrice(post);
+  };
+
+  const getPriceRange = () => {
+    if (!post) return { min: 0, max: 0 };
+    const minPrice = getMinPriceFromDynamicPricing(post);
+    const maxPrice = getMaxPriceFromDynamicPricing(post);
+    return { min: minPrice, max: maxPrice };
   };
 
   // Check if post is favourited when component loads
@@ -529,17 +555,7 @@ export default function PostDetailPage() {
                     </>
                   )}
 
-                  {/* Voucher Text - Available for all categories */}
-                  {post.specificFields?.voucherText !== undefined && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                        Información del Voucher
-                      </h3>
-                      <p className="text-gray-700 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg whitespace-pre-line border-l-4 border-amber-500">
-                        {String(post.specificFields.voucherText)}
-                      </p>
-                    </div>
-                  )}
+              
                 </div>
               </div>
             )}
@@ -572,14 +588,33 @@ export default function PostDetailPage() {
               <div className="glass rounded-xl p-6">
                 {/* Price */}
                 <div className="mb-6">
-                  <div className="flex items-baseline space-x-2 mb-2">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                      Desde ${getMinPrice()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Precio por noche/día
-                  </p>
+                  {(() => {
+                    const currentPricing = getCurrentPrice();
+                    const priceRange = getPriceRange();
+                    
+                    return (
+                      <>
+                        <div className="flex items-baseline space-x-2 mb-2">
+                          <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                            {currentPricing.isDynamic ? 'Desde' : ''} ${currentPricing.price.toLocaleString()}
+                          </span>
+                          {currentPricing.isDynamic && currentPricing.seasonInfo && (
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              ({getWeekdayLabel(currentPricing.seasonInfo.weekday)})
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          Precio por noche/día
+                          {currentPricing.isDynamic && priceRange.min !== priceRange.max && (
+                            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Rango: ${priceRange.min.toLocaleString()} - ${priceRange.max.toLocaleString()}
+                            </span>
+                          )}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Booking Button */}
@@ -595,18 +630,6 @@ export default function PostDetailPage() {
                     Solicitar Reserva
                   </button>
                 )}
-
-                {/* Additional Info */}
-                <div className="mt-6 space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    <span>Reserva flexible</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="w-4 h-4 mr-2" />
-                    <span>Cancelación gratuita</span>
-                  </div>
-                </div>
               </div>
             </div>
           </motion.div>

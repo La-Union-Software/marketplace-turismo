@@ -33,7 +33,22 @@ export async function POST(request: NextRequest) {
     // Handle different webhook types
     if (type === 'payment') {
       console.log('💳 [MercadoPago Public Webhook] Processing payment notification');
-      await handlePaymentNotification(data);
+      
+      // Get payment details to check operation_type
+      const paymentDetails = await getPaymentDetails(data.id);
+      if (paymentDetails && paymentDetails.operation_type === 'recurring_payment') {
+        console.log('💳 [MercadoPago Public Webhook] Processing recurring payment:', {
+          paymentId: paymentDetails.id,
+          operationType: paymentDetails.operation_type,
+          status: paymentDetails.status
+        });
+        await handlePaymentNotification(data);
+      } else {
+        console.log('⚠️ [MercadoPago Public Webhook] Skipping non-recurring payment:', {
+          paymentId: data.id,
+          operationType: paymentDetails?.operation_type || 'unknown'
+        });
+      }
     } else if (type === 'preapproval' || type === 'subscription_preapproval') {
       console.log('🔄 [MercadoPago Public Webhook] Processing subscription notification');
       await handleSubscriptionNotification(data, action);
@@ -374,38 +389,9 @@ async function processSubscriptionStatusChange(subscription: any) {
       }
     });
 
-    // Record payment if subscription is authorized/active
-    if (status === 'authorized' || status === 'active') {
-      try {
-        console.log('💳 [MercadoPago Public Webhook] Recording payment for subscription');
-        
-        // Create payment record for the subscription
-        const paymentData = {
-          userId: subscriptionRecord.userId,
-          subscriptionId: subscriptionRecord.id,
-          mercadoPagoPaymentId: subscription.id, // Use subscription ID as payment ID for subscriptions
-          mercadoPagoSubscriptionId: subscription.id,
-          amount: subscriptionRecord.amount,
-          currency: subscriptionRecord.currency,
-          status: 'approved' as const,
-          statusDetail: 'subscription_authorized',
-          paymentMethod: 'subscription',
-          description: `Suscripción ${subscriptionRecord.planName}`,
-          externalReference: external_reference,
-          metadata: {
-            mercadoPagoData: subscription,
-            subscriptionType: 'recurring'
-          }
-        };
-        
-        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
-        await paymentTrackingService.createPaymentRecord(paymentData);
-        console.log('✅ [MercadoPago Public Webhook] Payment recorded successfully');
-      } catch (error) {
-        console.error('❌ [MercadoPago Public Webhook] Error recording payment:', error);
-        // Don't fail the webhook for payment recording errors
-      }
-    }
+    // Note: We no longer create payment records for subscription authorization
+    // Only actual recurring payments (operation_type: 'recurring_payment') are saved
+    console.log('ℹ️ [MercadoPago Public Webhook] Subscription status updated, no payment record created for authorization');
 
     // Use auth middleware to manage roles and posts
     if (shouldAssignRole || status === 'cancelled') {

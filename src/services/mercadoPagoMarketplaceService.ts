@@ -119,22 +119,66 @@ class MercadoPagoMarketplaceService {
   private async getUserMarketplaceConnection(userId: string): Promise<MarketplaceConnection | null> {
     try {
       const { firebaseDB } = await import('./firebaseService');
-      const connectionsRef = firebaseDB.db.collection('marketplaceConnections');
-      const snapshot = await connectionsRef
-        .where('userId', '==', userId)
-        .where('isActive', '==', true)
-        .limit(1)
-        .get();
-
-      if (snapshot.empty) {
-        return null;
+      
+      // First check mercadoPagoAccounts collection (newer approach)
+      try {
+        const account = await firebaseDB.mercadoPagoAccounts.getByUserId(userId);
+        
+        if (account && account.isActive) {
+          console.log('✅ [MercadoPago Marketplace] Found active MercadoPago account:', {
+            userId,
+            accountId: account.id,
+            mercadoPagoUserId: account.mercadoPagoUserId,
+            isActive: account.isActive
+          });
+          
+          // Convert MercadoPagoAccount to MarketplaceConnection format
+          return {
+            id: account.id,
+            userId: account.userId,
+            mercadoPagoUserId: account.mercadoPagoUserId,
+            mercadoPagoAccessToken: account.accessToken,
+            mercadoPagoPublicKey: account.publicKey,
+            isActive: account.isActive,
+            createdAt: account.createdAt,
+            updatedAt: account.updatedAt,
+            connectedBy: account.connectedBy || 'oauth'
+          } as MarketplaceConnection;
+        } else {
+          console.log('❌ [MercadoPago Marketplace] No active MercadoPago account found:', {
+            userId,
+            accountFound: !!account,
+            isActive: account?.isActive || false
+          });
+        }
+      } catch (accountError) {
+        console.warn('Error checking mercadoPagoAccounts:', accountError);
       }
 
-      const connection = snapshot.docs[0].data();
-      return {
-        id: snapshot.docs[0].id,
-        ...connection
-      } as MarketplaceConnection;
+      // Fallback: Check old marketplaceConnections collection using direct Firebase access
+      try {
+        if (firebaseDB.db) {
+          const connectionsRef = firebaseDB.db.collection('marketplaceConnections');
+          const connectionsSnapshot = await connectionsRef
+            .where('userId', '==', userId)
+            .where('isActive', '==', true)
+            .limit(1)
+            .get();
+
+          if (!connectionsSnapshot.empty) {
+            const connection = connectionsSnapshot.docs[0].data();
+            return {
+              id: connectionsSnapshot.docs[0].id,
+              ...connection
+            } as MarketplaceConnection;
+          }
+        }
+      } catch (connectionError) {
+        console.warn('Error checking marketplaceConnections:', connectionError);
+      }
+
+      console.log('❌ [MercadoPago Marketplace] No active connection found for user:', userId);
+      return null;
     } catch (error) {
       console.error('Error getting marketplace connection:', error);
       return null;

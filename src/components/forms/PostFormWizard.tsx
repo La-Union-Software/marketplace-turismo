@@ -30,6 +30,7 @@ import { fileToBase64, filesToBase64, compressBase64Image } from '@/lib/imageUti
 import { firebaseDB } from '@/services/firebaseService';
 import { useAuth } from '@/lib/auth';
 import PostImages from '@/components/ui/PostImages';
+import MercadoPagoAccountCard from '@/components/ui/mercado-pago-account-card';
 
 
 interface PostFormData {
@@ -147,8 +148,11 @@ export default function PostFormWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
+  const [mercadoPagoAccountRequired, setMercadoPagoAccountRequired] = useState(false);
+  const [checkingMercadoPagoAccount, setCheckingMercadoPagoAccount] = useState(false);
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
+  const [cancellationPolicyType, setCancellationPolicyType] = useState<'no-refund' | 'full-refund' | 'custom'>('custom');
   const { user } = useAuth();
   
   const [formData, setFormData] = useState<PostFormData>({
@@ -217,12 +221,12 @@ export default function PostFormWizard({
         mainImage,
         images: additionalImages,
         specificFields: postData.specificFields || {}, // Prefill specific fields from post data
-        pricing: {
+        pricing: postData.pricing || {
           type: 'fixed',
           price: postData.price,
           currency: postData.currency
         } as FixedPricing,
-        cancellationPolicies: [], // This would need to be populated from postData if we store it
+        cancellationPolicies: postData.cancellationPolicies || [], // Populate from postData
         termsAccepted: true,
         isActive: postData.isActive,
       };
@@ -230,6 +234,24 @@ export default function PostFormWizard({
 
       setFormData(initialFormData);
       setCreatedPostId(postData.id);
+      
+      // Detect cancellation policy type for existing posts
+      if (postData.cancellationPolicies && postData.cancellationPolicies.length > 0) {
+        const policy = postData.cancellationPolicies[0];
+        if (policy.days_quantity === 9999 && policy.cancellation_type === 'Porcentaje') {
+          if (policy.cancellation_amount === 100) {
+            setCancellationPolicyType('no-refund');
+          } else if (policy.cancellation_amount === 0) {
+            setCancellationPolicyType('full-refund');
+          } else {
+            setCancellationPolicyType('custom');
+          }
+        } else {
+          setCancellationPolicyType('custom');
+        }
+      } else {
+        setCancellationPolicyType('custom');
+      }
     }
   }, [editMode, postData, images]);
 
@@ -253,6 +275,40 @@ export default function PostFormWizard({
       setStates([]);
     }
   }, [formData.address.country]);
+
+  // Check MercadoPago account status for new posts
+  useEffect(() => {
+    const checkMercadoPagoAccount = async () => {
+      if (editMode || !user?.id) return; // Only check for new posts
+
+      setCheckingMercadoPagoAccount(true);
+      try {
+        console.log('🔍 [Post Form] Checking MercadoPago account status for user:', user.id);
+        
+        const response = await fetch(`/api/mercadopago/account/status?userId=${user.id}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error('❌ [Post Form] Error checking MercadoPago account:', data.error);
+          return;
+        }
+
+        console.log('📋 [Post Form] MercadoPago account status:', data);
+
+        // If user doesn't have an active MercadoPago account, show the requirement
+        if (!data.hasAccount || !data.isActive || !data.isTokenValid) {
+          console.log('⚠️ [Post Form] MercadoPago account required for post creation');
+          setMercadoPagoAccountRequired(true);
+        }
+      } catch (error) {
+        console.error('❌ [Post Form] Error checking MercadoPago account:', error);
+      } finally {
+        setCheckingMercadoPagoAccount(false);
+      }
+    };
+
+    checkMercadoPagoAccount();
+  }, [user?.id, editMode]);
 
   const updateFormData = (updates: Partial<PostFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -315,6 +371,33 @@ export default function PostFormWizard({
     });
   };
 
+  const handleCancellationPolicyTypeChange = (type: 'no-refund' | 'full-refund' | 'custom') => {
+    setCancellationPolicyType(type);
+    
+    if (type === 'no-refund') {
+      // No realizo devoluciones: Days: 9999, Type: Percentage, Amount: 100
+      const policy: CancellationPolicy = {
+        id: generateId(),
+        days_quantity: 9999,
+        cancellation_type: 'Porcentaje',
+        cancellation_amount: 100,
+      };
+      updateFormData({ cancellationPolicies: [policy] });
+    } else if (type === 'full-refund') {
+      // Devuelvo el 100% del monto de la reserva: Days: 9999, Type: Percentage, Amount: 0
+      const policy: CancellationPolicy = {
+        id: generateId(),
+        days_quantity: 9999,
+        cancellation_type: 'Porcentaje',
+        cancellation_amount: 0,
+      };
+      updateFormData({ cancellationPolicies: [policy] });
+    } else {
+      // Custom: Clear policies and let user add manually
+      updateFormData({ cancellationPolicies: [] });
+    }
+  };
+
   // Pricing functions
   const setPricingType = (type: 'fixed' | 'dynamic') => {
     if (type === 'fixed') {
@@ -341,9 +424,8 @@ export default function PostFormWizard({
         id: generateId(),
         startDate: '',
         endDate: '',
-        price: 0,
         currency: 'USD',
-        weekdays: []
+        weekdayPrices: {}
       };
       updateFormData({
         pricing: {
@@ -378,14 +460,26 @@ export default function PostFormWizard({
     }
   };
 
-  const toggleWeekday = (seasonId: string, weekday: Weekday) => {
+  const updateWeekdayPrice = (seasonId: string, weekday: Weekday, price: number) => {
     if (formData.pricing?.type === 'dynamic') {
       const season = formData.pricing.seasons.find(s => s.id === seasonId);
       if (season) {
-        const weekdays = season.weekdays.includes(weekday)
-          ? season.weekdays.filter(w => w !== weekday)
-          : [...season.weekdays, weekday];
-        updateSeason(seasonId, { weekdays });
+        const weekdayPrices = {
+          ...season.weekdayPrices,
+          [weekday]: price
+        };
+        updateSeason(seasonId, { weekdayPrices });
+      }
+    }
+  };
+
+  const removeWeekdayPrice = (seasonId: string, weekday: Weekday) => {
+    if (formData.pricing?.type === 'dynamic') {
+      const season = formData.pricing.seasons.find(s => s.id === seasonId);
+      if (season) {
+        const weekdayPrices = { ...season.weekdayPrices };
+        delete weekdayPrices[weekday];
+        updateSeason(seasonId, { weekdayPrices });
       }
     }
   };
@@ -500,6 +594,12 @@ export default function PostFormWizard({
         console.log('📋 [Post Creation] Permission validation result:', validationResult);
 
         if (!validationResult.allowed) {
+          // Check if the error is due to missing MercadoPago account
+          if (validationResult.userStatus?.mercadoPagoAccountRequired) {
+            setMercadoPagoAccountRequired(true);
+            setSubmitError(null); // Don't show error message, show account card instead
+            return;
+          }
           throw new Error(validationResult.reason || 'You do not have permission to create posts');
         }
 
@@ -541,6 +641,7 @@ export default function PostFormWizard({
         // Add pricing information to the post
         price: formData.pricing.type === 'fixed' ? formData.pricing.price : 0,
         currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'USD',
+        pricing: formData.pricing, // Save the complete pricing structure
         // Additional fields for BasePost (only include if they have values)
         publishedAt: editMode ? postData?.publishedAt : new Date(),
       };
@@ -1483,23 +1584,8 @@ export default function PostFormWizard({
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      {/* Price */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Precio *
-                        </label>
-                        <input
-                          type="number"
-                          value={season.price}
-                          onChange={(e) => updateSeason(season.id, { price: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-
+                    {/* Date Range */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                       {/* Start Date */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1527,25 +1613,77 @@ export default function PostFormWizard({
                       </div>
                     </div>
 
-                    {/* Weekdays Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        Días de la Semana *
+                    {/* Currency Selection */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Moneda *
                       </label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {weekdays.map((weekday) => (
-                          <label key={weekday.value} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={season.weekdays.includes(weekday.value)}
-                              onChange={() => toggleWeekday(season.id, weekday.value)}
-                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
-                            />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {weekday.label}
-                            </span>
-                          </label>
-                        ))}
+                      <select
+                        value={season.currency}
+                        onChange={(e) => updateSeason(season.id, { currency: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        <option value="USD">USD ($)</option>
+                        <option value="ARS">ARS ($)</option>
+                      </select>
+                    </div>
+
+                    {/* Weekdays with Individual Prices */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                        Precios por Día de la Semana *
+                      </label>
+                      <div className="space-y-3">
+                        {weekdays.map((weekday) => {
+                          const hasPrice = season.weekdayPrices[weekday.value] !== undefined;
+                          const price = season.weekdayPrices[weekday.value] || 0;
+                          
+                          return (
+                            <div key={weekday.value} className="flex items-center space-x-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                              <div className="flex items-center space-x-3 flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={hasPrice}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      updateWeekdayPrice(season.id, weekday.value, 0);
+                                    } else {
+                                      removeWeekdayPrice(season.id, weekday.value);
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                />
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[80px]">
+                                  {weekday.label}
+                                </span>
+                              </div>
+                              
+                              <div className="flex-1 max-w-[200px]">
+                                <input
+                                  type="number"
+                                  value={hasPrice ? price : ''}
+                                  onChange={(e) => {
+                                    const newPrice = parseFloat(e.target.value) || 0;
+                                    updateWeekdayPrice(season.id, weekday.value, newPrice);
+                                  }}
+                                  disabled={!hasPrice}
+                                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                                    hasPrice
+                                      ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent'
+                                      : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                  }`}
+                                  placeholder="0.00"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </div>
+                              
+                              <div className="text-sm text-gray-500 dark:text-gray-400 min-w-[30px]">
+                                {season.currency}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1561,126 +1699,190 @@ export default function PostFormWizard({
   const renderCancellationPoliciesStep = () => {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Políticas de Cancelación
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Define las políticas de cancelación para tu servicio
-            </p>
-          </div>
-          <button
-            onClick={addCancellationPolicy}
-            className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Agregar Política
-          </button>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Políticas de Cancelación
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Define las políticas de cancelación para tu servicio
+          </p>
         </div>
 
-        {formData.cancellationPolicies.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-400 dark:text-gray-600 mb-2">
-              <Settings className="w-12 h-12 mx-auto" />
-            </div>
-            <p className="text-gray-500 dark:text-gray-400">
-              No hay políticas de cancelación configuradas
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Haz clic en "Agregar Política" para comenzar
-            </p>
-          </div>
-        ) : (
+        {/* Cancellation Policy Type Selection */}
+        <div className="glass rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Tipo de Política de Cancelación *
+          </h3>
+          
           <div className="space-y-4">
-            {formData.cancellationPolicies.map((policy, index) => (
-              <div key={policy.id} className="glass rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-md font-medium text-gray-900 dark:text-white">
-                    Política {index + 1}
-                  </h4>
-                  <button
-                    onClick={() => removeCancellationPolicy(policy.id)}
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Selecciona el tipo de política de cancelación
+              </label>
+              <select
+                value={cancellationPolicyType}
+                onChange={(e) => handleCancellationPolicyTypeChange(e.target.value as 'no-refund' | 'full-refund' | 'custom')}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="no-refund">No realizo devoluciones</option>
+                <option value="full-refund">Devuelvo el 100% del monto de la reserva</option>
+                <option value="custom">Quiero configurar mis propias políticas de cancelación</option>
+              </select>
+            </div>
+
+            {/* Policy Description */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <strong>Descripción:</strong> {
+                  cancellationPolicyType === 'no-refund' 
+                    ? 'No se realizarán devoluciones bajo ninguna circunstancia.'
+                    : cancellationPolicyType === 'full-refund'
+                    ? 'Se devolverá el 100% del monto de la reserva sin importar cuándo se cancele.'
+                    : 'Podrás configurar políticas personalizadas con diferentes penalizaciones según los días de anticipación.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Manual Policy Configuration - Only show when custom is selected */}
+        {cancellationPolicyType === 'custom' && (
+          <div className="glass rounded-xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Configuración Personalizada
+              </h3>
+              <button
+                onClick={addCancellationPolicy}
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar Política
+              </button>
+            </div>
+
+            {formData.cancellationPolicies.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 dark:text-gray-600 mb-2">
+                  <Settings className="w-12 h-12 mx-auto" />
                 </div>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No hay políticas de cancelación configuradas
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  Haz clic en "Agregar Política" para comenzar
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {formData.cancellationPolicies.map((policy, index) => (
+                  <div key={policy.id} className="glass rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-md font-medium text-gray-900 dark:text-white">
+                        Política {index + 1}
+                      </h4>
+                      <button
+                        onClick={() => removeCancellationPolicy(policy.id)}
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Days Quantity */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Días antes de la cancelación *
-                    </label>
-                    <input
-                      type="number"
-                      value={policy.days_quantity}
-                      onChange={(e) => updateCancellationPolicy(policy.id, { 
-                        days_quantity: parseInt(e.target.value) || 0 
-                      })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="0"
-                      min="0"
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Days Quantity */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Días antes de la cancelación *
+                        </label>
+                        <input
+                          type="number"
+                          value={policy.days_quantity}
+                          onChange={(e) => updateCancellationPolicy(policy.id, { 
+                            days_quantity: parseInt(e.target.value) || 0 
+                          })}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
 
-                  {/* Cancellation Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Tipo de cancelación *
-                    </label>
-                    <select
-                      value={policy.cancellation_type}
-                      onChange={(e) => updateCancellationPolicy(policy.id, { 
-                        cancellation_type: e.target.value as 'Fijo' | 'Porcentaje',
-                        cancellation_amount: 0 // Reset amount when type changes
-                      })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="Fijo">Fijo</option>
-                      <option value="Porcentaje">Porcentaje</option>
-                    </select>
-                  </div>
+                      {/* Cancellation Type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Tipo de cancelación *
+                        </label>
+                        <select
+                          value={policy.cancellation_type}
+                          onChange={(e) => updateCancellationPolicy(policy.id, { 
+                            cancellation_type: e.target.value as 'Fijo' | 'Porcentaje',
+                            cancellation_amount: 0 // Reset amount when type changes
+                          })}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                        >
+                          <option value="Fijo">Fijo</option>
+                          <option value="Porcentaje">Porcentaje</option>
+                        </select>
+                      </div>
 
-                  {/* Cancellation Amount */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {policy.cancellation_type === 'Porcentaje' ? 'Porcentaje (%)' : 'Monto fijo'} *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={policy.cancellation_amount}
-                        onChange={(e) => updateCancellationPolicy(policy.id, { 
-                          cancellation_amount: parseFloat(e.target.value) || 0 
-                        })}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="0.00"
-                        min="0"
-                        max={policy.cancellation_type === 'Porcentaje' ? 100 : undefined}
-                        step="0.01"
-                      />
-                      {policy.cancellation_type === 'Porcentaje' && (
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 dark:text-gray-400 text-sm">%</span>
+                      {/* Cancellation Amount */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {policy.cancellation_type === 'Porcentaje' ? 'Porcentaje (%)' : 'Monto fijo'} *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={policy.cancellation_amount}
+                            onChange={(e) => updateCancellationPolicy(policy.id, { 
+                              cancellation_amount: parseFloat(e.target.value) || 0 
+                            })}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="0.00"
+                            min="0"
+                            max={policy.cancellation_type === 'Porcentaje' ? 100 : undefined}
+                            step="0.01"
+                          />
+                          {policy.cancellation_type === 'Porcentaje' && (
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 dark:text-gray-400 text-sm">%</span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    </div>
+
+                    {/* Policy Description */}
+                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <strong>Descripción:</strong> Si se cancela con {policy.days_quantity} días o menos de anticipación, 
+                        se cobrará {policy.cancellation_type === 'Porcentaje' 
+                          ? `${policy.cancellation_amount}% del total` 
+                          : `$${policy.cancellation_amount}`} como penalización.
+                      </p>
                     </div>
                   </div>
-                </div>
-
-                {/* Policy Description */}
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <strong>Descripción:</strong> Si se cancela con {policy.days_quantity} días o menos de anticipación, 
-                    se cobrará {policy.cancellation_type === 'Porcentaje' 
-                      ? `${policy.cancellation_amount}% del total` 
-                      : `$${policy.cancellation_amount}`} como penalización.
-                  </p>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
+          </div>
+        )}
+
+        {/* Show predefined policy details when not custom */}
+        {cancellationPolicyType !== 'custom' && formData.cancellationPolicies.length > 0 && (
+          <div className="glass rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Política Configurada
+            </h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <strong>Descripción:</strong> {
+                  cancellationPolicyType === 'no-refund'
+                    ? 'No se realizarán devoluciones bajo ninguna circunstancia. Se cobrará el 100% del monto como penalización.'
+                    : 'Se devolverá el 100% del monto de la reserva sin importar cuándo se cancele. No se aplicará ninguna penalización.'
+                }
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -2141,29 +2343,37 @@ export default function PostFormWizard({
                               Temporada {index + 1}
                             </span>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                             <div>
-                              <strong>Precio:</strong> ${season.price}
+                              <strong>Fecha Desde:</strong> {season.startDate}
                             </div>
                             <div>
-                              <strong>Período:</strong> {season.startDate} - {season.endDate}
+                              <strong>Fecha Hasta:</strong> {season.endDate}
                             </div>
-                            <div className="md:col-span-2">
-                              <strong>Días:</strong> {season.weekdays.length > 0 
-                                ? season.weekdays.map(w => {
-                                    const weekdays: Record<Weekday, string> = {
-                                      monday: 'Lunes',
-                                      tuesday: 'Martes',
-                                      wednesday: 'Miércoles',
-                                      thursday: 'Jueves',
-                                      friday: 'Viernes',
-                                      saturday: 'Sábado',
-                                      sunday: 'Domingo'
-                                    };
-                                    return weekdays[w];
-                                  }).join(', ')
-                                : 'No especificado'
-                              }
+                            <div>
+                              <strong>Moneda:</strong> {season.currency}
+                            </div>
+                          </div>
+                          <div className="text-sm">
+                            <strong className="text-gray-700 dark:text-gray-300">Precios por día:</strong>
+                            <div className="mt-2 space-y-1">
+                              {Object.entries(season.weekdayPrices).map(([weekday, price]) => {
+                                const weekdayLabels: Record<string, string> = {
+                                  monday: 'Lunes',
+                                  tuesday: 'Martes',
+                                  wednesday: 'Miércoles',
+                                  thursday: 'Jueves',
+                                  friday: 'Viernes',
+                                  saturday: 'Sábado',
+                                  sunday: 'Domingo'
+                                };
+                                return (
+                                  <div key={weekday} className="flex justify-between text-gray-600 dark:text-gray-400">
+                                    <span>{weekdayLabels[weekday]}:</span>
+                                    <span>${price} {season.currency}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -2336,6 +2546,19 @@ export default function PostFormWizard({
 
           {currentStep === steps.length - 1 ? (
             <div className="flex flex-col items-end space-y-2">
+              {mercadoPagoAccountRequired && (
+                <div className="w-full max-w-md mb-4">
+                  <MercadoPagoAccountCard 
+                    onStatusChange={(hasActiveAccount) => {
+                      if (hasActiveAccount) {
+                        setMercadoPagoAccountRequired(false);
+                        // Retry submission
+                        handleSubmit();
+                      }
+                    }}
+                  />
+                </div>
+              )}
               {submitError && (
                 <div className="text-red-500 text-sm text-right max-w-xs">
                   {submitError}
@@ -2374,12 +2597,56 @@ export default function PostFormWizard({
               disabled={
                 (currentStep === 0 && !formData.mainCategory) ||
                 (currentStep === 1 && (!formData.title || !formData.description || !formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
-                (currentStep === 2 && !formData.pricing)
+                (currentStep === 2 && (
+                  !formData.pricing || 
+                  (formData.pricing.type === 'fixed' && (!formData.pricing.price || formData.pricing.price <= 0)) ||
+                  (formData.pricing.type === 'dynamic' && (
+                    formData.pricing.seasons.length === 0 ||
+                    formData.pricing.seasons.some(season => 
+                      !season.startDate || 
+                      !season.endDate || 
+                      Object.keys(season.weekdayPrices).length === 0 ||
+                      Object.values(season.weekdayPrices).some(price => !price || price <= 0)
+                    )
+                  ))
+                )) ||
+                (currentStep === 3 && (
+                  formData.cancellationPolicies.length === 0 ||
+                  (cancellationPolicyType === 'custom' && formData.cancellationPolicies.some(policy => 
+                    !policy.days_quantity || 
+                    !policy.cancellation_type || 
+                    !policy.cancellation_amount || 
+                    policy.cancellation_amount < 0 ||
+                    (policy.cancellation_type === 'Porcentaje' && policy.cancellation_amount > 100)
+                  ))
+                ))
               }
               className={`flex items-center px-6 py-2 rounded-lg transition-all duration-300 ${
                 (currentStep === 0 && !formData.mainCategory) ||
                 (currentStep === 1 && (!formData.title || !formData.description || !formData.category || !formData.mainImage || !formData.address.country || !formData.address.state || !formData.address.city || !formData.address.address)) ||
-                (currentStep === 2 && !formData.pricing)
+                (currentStep === 2 && (
+                  !formData.pricing || 
+                  (formData.pricing.type === 'fixed' && (!formData.pricing.price || formData.pricing.price <= 0)) ||
+                  (formData.pricing.type === 'dynamic' && (
+                    formData.pricing.seasons.length === 0 ||
+                    formData.pricing.seasons.some(season => 
+                      !season.startDate || 
+                      !season.endDate || 
+                      Object.keys(season.weekdayPrices).length === 0 ||
+                      Object.values(season.weekdayPrices).some(price => !price || price <= 0)
+                    )
+                  ))
+                )) ||
+                (currentStep === 3 && (
+                  formData.cancellationPolicies.length === 0 ||
+                  (cancellationPolicyType === 'custom' && formData.cancellationPolicies.some(policy => 
+                    !policy.days_quantity || 
+                    !policy.cancellation_type || 
+                    !policy.cancellation_amount || 
+                    policy.cancellation_amount < 0 ||
+                    (policy.cancellation_type === 'Porcentaje' && policy.cancellation_amount > 100)
+                  ))
+                ))
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-primary text-white hover:bg-secondary'
               }`}

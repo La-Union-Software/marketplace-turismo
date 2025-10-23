@@ -328,11 +328,12 @@ export interface UserSubscription {
   userId: string;
   planId: string;
   plan: SubscriptionPlan;
-  status: 'active' | 'cancelled' | 'expired' | 'pending' | 'suspended';
+  status: 'active' | 'cancelled' | 'expired' | 'pending' | 'suspended' | 'on_hold';
   startDate: Date;
   endDate: Date;
   mercadoPagoSubscriptionId?: string;
   mercadoPagoPreferenceId?: string;
+  subscriptionEmail?: string; // Email used for MercadoPago subscription - stored for plan upgrades
   lastPaymentDate?: Date;
   nextPaymentDate?: Date;
   totalPayments: number;
@@ -353,9 +354,16 @@ export interface DynamicPricingSeason {
   id: string;
   startDate: string; // YYYY-MM-DD format
   endDate: string; // YYYY-MM-DD format
-  price: number;
   currency: string;
-  weekdays: Weekday[];
+  weekdayPrices: {
+    monday?: number;
+    tuesday?: number;
+    wednesday?: number;
+    thursday?: number;
+    friday?: number;
+    saturday?: number;
+    sunday?: number;
+  };
 }
 
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

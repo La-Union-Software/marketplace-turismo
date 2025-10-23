@@ -3,7 +3,22 @@
 import { BasePost } from '@/types';
 import PostImages from './PostImages';
 import { MapPin } from 'lucide-react';
-import { formatAddressForDisplay } from '@/lib/utils';
+import { formatAddressForDisplay, calculateCurrentPrice } from '@/lib/utils';
+import { Weekday } from '@/types';
+
+// Helper function to get weekday label in Spanish
+function getWeekdayLabel(weekday: Weekday): string {
+  const labels: Record<Weekday, string> = {
+    monday: 'Lun',
+    tuesday: 'Mar',
+    wednesday: 'Mié',
+    thursday: 'Jue',
+    friday: 'Vie',
+    saturday: 'Sáb',
+    sunday: 'Dom'
+  };
+  return labels[weekday];
+}
 
 interface PostCardProps {
   post: BasePost;
@@ -24,6 +39,9 @@ export default function PostCard({
   onClick,
   imageHeight = 'md'
 }: PostCardProps) {
+  // Calculate current price based on dynamic pricing
+  const currentPricing = calculateCurrentPrice(post);
+  
   // Define image height classes
   const heightClasses = {
     sm: 'h-48',
@@ -72,7 +90,14 @@ export default function PostCard({
             </span>
           </div>
           <div className="flex items-center text-lg font-bold text-primary">
-            <span>Desde ${post.price.toLocaleString()}</span>
+            <span>
+              {currentPricing.isDynamic ? 'Desde' : ''} ${currentPricing.price.toLocaleString()}
+              {currentPricing.isDynamic && currentPricing.seasonInfo && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                  ({getWeekdayLabel(currentPricing.seasonInfo.weekday)})
+                </span>
+              )}
+            </span>
           </div>
         </div>
 

@@ -1,170 +1,319 @@
+// app/api/mercadopago/subscription-create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { MercadoPagoConfig, PreApprovalPlan } from 'mercadopago';
+import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import { firebaseDB } from '@/services/firebaseService';
 
 /**
- * Create a true recurring subscription using MercadoPago PreApprovalPlan
+ * Create a user subscription (PreApproval) from an existing PreApprovalPlan
  * POST /api/mercadopago/subscription-create
+ * body: { planId: string, userId: string }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { planId, userId } = body;
+    const { 
+      planId, 
+      userId, 
+      cardTokenId, 
+      payerEmail, 
+      isUpgrade = false,
+      existingSubscriptionId  // For reusing payment method from existing subscription
+    } = body ?? {};
 
     if (!planId || !userId) {
-      return NextResponse.json({ error: 'Plan ID and User ID are required' }, { status: 400 });
-    }
-
-    console.log('🔄 [MercadoPago Subscription] Creating recurring subscription for:', { planId, userId });
-
-    // Get MercadoPago Subscriptions credentials from environment variables
-    const publicKey = process.env.NEXAR_SUSCRIPTIONS_PUBLIC_KEY;
-    const accessToken = process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN;
-    
-    if (!publicKey || !accessToken) {
-      console.error('❌ [MercadoPago Subscription] Missing environment variables');
       return NextResponse.json(
-        { error: 'MercadoPago Subscriptions credentials not configured. Please set NEXAR_SUSCRIPTIONS_PUBLIC_KEY and NEXAR_SUSCRIPTIONS_ACCESS_TOKEN environment variables.' },
-        { status: 500 }
+        { error: 'Plan ID and User ID are required' },
+        { status: 400 },
       );
     }
 
-    // Get the plan data from Firebase
+    // For plan upgrades, we need BOTH cardTokenId AND existingSubscriptionId
+    // For new subscriptions, we need cardTokenId
+    if (!cardTokenId) {
+      return NextResponse.json(
+        { error: 'Card token ID is required for all subscriptions' },
+        { status: 400 },
+      );
+    }
+
+    // Validate payerEmail only if NOT reusing payment method (will fetch from existing)
+    if (!existingSubscriptionId && !payerEmail) {
+      return NextResponse.json(
+        { error: 'Payer email is required for new subscriptions' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🔄 [MP Subscription] Create request:', { 
+      planId, 
+      userId, 
+      cardTokenId: cardTokenId ? cardTokenId?.substring(0, 10) + '...' : 'N/A (reusing existing)', 
+      payerEmail: payerEmail || 'Will fetch from existing subscription',
+      isUpgrade,
+      reusingPaymentMethod: !!existingSubscriptionId
+    });
+
+    // ---- ENV & SDK ---------------------------------------------------------
+    const publicKey = process.env.NEXAR_SUSCRIPTIONS_PUBLIC_KEY;
+    const accessToken = process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN;
+
+    if (!publicKey || !accessToken) {
+      console.error('❌ [MP Subscription] Missing MP env vars');
+      return NextResponse.json(
+        {
+          error:
+            'MercadoPago credentials not configured. Set NEXAR_SUSCRIPTIONS_PUBLIC_KEY and NEXAR_SUSCRIPTIONS_ACCESS_TOKEN.',
+        },
+        { status: 500 },
+      );
+    }
+
+    const mp = new MercadoPagoConfig({ accessToken, options: { timeout: 8000 } });
+    const preapproval = new PreApproval(mp);
+
+    // ---- DATA: plan & user -------------------------------------------------
     const plans = await firebaseDB.plans.getAll();
-    const plan = plans.find(p => p.id === planId);
-    
+    const plan = plans.find((p: any) => p.id === planId);
+
     if (!plan) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
+    if (!plan.mercadoPagoPlanId) {
+      console.error('❌ [MP Subscription] Plan without mercadoPagoPlanId', {
+        planId,
+        planName: plan.name,
+      });
+      return NextResponse.json(
+        { error: 'Plan is not synced with MercadoPago (missing mercadoPagoPlanId).' },
+        { status: 400 },
+      );
+    }
 
-    // Get user data
     const user = await firebaseDB.users.getById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user already has an active subscription
+    // Optional: prevent duplicate active subs (skip check if upgrading)
     const existingSubscription = await getActiveUserSubscription(userId);
-    if (existingSubscription) {
-      console.log('⚠️ [MercadoPago Subscription] User already has active subscription:', existingSubscription.id);
-      return NextResponse.json({ 
-        error: 'User already has an active subscription',
-        existingSubscription: existingSubscription.id
-      }, { status: 400 });
+    if (existingSubscription && !isUpgrade) {
+      console.log(
+        '⚠️ [MP Subscription] User already has active subscription:',
+        existingSubscription.id,
+      );
+      return NextResponse.json(
+        {
+          error: 'User already has an active subscription',
+          existingSubscription: existingSubscription.id,
+        },
+        { status: 400 },
+      );
     }
 
-    // Initialize MercadoPago client
-    const config = new MercadoPagoConfig({ 
-      accessToken: accessToken,
-      options: { timeout: 5000 }
-    });
-    const preApprovalPlan = new PreApprovalPlan(config);
+    if (isUpgrade && existingSubscription) {
+      console.log(
+        '🔄 [MP Subscription] Upgrade mode: User has existing subscription:',
+        existingSubscription.id,
+        '- Will be cancelled after new subscription is created'
+      );
+    }
 
-    // Get base URL with fallback
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asia-forworn-willena.ngrok-free.dev';
-    
-    // Ensure URL is valid and remove trailing slash
-    let validBaseUrl: string;
+    // ---- Get payment method from existing subscription (if reusing) --------
+    let cardId: string | undefined;
+    let finalPayerEmail = payerEmail;
+
+    if (existingSubscriptionId) {
+      console.log('🔄 [MP Subscription] Fetching payment method from existing subscription:', existingSubscriptionId);
+      
+      try {
+        // Get the existing subscription from our database
+        const existingSub = await firebaseDB.subscriptions.getById(existingSubscriptionId);
+        
+        if (!existingSub) {
+          return NextResponse.json(
+            { error: 'Existing subscription not found' },
+            { status: 404 }
+          );
+        }
+
+        if (existingSub.userId !== userId) {
+          return NextResponse.json(
+            { error: 'Unauthorized: Subscription does not belong to user' },
+            { status: 403 }
+          );
+        }
+
+        // Get payer email from stored subscriptionEmail field (top-level, not metadata)
+        const existingSubData = existingSub as any;
+        finalPayerEmail = existingSubData.subscriptionEmail;
+
+        console.log('📋 [MP Subscription] Subscription email from Firestore:', {
+          email: finalPayerEmail || 'NOT FOUND',
+          subscriptionId: existingSub.id,
+        });
+
+        // Get card_id from stored metadata first (faster), then from MercadoPago as fallback
+        // Note: We don't reuse cardTokenId as it's single-use, we always use the new one provided
+        cardId = (existingSub as any).metadata?.cardId;
+        
+        if (cardId) {
+          console.log('✅ [MP Subscription] Card ID retrieved from stored metadata:', {
+            cardId: '***' + cardId.substring(cardId.length - 4),
+            newCardTokenId: cardTokenId ? '***' + cardTokenId.substring(cardTokenId.length - 4) : 'N/A',
+            source: 'Firebase metadata'
+          });
+        } else {
+          console.log('🔍 [MP Subscription] Card ID not in metadata, fetching from MercadoPago subscription...');
+          
+          const mpSubscription: any = await preapproval.get({ 
+            id: existingSub.mercadoPagoSubscriptionId as string 
+          });
+          
+          cardId = mpSubscription.card_id as string | undefined;
+          
+          console.log('✅ [MP Subscription] Card ID retrieved from MercadoPago:', {
+            cardId: cardId ? '***' + cardId.substring(cardId.length - 4) : 'N/A',
+            newCardTokenId: cardTokenId ? '***' + cardTokenId.substring(cardTokenId.length - 4) : 'N/A',
+            subscriptionId: mpSubscription.id,
+            source: 'MercadoPago API'
+          });
+        }
+
+        // If email not found in Firestore, try to get from MercadoPago (fallback)
+        if (!finalPayerEmail) {
+          console.log('⚠️ [MP Subscription] Email not in Firestore, trying MercadoPago payer_email field...');
+          
+          // If we didn't fetch from MercadoPago yet, do it now for email
+          if (!cardId) {
+            const mpSubscription: any = await preapproval.get({ 
+              id: existingSub.mercadoPagoSubscriptionId as string 
+            });
+            finalPayerEmail = mpSubscription.payer_email;
+            
+            console.log('📋 [MP Subscription] Payer email from MercadoPago:', {
+              payerEmail: finalPayerEmail || 'EMPTY',
+              payerId: mpSubscription.payer_id,
+            });
+          }
+        }
+
+        // Validation - we always have cardTokenId from the request, just need to check if we have cardId for reference
+        if (!cardId) {
+          console.log('⚠️ [MP Subscription] No cardId found in existing subscription, but proceeding with new cardTokenId');
+        }
+
+        if (!finalPayerEmail) {
+          return NextResponse.json(
+            { error: 'No subscription email found. Please ensure the original subscription was created with a valid email address.' },
+            { status: 400 }
+          );
+        }
+      } catch (error) {
+        console.error('❌ [MP Subscription] Error fetching payment method:', error);
+        return NextResponse.json(
+          { error: 'Failed to retrieve payment method from existing subscription' },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (!finalPayerEmail) {
+      return NextResponse.json(
+        { error: 'Payer email is required' },
+        { status: 400 }
+      );
+    }
+
+    // ---- Build URLs --------------------------------------------------------
+    const rawBase = process.env.NEXT_PUBLIC_BASE_URL || '';
+    let validBaseUrl = 'https://example.com'; // fallback to avoid bad URL build
     try {
-      const url = new URL(baseUrl);
-      validBaseUrl = url.origin;
-      console.log('✅ [MercadoPago Subscription] Using base URL:', validBaseUrl);
-    } catch (error) {
-      validBaseUrl = 'https://asia-forworn-willena.ngrok-free.dev';
-      console.warn('⚠️ NEXT_PUBLIC_BASE_URL is invalid, using ngrok fallback:', baseUrl);
+      const u = new URL(rawBase);
+      validBaseUrl = u.origin; // strip path & trailing slash
+    } catch {
+      console.warn(
+        '⚠️ [MP Subscription] NEXT_PUBLIC_BASE_URL invalid, using fallback:',
+        rawBase,
+      );
     }
 
-    // Convert billing cycle to MercadoPago format
-    const frequencyMap: Record<string, number> = {
-      daily: 1,
-      weekly: 7,
-      monthly: 1,
-      yearly: 12
-    };
+    const backUrl = `${validBaseUrl.replace(/\/$/, '')}/subscription/complete`;
+    const webhookUrl = `${validBaseUrl.replace(/\/$/, '')}/api/mercadopago/subscription-webhook`;
 
-    const frequencyTypeMap: Record<string, 'days' | 'months'> = {
-      daily: 'days',
-      weekly: 'days',
-      monthly: 'months',
-      yearly: 'months'
-    };
+    // ---- Create PreApproval (the actual user subscription) -----------------
+    const externalReference = `subscription_${planId}_${userId}`;
 
-    const frequency = frequencyMap[plan.billingCycle] || 1;
-    const frequencyType = frequencyTypeMap[plan.billingCycle] || 'months';
+    console.log('📋 [MP Subscription] Creating PreApproval:', {
+      mercadoPagoPlanId: plan.mercadoPagoPlanId,
+      payerEmail: finalPayerEmail,
+      backUrl,
+      externalReference,
+      usingCardId: !!cardId,
+      usingCardTokenId: !!cardTokenId,
+    });
 
-    // Create PreApprovalPlan data
-    const subscriptionData = {
-      reason: `Suscripción ${plan.name}`,
+    // Build PreApproval body - use card_id if reusing payment method, otherwise card_token_id
+    const preapprovalBody: any = {
+      preapproval_plan_id: plan.mercadoPagoPlanId,
+      reason: `Subscription to ${plan.name}`,
+      external_reference: externalReference,
+      payer_email: finalPayerEmail,
       auto_recurring: {
-        frequency: frequency,
-        frequency_type: frequencyType,
+        frequency: plan.billingCycle === 'monthly' ? 1 : 12,
+        frequency_type: plan.billingCycle === 'monthly' ? 'months' : 'months',
         transaction_amount: plan.price,
         currency_id: plan.currency || 'ARS',
       },
-      payer_email: user.email,
-      back_url: `${validBaseUrl}/payment/complete`,
-      status: 'active', // Must be 'active' for PreApprovalPlan (will be pending until user subscribes)
-      external_reference: `subscription_${planId}_${userId}`,
+      back_url: backUrl,
+      status: 'authorized', // According to MP docs, must be 'authorized'
     };
 
-    console.log('📋 [MercadoPago Subscription] Creating PreApprovalPlan:', {
-      planName: plan.name,
-      price: plan.price,
-      frequency: frequency,
-      frequencyType: frequencyType,
-      userEmail: user.email,
-      billingCycle: plan.billingCycle,
-      backUrl: subscriptionData.back_url,
-      externalReference: subscriptionData.external_reference
+    // Add payment method - always use the new cardTokenId (single-use tokens)
+    preapprovalBody.card_token_id = cardTokenId;
+    console.log('✅ [MP Subscription] Using new card_token_id for subscription');
+
+    const sub = await preapproval.create({
+      body: preapprovalBody,
     });
 
-    console.log('🔗 [MercadoPago Subscription] Complete subscription data being sent to MercadoPago:', JSON.stringify(subscriptionData, null, 2));
-
-    // Create the PreApprovalPlan
-    const result = await preApprovalPlan.create({ body: subscriptionData });
-
-    console.log('✅ [MercadoPago Subscription] PreApprovalPlan created:', {
-      id: result.id,
-      status: result.status,
-      initPoint: result.init_point
+    console.log('✅ [MP Subscription] PreApproval created:', {
+      preapproval_id: sub.id,
+      status: sub.status,
+      init_point: sub.init_point,
     });
 
-    console.log('🔗 [MercadoPago Subscription] Complete MercadoPago response:', JSON.stringify(result, null, 2));
-
-    // Log webhook configuration info
-    const webhookUrl = `${validBaseUrl}/api/mercadopago/webhook`;
-    console.log('🔔 [MercadoPago Subscription] WEBHOOK CONFIGURATION INFO:');
-    console.log('🔔 [MercadoPago Subscription] Webhook URL to configure in MercadoPago dashboard:', webhookUrl);
-    console.log('🔔 [MercadoPago Subscription] Back URL (return URL):', subscriptionData.back_url);
-    console.log('🔔 [MercadoPago Subscription] External Reference:', subscriptionData.external_reference);
-    console.log('🔔 [MercadoPago Subscription] PreApprovalPlan ID:', result.id);
-
-    // Create initial subscription record in our database (pending status)
-    const subscriptionId = await createUserSubscription({
+    // ---- Persist local pending record -------------------------------------
+    const localSubscriptionId = await createUserSubscription({
       userId,
       planId,
       planName: plan.name,
-      mercadoPagoSubscriptionId: result.id,
+      mercadoPagoSubscriptionId: sub.id, // << THIS is the real subscription id
+      subscriptionEmail: finalPayerEmail, // IMPORTANT: Store email as top-level field for future upgrades
       amount: plan.price,
       currency: plan.currency || 'ARS',
       status: 'pending',
       billingCycle: plan.billingCycle,
-      frequency: frequency,
-      frequencyType: frequencyType,
       startDate: new Date(),
       metadata: {
-        mercadoPagoSubscriptionId: result.id,
-        subscriptionStatus: result.status,
-        initPoint: result.init_point
-      }
+        initPoint: sub.init_point,
+        externalReference,
+        backUrl,
+        ...(cardId && { cardId }), // Store cardId for reference (same card, different token)
+        cardTokenId, // Store new cardTokenId for future reference
+      },
     });
 
-    const responseData = {
+    // ---- Useful logs for dashboard setup ----------------------------------
+    console.log('🔔 [MP Subscription] Configure this WEBHOOK URL in MP:', webhookUrl);
+    console.log('🔗 [MP Subscription] Back URL (return):', backUrl);
+
+    // ---- Response to frontend ---------------------------------------------
+    return NextResponse.json({
       success: true,
-      subscriptionId: result.id,
-      initPoint: result.init_point,
-      publicKey: publicKey,
-      localSubscriptionId: subscriptionId,
+      subscriptionId: sub.id, // preapproval_id
+      initPoint: sub.init_point, // redirect user to this URL
+      publicKey,
+      localSubscriptionId,
       plan: {
         id: plan.id,
         name: plan.name,
@@ -173,31 +322,57 @@ export async function POST(request: NextRequest) {
         billingCycle: plan.billingCycle,
         maxPosts: plan.maxPosts,
         maxBookings: plan.maxBookings,
-        features: plan.features
-      }
-    };
-
-    console.log('📤 [MercadoPago Subscription] Returning response to frontend:', JSON.stringify(responseData, null, 2));
-    console.log('📤 [MercadoPago Subscription] Frontend will redirect user to:', result.init_point);
-    console.log('📤 [MercadoPago Subscription] User will return to:', subscriptionData.back_url);
-
-    return NextResponse.json(responseData);
-
-  } catch (error) {
-    console.error('❌ [MercadoPago Subscription] Error:', error);
-    return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Failed to create subscription',
-        details: error instanceof Error ? error.stack : undefined
+        features: plan.features,
       },
-      { status: 500 }
+    });
+  } catch (error: any) {
+    console.error('❌ [MP Subscription] Error:', error);
+    
+    // Log detailed MercadoPago error information
+    if (error.cause) {
+      console.error('❌ [MP Subscription] Error cause:', JSON.stringify(error.cause, null, 2));
+    }
+    if (error.message) {
+      console.error('❌ [MP Subscription] Error message:', error.message);
+    }
+    
+    // Extract MercadoPago error details
+    const mpError = error.cause?.[0] || error;
+    const errorMessage = mpError.message || error.message || 'Failed to create subscription';
+    const errorCode = mpError.code || '';
+    
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        code: errorCode,
+        details: error instanceof Error ? error.stack : undefined,
+        mpError: mpError,
+      },
+      { status: 500 },
     );
   }
 }
 
+export async function GET() {
+  const publicKey = process.env.NEXAR_SUSCRIPTIONS_PUBLIC_KEY;
+  
+  if (!publicKey) {
+    return NextResponse.json(
+      { error: 'Public key not configured' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    message: 'MercadoPago subscription creation endpoint',
+    publicKey: publicKey,
+  });
+}
+
+/* ======================= Helpers (local) ======================= */
+
 /**
- * Get active user subscription
- * Uses subscriptionService which handles Firebase client SDK
+ * Return the user's active subscription (if any)
  */
 async function getActiveUserSubscription(userId: string) {
   try {
@@ -210,26 +385,19 @@ async function getActiveUserSubscription(userId: string) {
 }
 
 /**
- * Create user subscription record
- * Uses firebaseDB service methods
+ * Create local subscription record in Firestore
  */
 async function createUserSubscription(subscriptionData: any) {
   try {
-    // Use the existing Firebase service which works with client SDK
     const docId = await firebaseDB.subscriptions.create({
       ...subscriptionData,
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: 'system'
+      createdBy: 'system',
     });
-
     return docId;
   } catch (error) {
     console.error('Error creating user subscription:', error);
     throw error;
   }
-}
-
-export async function GET() {
-  return NextResponse.json({ message: 'MercadoPago subscription creation endpoint' });
 }

@@ -8,9 +8,10 @@ export interface UserSubscription {
   planId: string;
   planName: string;
   mercadoPagoSubscriptionId: string;
+  subscriptionEmail?: string; // Email used for MercadoPago subscription - stored for plan upgrades
   amount: number;
   currency: string;
-  status: 'pending' | 'active' | 'cancelled' | 'paused' | 'expired';
+  status: 'pending' | 'active' | 'cancelled' | 'paused' | 'expired' | 'on_hold';
   mercadoPagoStatus: string;
   billingCycle: string;
   frequency: number;
@@ -36,7 +37,7 @@ class SubscriptionService {
   private db = db;
 
   /**
-   * Get user's active subscription
+   * Get user's active subscription (including on_hold status)
    */
   async getUserActiveSubscription(userId: string): Promise<UserSubscription | null> {
     try {
@@ -44,7 +45,7 @@ class SubscriptionService {
       const q = query(
         subscriptionsRef,
         where('userId', '==', userId),
-        where('status', '==', 'active'),
+        where('status', 'in', ['active', 'on_hold']),
         firestoreLimit(1)
       );
       const snapshot = await getDocs(q);
@@ -85,12 +86,22 @@ class SubscriptionService {
       }
 
       // Check if subscription is still valid
-      if (subscription.status !== 'active') {
+      if (subscription.status === 'cancelled' || subscription.status === 'expired') {
         return {
           isValid: false,
           hasActiveSubscription: false,
           subscription,
           error: `Subscription is ${subscription.status}. Please reactivate your subscription to continue publishing.`
+        };
+      }
+
+      // Handle on_hold status - user has subscription but payment is pending
+      if (subscription.status === 'on_hold') {
+        return {
+          isValid: false,
+          hasActiveSubscription: true, // They have a subscription, just on hold
+          subscription,
+          error: 'Your subscription is on hold while we process your payment. You can view your content but cannot create new posts until payment is confirmed.'
         };
       }
 

@@ -6,7 +6,7 @@ import { X, Calendar, User, Mail, Phone, MessageSquare, Users } from 'lucide-rea
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, Booking } from '@/types';
-import { formatAddressForDisplay } from '@/lib/utils';
+import { formatAddressForDisplay, calculateCurrentPrice } from '@/lib/utils';
 
 interface BookingFormProps {
   post: BasePost;
@@ -29,6 +29,33 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
       notes: ''
     }
   });
+
+  // Calculate total price for a date range considering dynamic pricing
+  const calculateTotalPrice = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return { total: 0, breakdown: [] };
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let total = 0;
+    const breakdown: Array<{ date: string; price: number; currency: string }> = [];
+    
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(start);
+      currentDate.setDate(start.getDate() + i);
+      
+      const pricing = calculateCurrentPrice(post, currentDate);
+      total += pricing.price;
+      breakdown.push({
+        date: currentDate.toISOString().split('T')[0],
+        price: pricing.price,
+        currency: pricing.currency
+      });
+    }
+    
+    return { total, breakdown, nights };
+  };
 
   useEffect(() => {
     // Pre-fill form with user data if available
@@ -78,11 +105,9 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
     setError(null);
 
     try {
-      // Calculate total amount (simplified - in real app, this would consider dynamic pricing)
-      const startDate = new Date(formData.startDate);
-      const endDate = new Date(formData.endDate);
-      const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const totalAmount = post.price * nights;
+      // Calculate total amount using dynamic pricing
+      const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
+      const totalAmount = priceCalculation.total;
 
       // Create booking
       const bookingData = {
@@ -90,10 +115,10 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
         clientId: user.id,
         ownerId: post.userId,
         status: 'requested' as const,
-        startDate: startDate,
-        endDate: endDate,
+        startDate: new Date(formData.startDate),
+        endDate: new Date(formData.endDate),
         totalAmount,
-        currency: post.currency,
+        currency: priceCalculation.breakdown[0]?.currency || post.currency,
         guestCount: formData.guestCount,
         clientData: formData.clientData
       };
@@ -303,20 +328,22 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                   </span>
                   <span className="text-lg font-bold text-primary">
                     {(() => {
-                      const startDate = new Date(formData.startDate);
-                      const endDate = new Date(formData.endDate);
-                      const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                      const total = post.price * nights;
-                      return `${total} ${post.currency}`;
+                      const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
+                      return `${priceCalculation.total.toLocaleString()} ${priceCalculation.breakdown[0]?.currency || post.currency}`;
                     })()}
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                   {(() => {
-                    const startDate = new Date(formData.startDate);
-                    const endDate = new Date(formData.endDate);
-                    const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                    return `${nights} noches × $${post.price}`;
+                    const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
+                    if (priceCalculation.breakdown.length === 0) return '';
+                    
+                    const uniquePrices = [...new Set(priceCalculation.breakdown.map(b => b.price))];
+                    if (uniquePrices.length === 1) {
+                      return `${priceCalculation.nights} noches × $${uniquePrices[0].toLocaleString()}`;
+                    } else {
+                      return `${priceCalculation.nights} noches (precios variables)`;
+                    }
                   })()}
                 </p>
               </div>
