@@ -235,24 +235,24 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { 
-                icon: '🔑', 
+                icon: '/img/icon-rocket.png', 
                 title: 'Lanzamiento 2025', 
-                description: 'Nuevo marketplace para transformar \n el turismo.' 
+                description: 'Despegamos hacia una nueva forma de viajar.<br>Nuevo Sitio para transformar el turismo' 
               },
               { 
-                icon: '📌', 
+                icon: '/img/icon-flag-ar.png', 
                 title: '100% Argentino', 
-                description: 'Creado para conectarte' 
+                description: 'Creado para conectarte.<br>Hecho por argentinos, para potenciar el turismo del país.' 
               },
               { 
-                icon: '🔒', 
+                icon: '/img/icon-check.png', 
                 title: 'Seguridad primero', 
-                description: 'Políticas claras y protección \n en cada reserva.' 
+                description: 'Tus datos, seguros.<br>Políticas claras y protección en cada reserva.' 
               },
               { 
-                icon: '🌱', 
+                icon: '/img/icon-community.png', 
                 title: 'Creciendo juntos', 
-                description: 'Forma parte desde nuestros inicios' 
+                description: 'Forma parte desde nuestros inicios.<br>Porque todos los caminos se encuentran en un mismo lugar.' 
               },
             ].map((card, index) => (
               <motion.div
@@ -262,12 +262,17 @@ export default function HomePage() {
                 transition={{ duration: 0.6, delay: 1.2 + index * 0.1 }}
                 className="text-center"
               >
-                <div className="text-4xl mb-4">{card.icon}</div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <div className="mb-4 flex justify-center items-center h-20">
+                  <img
+                    src={card.icon}
+                    alt={card.title}
+                    className="w-16 h-auto"
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 uppercase">
                   {card.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  {card.description}
+                <p className="text-gray-600 dark:text-gray-400" dangerouslySetInnerHTML={{ __html: card.description }}>
                 </p>
               </motion.div>
             ))}

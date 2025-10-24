@@ -269,6 +269,17 @@ export const firebaseDB = {
           callback(null);
         }
       });
+    },
+
+    // Delete user
+    async delete(userId: string): Promise<void> {
+      try {
+        await deleteDoc(doc(db, 'users', userId));
+        console.log(`✅ [Firebase] User deleted: ${userId}`);
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        throw new Error('Failed to delete user');
+      }
     }
   },
 
@@ -1536,6 +1547,15 @@ export const firebaseDB = {
       } catch (error) {
         console.error('Error checking favourite status:', error);
         return false;
+      }
+    },
+
+    async delete(favouriteId: string): Promise<void> {
+      try {
+        await deleteDoc(doc(db, 'favourites', favouriteId));
+      } catch (error) {
+        console.error('Error deleting favourite:', error);
+        throw new Error('Failed to delete favourite');
       }
     },
   },

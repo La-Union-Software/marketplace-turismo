@@ -43,6 +43,7 @@ function UsersManagement() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -134,6 +135,50 @@ function UsersManagement() {
     } catch (error: unknown) {
       console.error('Error removing role:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to remove role';
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!selectedUser || !currentUser) return;
+
+    try {
+      setIsProcessing(true);
+      setMessage(null);
+
+      const response = await fetch('/api/admin/remove-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          currentUserId: currentUser.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to remove user');
+      }
+
+      setMessage({ 
+        type: 'success', 
+        text: `User ${selectedUser.name} has been completely removed from the system` 
+      });
+
+      // Refresh users list
+      await loadUsers();
+
+      // Close modal
+      setShowRemoveModal(false);
+      setSelectedUser(null);
+    } catch (error: unknown) {
+      console.error('Error removing user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove user';
       setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsProcessing(false);
@@ -461,10 +506,11 @@ function UsersManagement() {
                         {user.id !== currentUser?.id && (
                           <button
                             onClick={() => {
-                              // TODO: Implement user deactivation
+                              setSelectedUser(user);
+                              setShowRemoveModal(true);
                             }}
                             className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                            title="Deactivate user"
+                            title="Remove user completely"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -545,6 +591,77 @@ function UsersManagement() {
                 className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Assigning...' : 'Assign Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove User Confirmation Modal */}
+      {showRemoveModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="glass rounded-xl p-6 max-w-lg w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mr-4">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Remove User Completely
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Are you sure you want to completely remove <strong>{selectedUser.name}</strong> ({selectedUser.email}) from the system?
+              </p>
+              
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <h4 className="font-medium text-red-800 dark:text-red-300 mb-2">
+                  The following data will be permanently deleted:
+                </h4>
+                <ul className="text-sm text-red-700 dark:text-red-400 space-y-1">
+                  <li>• User account and profile</li>
+                  <li>• All subscriptions (cancelled in MercadoPago)</li>
+                  <li>• All posts and content</li>
+                  <li>• All bookings</li>
+                  <li>• MercadoPago account connections</li>
+                  <li>• Notifications and favorites</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowRemoveModal(false);
+                  setSelectedUser(null);
+                }}
+                disabled={isProcessing}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveUser}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Remove User</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
