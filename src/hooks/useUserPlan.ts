@@ -35,7 +35,7 @@ export function useUserPlan() {
         name: 'Basic Plan',
         description: 'Basic publishing plan',
         price: 9.99,
-        currency: 'USD',
+        currency: 'ARS',
         billingCycle: 'monthly',
         features: ['Basic publishing', 'Standard support'],
         maxPosts: 10,

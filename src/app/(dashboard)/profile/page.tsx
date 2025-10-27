@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import RequireClient from '@/components/auth/ProtectedRoute';
-import { firebaseDB } from '@/services/firebaseService';
+import { firebaseDB, firebaseAuth } from '@/services/firebaseService';
+import PasswordValidation, { validatePassword, isPasswordValid } from '@/components/ui/PasswordValidation';
 
 export default function ProfilePage() {
   return (
@@ -168,7 +169,17 @@ function ProfileManagement() {
     setIsLoading(true);
     setMessage(null);
 
-    // Validation
+    // Validation: Check if current password is provided
+    if (!passwordForm.currentPassword) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Por favor ingresa tu contraseña actual' 
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Validation: Check if new password matches confirmation
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setMessage({ 
         type: 'error', 
@@ -178,18 +189,33 @@ function ProfileManagement() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
+    // Validation: Check if new password is different from current password
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
       setMessage({ 
         type: 'error', 
-        text: 'La nueva contraseña debe tener al menos 6 caracteres' 
+        text: 'La nueva contraseña debe ser diferente a la contraseña actual' 
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(passwordForm.newPassword);
+    if (!isPasswordValid(passwordValidation)) {
+      setMessage({ 
+        type: 'error', 
+        text: 'La nueva contraseña no cumple con los requisitos de seguridad. Por favor, revisa los requisitos indicados.' 
       });
       setIsLoading(false);
       return;
     }
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update password using Firebase Auth
+      await firebaseAuth.updatePassword(
+        passwordForm.currentPassword,
+        passwordForm.newPassword
+      );
       
       setMessage({ 
         type: 'success', 
@@ -202,10 +228,14 @@ function ProfileManagement() {
         newPassword: '',
         confirmPassword: ''
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      
+      // Show user-friendly error message
+      const errorMessage = error.message || 'Error al actualizar la contraseña';
       setMessage({ 
         type: 'error', 
-        text: 'Error al actualizar la contraseña' 
+        text: errorMessage 
       });
     } finally {
       setIsLoading(false);
@@ -560,6 +590,7 @@ function ProfileManagement() {
                           {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      <PasswordValidation password={passwordForm.newPassword} />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

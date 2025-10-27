@@ -137,7 +137,7 @@ export default function PostDetailPage() {
   };
 
   const getCurrentPrice = () => {
-    if (!post) return { price: 0, currency: 'USD', isDynamic: false };
+    if (!post) return { price: 0, currency: 'ARS', isDynamic: false };
     return calculateCurrentPrice(post);
   };
 

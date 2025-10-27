@@ -124,7 +124,7 @@ export default function Header() {
           <Link href="/" className="flex items-center">
             <div className="relative h-12 w-32 sm:h-14 sm:w-40">
               <Image 
-                src="/img/logo.jpg" 
+                src="/img/logo.png" 
                 alt="Nexar Logo" 
                 fill
                 className="object-contain"

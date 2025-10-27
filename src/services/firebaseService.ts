@@ -4,7 +4,10 @@ import {
   signOut, 
   onAuthStateChanged,
   User as FirebaseUser,
-  updateProfile
+  updateProfile,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { 
   doc, 
@@ -96,6 +99,43 @@ export const firebaseAuth = {
   // Listen to auth state changes
   onAuthStateChanged(callback: (user: FirebaseUser | null) => void) {
     return onAuthStateChanged(auth, callback);
+  },
+
+  // Update password
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser || !currentUser.email) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Re-authenticate user with current password
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        currentPassword
+      );
+      
+      await reauthenticateWithCredential(currentUser, credential);
+      
+      // Update password
+      await updatePassword(currentUser, newPassword);
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      
+      // Handle specific Firebase Auth errors
+      if (error.code === 'auth/wrong-password') {
+        throw new Error('La contraseña actual es incorrecta');
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error('La nueva contraseña es muy débil');
+      } else if (error.code === 'auth/requires-recent-login') {
+        throw new Error('Por favor, vuelve a iniciar sesión para cambiar tu contraseña');
+      } else if (error.code === 'auth/invalid-credential') {
+        throw new Error('La contraseña actual es incorrecta');
+      }
+      
+      throw error;
+    }
   }
 };
 

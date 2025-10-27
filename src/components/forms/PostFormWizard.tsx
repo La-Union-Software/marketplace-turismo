@@ -405,7 +405,7 @@ export default function PostFormWizard({
         pricing: {
           type: 'fixed',
           price: 0,
-          currency: 'USD'
+          currency: 'ARS'
         }
       });
     } else {
@@ -424,7 +424,7 @@ export default function PostFormWizard({
         id: generateId(),
         startDate: '',
         endDate: '',
-        currency: 'USD',
+        currency: 'ARS',
         weekdayPrices: {}
       };
       updateFormData({
@@ -640,7 +640,7 @@ export default function PostFormWizard({
         userId: user.id,
         // Add pricing information to the post
         price: formData.pricing.type === 'fixed' ? formData.pricing.price : 0,
-        currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'USD',
+        currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'ARS',
         pricing: formData.pricing, // Save the complete pricing structure
         // Additional fields for BasePost (only include if they have values)
         publishedAt: editMode ? postData?.publishedAt : new Date(),
@@ -1888,6 +1888,11 @@ export default function PostFormWizard({
             </div>
           </div>
         )}
+
+        <p className="text-gray-600 dark:text-gray-400">
+        ⚠️ Recordá que el incumplimiento de reservas o reembolsos afecta la reputación de Nexar Turismo y puede derivar en suspensión inmediata de tu cuenta.
+        </p>
+
       </div>
     );
   };

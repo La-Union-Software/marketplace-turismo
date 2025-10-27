@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, User, Phone, AlertCircle, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import PasswordValidation, { validatePassword, isPasswordValid } from '@/components/ui/PasswordValidation';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -50,8 +51,10 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    // Validate password strength
+    const passwordValidation = validatePassword(formData.password);
+    if (!isPasswordValid(passwordValidation)) {
+      setError('La contraseña no cumple con los requisitos de seguridad. Por favor, revisa los requisitos indicados.');
       setIsLoading(false);
       return;
     }
@@ -479,9 +482,7 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Debe tener al menos 6 caracteres
-              </p>
+              <PasswordValidation password={formData.password} />
             </div>
 
             {/* Confirm Password Field */}

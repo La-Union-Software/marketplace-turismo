@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
-export function formatPrice(price: number, currency: string = 'USD'): string {
+export function formatPrice(price: number, currency: string = 'ARS'): string {
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: currency,
