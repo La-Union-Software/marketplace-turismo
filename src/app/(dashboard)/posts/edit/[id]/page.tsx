@@ -157,7 +157,7 @@ export default function EditPostPage() {
             editMode={true}
             postData={post}
             images={images}
-            onSuccess={() => router.push('/posts')}
+            onSuccess={() => router.push('/posts?success=updated')}
           />
         </motion.div>
       </div>

@@ -1,19 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FileText, Plus, Search, Filter, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Power, PowerOff, User as UserIcon } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, Plus, Search, Filter, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Power, PowerOff, User as UserIcon, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, ServiceCategory, User } from '@/types';
 import PostCard from '@/components/ui/PostCard';
-import { useMercadoPagoAccount } from '@/hooks/useMercadoPagoAccount';
-import MercadoPagoAccountCard from '@/components/ui/mercado-pago-account-card';
 
-export default function PostsPage() {
+function PostsPageContent() {
   const { user, hasRole } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BasePost[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,8 +27,32 @@ export default function PostsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage] = useState(9);
   const [showFilters, setShowFilters] = useState(false);
-  const [showMercadoPagoModal, setShowMercadoPagoModal] = useState(false);
-  const { hasActiveAccount, accountStatus } = useMercadoPagoAccount();
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Check for success message in URL params
+  useEffect(() => {
+    const success = searchParams.get('success');
+    if (success === 'created') {
+      setSuccessMessage('Publicación creada exitosamente');
+      setShowSuccessMessage(true);
+      // Remove query param from URL
+      router.replace('/posts', { scroll: false });
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+    } else if (success === 'updated') {
+      setSuccessMessage('Publicación actualizada exitosamente');
+      setShowSuccessMessage(true);
+      // Remove query param from URL
+      router.replace('/posts', { scroll: false });
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+    }
+  }, [searchParams, router]);
 
   // Redirect non-publisher users to subscription page
   useEffect(() => {
@@ -151,6 +174,36 @@ export default function PostsPage() {
   return (
     <div className="w-full max-w-none">
       <div className="space-y-8">
+        {/* Success Message */}
+        <AnimatePresence>
+          {showSuccessMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="glass rounded-xl p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    {successMessage}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="flex-shrink-0 ml-4 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -181,14 +234,7 @@ export default function PostsPage() {
                 {/* Nueva Publicación button - Hidden for superadmin users */}
                 {!hasRole('superadmin') && (
                   <button 
-                    onClick={() => {
-                      // Check if user has MercadoPago account before navigating
-                      if (!hasActiveAccount) {
-                        setShowMercadoPagoModal(true);
-                      } else {
-                        router.push('/posts/new');
-                      }
-                    }}
+                    onClick={() => router.push('/posts/new')}
                     className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -370,14 +416,7 @@ export default function PostsPage() {
               </p>
               {!hasRole('superadmin') && !searchTerm && filterStatus === 'all' && (
                 <button 
-                  onClick={() => {
-                    // Check if user has MercadoPago account before navigating
-                    if (!hasActiveAccount) {
-                      setShowMercadoPagoModal(true);
-                    } else {
-                      router.push('/posts/new');
-                    }
-                  }}
+                  onClick={() => router.push('/posts/new')}
                   className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300"
                 >
                   Crear Primera Publicación
@@ -496,28 +535,27 @@ export default function PostsPage() {
           )}
         </motion.div>
       </div>
-
-      {/* MercadoPago Account Modal */}
-      {showMercadoPagoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full">
-            <MercadoPagoAccountCard 
-              onStatusChange={(hasAccount) => {
-                if (hasAccount) {
-                  setShowMercadoPagoModal(false);
-                  router.push('/posts/new');
-                }
-              }}
-            />
-            <button
-              onClick={() => setShowMercadoPagoModal(false)}
-              className="mt-4 w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+function PostsPageLoading() {
+  return (
+    <div className="w-full max-w-none">
+      <div className="space-y-8">
+        <div className="glass rounded-xl p-12 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function PostsPage() {
+  return (
+    <Suspense fallback={<PostsPageLoading />}>
+      <PostsPageContent />
+    </Suspense>
   );
 } 

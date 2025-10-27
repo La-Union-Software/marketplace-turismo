@@ -4,7 +4,9 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { usePostCreation } from '@/hooks/usePostCreation';
+import { useMercadoPagoAccount } from '@/hooks/useMercadoPagoAccount';
 import PostFormWizard from '@/components/forms/PostFormWizard';
+import MercadoPagoAccountCard from '@/components/ui/mercado-pago-account-card';
 import { useRouter } from 'next/navigation';
 
 export default function NewPostPage() {
@@ -19,6 +21,13 @@ export default function NewPostPage() {
     redirectToSubscription, 
     redirectToPosts 
   } = usePostCreation();
+  
+  const { 
+    hasActiveAccount, 
+    accountStatus, 
+    loading: mercadoPagoLoading,
+    checkAccountStatus 
+  } = useMercadoPagoAccount();
 
   useEffect(() => {
     if (!isLoading && canCreatePost === false && !postLimitReached) {
@@ -27,12 +36,12 @@ export default function NewPostPage() {
     }
   }, [canCreatePost, isLoading, postLimitReached, redirectToSubscription]);
 
-  if (isLoading) {
+  if (isLoading || mercadoPagoLoading) {
     return (
       <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Verificando permisos...</p>
+          <p className="text-gray-600 dark:text-gray-300">Verificando permisos y cuenta de MercadoPago...</p>
         </div>
       </div>
     );
@@ -157,50 +166,90 @@ export default function NewPostPage() {
     );
   }
 
-  // User can create posts - show the form
-  return (
-    <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+  // Show MercadoPago account requirement modal if plan validation passed but account is missing
+  if (canCreatePost === true && !hasActiveAccount) {
+    return (
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="glass rounded-2xl max-w-md overflow-hidden w-full"
         >
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Crear Nueva Publicación
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Completa el formulario para crear tu nueva publicación de servicios turísticos
-          </p>
-          
-          {/* Plan Info */}
-          {userPlan && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mt-6 inline-flex items-center space-x-2 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 px-4 py-2 rounded-full"
+          <div className="p-6">
+            <div className="mb-4">
+              <MercadoPagoAccountCard 
+                onStatusChange={async (hasAccount) => {
+                  if (hasAccount) {
+                    // Refresh account status to ensure it's up to date
+                    await checkAccountStatus();
+                  }
+                }}
+              />
+            </div>
+            <button
+              onClick={() => router.push('/posts')}
+              className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                Plan: {userPlan.name} - {remainingPosts} de {userPlan.maxPosts} publicaciones disponibles
-              </span>
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* Post Form */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="max-w-4xl mx-auto"
-        >
-          <PostFormWizard />
+              Volver a Publicaciones
+            </button>
+          </div>
         </motion.div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // User can create posts and has MercadoPago account - show the form
+  if (canCreatePost === true && hasActiveAccount) {
+    return (
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Crear Nueva Publicación
+            </h1>
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Completa el formulario para crear tu nueva publicación de servicios turísticos
+            </p>
+            
+            {/* Plan Info */}
+            {userPlan && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mt-6 inline-flex items-center space-x-2 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 px-4 py-2 rounded-full"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Plan: {userPlan.name} - {remainingPosts} de {userPlan.maxPosts} publicaciones disponibles
+                </span>
+              </motion.div>
+            )}
+          </motion.div>
+
+          {/* Post Form */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="max-w-4xl mx-auto"
+          >
+            <PostFormWizard 
+              onSuccess={() => router.push('/posts?success=created')}
+            />
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback - should not reach here if logic is correct
+  return null;
 } 

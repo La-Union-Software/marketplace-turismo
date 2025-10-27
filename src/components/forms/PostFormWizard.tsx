@@ -1392,6 +1392,9 @@ export default function PostFormWizard({
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Texto que aparecerá en el voucher del cliente..."
                 />
+                <small>
+                Introduzca la información específica que su cliente debe tener en cuenta sobre su servicio luego de reservar, por ejemplo “en caso de alquileres con mascotas, excepcionalmente no incluiremos uso de ropa de cama, debe traer sus sabanas”. La información general de reserva se contempla por defecto, solo debe introducir aquí ACLARACIONES ESPECIFICAS.
+                </small>
               </div>
             </div>
           </div>
@@ -1532,7 +1535,6 @@ export default function PostFormWizard({
                   })}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  <option value="USD">USD ($)</option>
                   <option value="ARS">ARS ($)</option>
                 </select>
               </div>
@@ -1623,7 +1625,6 @@ export default function PostFormWizard({
                         onChange={(e) => updateSeason(season.id, { currency: e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                       >
-                        <option value="USD">USD ($)</option>
                         <option value="ARS">ARS ($)</option>
                       </select>
                     </div>
@@ -1641,6 +1642,7 @@ export default function PostFormWizard({
                           return (
                             <div key={weekday.value} className="flex items-center space-x-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                               <div className="flex items-center space-x-3 flex-1">
+                                <label className="flex items-center space-x-2">
                                 <input
                                   type="checkbox"
                                   checked={hasPrice}
@@ -1656,6 +1658,7 @@ export default function PostFormWizard({
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[80px]">
                                   {weekday.label}
                                 </span>
+                                </label>
                               </div>
                               
                               <div className="flex-1 max-w-[200px]">
@@ -1679,7 +1682,7 @@ export default function PostFormWizard({
                               </div>
                               
                               <div className="text-sm text-gray-500 dark:text-gray-400 min-w-[30px]">
-                                {season.currency}
+                                ARS
                               </div>
                             </div>
                           );
