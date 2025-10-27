@@ -23,7 +23,9 @@ import {
   CreditCard,
   Crown,
   Zap,
-  Star
+  Star,
+  UserCheck,
+  Share2
 } from 'lucide-react';
 import { useUserPlan } from '@/hooks/useUserPlan';
 
@@ -77,6 +79,13 @@ export default function DashboardLayout({
       );
     }
 
+    // Add referral-only items
+    if (hasRole('referral')) {
+      baseItems.push(
+        { name: 'Referente', href: '/referente', icon: UserCheck, roles: ['referral'] }
+      );
+    }
+
     return baseItems;
   };
 
@@ -108,7 +117,7 @@ export default function DashboardLayout({
   }, [user, pathname, hasRole, canAccessCurrentPage, router]);
 
   return (
-    <ProtectedRoute requiredRoles={['publisher', 'superadmin', 'client']}>
+    <ProtectedRoute requiredRoles={['publisher', 'superadmin', 'client', 'referral']}>
       <div className="min-h-screen bg-background-light dark:bg-background-dark">
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (

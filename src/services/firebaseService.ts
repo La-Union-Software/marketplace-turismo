@@ -64,6 +64,8 @@ export const firebaseAuth = {
         createdAt: new Date(),
         updatedAt: new Date(),
         profileCompleted: false,
+        ...(userData.referredBy && { referredBy: userData.referredBy }),
+        ...(userData.referralCode && { referralCode: userData.referralCode }),
       };
       
       await setDoc(doc(db, 'users', user.uid), newUser);
@@ -295,6 +297,57 @@ export const firebaseDB = {
         return users;
       } catch (error) {
         console.error('Error getting users by role:', error);
+        throw error;
+      }
+    },
+
+    // Get user by referral code
+    async getByReferralCode(referralCode: string): Promise<User | null> {
+      try {
+        const usersSnapshot = await getDocs(
+          query(collection(db, 'users'), where('referralCode', '==', referralCode))
+        );
+        
+        if (!usersSnapshot.empty) {
+          return usersSnapshot.docs[0].data() as User;
+        }
+        
+        return null;
+      } catch (error) {
+        console.error('Error getting user by referral code:', error);
+        throw error;
+      }
+    },
+
+    // Get referred users (users who were referred by a specific referral user)
+    async getReferredUsers(referralUserId: string): Promise<User[]> {
+      try {
+        const usersSnapshot = await getDocs(
+          query(collection(db, 'users'), where('referredBy', '==', referralUserId))
+        );
+        
+        const users: User[] = [];
+        usersSnapshot.forEach((doc) => {
+          users.push(doc.data() as User);
+        });
+        
+        return users;
+      } catch (error) {
+        console.error('Error getting referred users:', error);
+        throw error;
+      }
+    },
+
+    // Update referral code for a user
+    async updateReferralCode(userId: string, referralCode: string): Promise<void> {
+      try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          referralCode,
+          updatedAt: new Date()
+        });
+      } catch (error) {
+        console.error('Error updating referral code:', error);
         throw error;
       }
     },

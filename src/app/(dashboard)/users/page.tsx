@@ -24,6 +24,11 @@ import { firebaseDB } from '@/services/firebaseService';
 import { User, UserRole } from '@/types';
 import { SYSTEM_ROLES } from '@/services/permissionsService';
 import RequireSuperadmin from '@/components/auth/ProtectedRoute';
+import { useRouter } from 'next/navigation';
+import { UserCheck, Share2, Copy, Check, X } from 'lucide-react';
+import { generateReferralUrl, generateReferralCode } from '@/lib/referralUtils';
+import PasswordValidation, { validatePassword, isPasswordValid } from '@/components/ui/PasswordValidation';
+import { firebaseAuth } from '@/services/firebaseService';
 
 export default function UsersPage() {
   return (
@@ -34,6 +39,7 @@ export default function UsersPage() {
 }
 
 function UsersManagement() {
+  const router = useRouter();
   const { user: currentUser, assignRole, removeRole } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -47,10 +53,162 @@ function UsersManagement() {
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'users' | 'referrals'>('users');
+  const [referralUsers, setReferralUsers] = useState<User[]>([]);
+  const [referralCounts, setReferralCounts] = useState<Record<string, number>>({});
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [showAddReferralModal, setShowAddReferralModal] = useState(false);
+  const [showReferralDetailModal, setShowReferralDetailModal] = useState(false);
+  const [selectedReferral, setSelectedReferral] = useState<User | null>(null);
+  const [referredUsers, setReferredUsers] = useState<User[]>([]);
+  const [isLoadingReferredUsers, setIsLoadingReferredUsers] = useState(false);
+  const [referralFormData, setReferralFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [showReferralPassword, setShowReferralPassword] = useState(false);
+  const [showReferralConfirmPassword, setShowReferralConfirmPassword] = useState(false);
+  const [referralFormError, setReferralFormError] = useState('');
 
   useEffect(() => {
     loadUsers();
+    loadReferralUsers();
   }, []);
+
+  const loadReferralUsers = async () => {
+    try {
+      const referrals = await firebaseDB.users.getByRole('referral');
+      setReferralUsers(referrals);
+      
+      // Load referral counts for each referral user
+      const counts: Record<string, number> = {};
+      for (const referral of referrals) {
+        try {
+          const referredUsers = await firebaseDB.users.getReferredUsers(referral.id);
+          counts[referral.id] = referredUsers.length;
+        } catch (error) {
+          console.error(`Error getting count for referral ${referral.id}:`, error);
+          counts[referral.id] = 0;
+        }
+      }
+      setReferralCounts(counts);
+    } catch (error) {
+      console.error('Error loading referral users:', error);
+    }
+  };
+
+  const handleCopyReferralUrl = async (referralCode: string) => {
+    const url = generateReferralUrl(referralCode);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedCode(referralCode);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+    }
+  };
+
+  const handleViewReferralDetails = async (referral: User) => {
+    setSelectedReferral(referral);
+    setShowReferralDetailModal(true);
+    setIsLoadingReferredUsers(true);
+    
+    try {
+      const referred = await firebaseDB.users.getReferredUsers(referral.id);
+      setReferredUsers(referred);
+    } catch (error) {
+      console.error('Error loading referred users:', error);
+      setReferredUsers([]);
+    } finally {
+      setIsLoadingReferredUsers(false);
+    }
+  };
+
+  const handleCreateReferralUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    setReferralFormError('');
+
+    // Validation
+    if (referralFormData.password !== referralFormData.confirmPassword) {
+      setReferralFormError('Las contraseñas no coinciden.');
+      setIsProcessing(false);
+      return;
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(referralFormData.password);
+    if (!isPasswordValid(passwordValidation)) {
+      setReferralFormError('La contraseña no cumple con los requisitos de seguridad.');
+      setIsProcessing(false);
+      return;
+    }
+
+    try {
+      // Generate unique referral code
+      let referralCode = generateReferralCode();
+      let attempts = 0;
+      while (attempts < 10) {
+        const existingUser = await firebaseDB.users.getByReferralCode(referralCode);
+        if (!existingUser) break;
+        referralCode = generateReferralCode();
+        attempts++;
+      }
+
+      if (attempts >= 10) {
+        throw new Error('No se pudo generar un código de referido único. Intenta nuevamente.');
+      }
+
+      // Create user with referral role
+      const userData = {
+        name: referralFormData.name,
+        email: referralFormData.email,
+        phone: referralFormData.phone,
+        referralCode,
+      };
+
+      // Create user via Firebase Auth
+      const newUser = await firebaseAuth.signUp(
+        referralFormData.email,
+        referralFormData.password,
+        userData
+      );
+
+      // Assign referral role
+      await firebaseDB.users.assignRole(newUser.id, 'referral', currentUser?.id);
+
+      // Update user with referral code
+      await firebaseDB.users.updateReferralCode(newUser.id, referralCode);
+
+      setMessage({ 
+        type: 'success', 
+        text: `Usuario referente creado exitosamente. Código: ${referralCode}` 
+      });
+
+      // Reset form and close modal
+      setReferralFormData({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+      });
+      setShowAddReferralModal(false);
+
+      // Reload referral users
+      await loadReferralUsers();
+    } catch (error: any) {
+      console.error('Error creating referral user:', error);
+      setReferralFormError(
+        error.message || 'Error al crear el usuario referente. Por favor, inténtalo de nuevo.'
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -268,6 +426,37 @@ function UsersManagement() {
           </motion.div>
         )}
 
+        {/* Tabs */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
+          className="glass rounded-xl p-2"
+        >
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'users'
+                  ? 'bg-primary text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Usuarios
+            </button>
+            <button
+              onClick={() => setActiveTab('referrals')}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'referrals'
+                  ? 'bg-primary text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Usuarios Referentes
+            </button>
+          </div>
+        </motion.div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <motion.div
@@ -345,60 +534,184 @@ function UsersManagement() {
           </motion.div>
         </div>
 
-        {/* Filters and Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="glass rounded-xl p-6"
-        >
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search users by name, email, or phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
+        {/* Filters and Search - Only show for Users tab */}
+        {activeTab === 'users' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="glass rounded-xl p-6"
+          >
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or phone..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Role Filter */}
+              <div className="md:w-48">
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="all">All Roles</option>
+                  {SYSTEM_ROLES.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="md:w-32">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
             </div>
+          </motion.div>
+        )}
 
-            {/* Role Filter */}
-            <div className="md:w-48">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+        {/* Referrals Section */}
+        {activeTab === 'referrals' && (
+          <>
+            {/* Add Referral User Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="flex justify-end"
+            >
+              <button
+                onClick={() => setShowAddReferralModal(true)}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2"
               >
-                <option value="all">All Roles</option>
-                {SYSTEM_ROLES.map((role) => (
-                  <option key={role.id} value={role.name}>
-                    {role.displayName}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <UserPlus className="w-4 h-4" />
+                <span>Agregar usuario referente</span>
+              </button>
+            </motion.div>
 
-            {/* Status Filter */}
-            <div className="md:w-32">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-        </motion.div>
+            {/* Referrals Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="glass rounded-xl p-6"
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuario</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Código de Referido</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuarios Referidos</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">URL de Referido</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {referralUsers.map((referral, index) => (
+                      <motion.tr
+                        key={referral.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.3 + index * 0.05 }}
+                        className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <td className="py-4 px-4">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                              <span className="text-white font-medium text-sm">
+                                {referral.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="ml-3">
+                              <div className="font-medium text-gray-900 dark:text-white">{referral.name}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{referral.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="font-mono text-sm font-medium text-gray-900 dark:text-white">
+                            {referral.referralCode || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-2">
+                            <UserCheck className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {referralCounts[referral.id] || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          {referral.referralCode ? (
+                            <button
+                              onClick={() => handleCopyReferralUrl(referral.referralCode!)}
+                              className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              {copiedCode === referral.referralCode ? (
+                                <>
+                                  <Check className="w-4 h-4 text-green-500" />
+                                  <span className="text-xs text-green-600 dark:text-green-400">Copiado</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-4 h-4 text-gray-500" />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Copiar URL</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewReferralDetails(referral)}
+                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              title="Ver usuarios referidos"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-        {/* Users Table */}
+              {referralUsers.length === 0 && (
+                <div className="text-center py-8">
+                  <UserCheck className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No hay usuarios referentes registrados</p>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+
+        {/* Users Table - Only show for Users tab */}
+        {activeTab === 'users' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -530,6 +843,7 @@ function UsersManagement() {
             </div>
           )}
         </motion.div>
+        )}
       </div>
 
       {/* Role Management Modal */}
@@ -665,6 +979,336 @@ function UsersManagement() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Add Referral User Modal */}
+      {showAddReferralModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Agregar Usuario Referente
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddReferralModal(false);
+                  setReferralFormError('');
+                  setReferralFormData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    password: '',
+                    confirmPassword: '',
+                  });
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {referralFormError && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <span className="text-sm text-red-700 dark:text-red-300">{referralFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateReferralUser} className="space-y-4">
+              {/* Name Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nombre completo *
+                </label>
+                <input
+                  type="text"
+                  value={referralFormData.name}
+                  onChange={(e) => setReferralFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Nombre completo"
+                />
+              </div>
+
+              {/* Email Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={referralFormData.email}
+                  onChange={(e) => setReferralFormData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="email@ejemplo.com"
+                />
+              </div>
+
+              {/* Phone Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={referralFormData.phone}
+                  onChange={(e) => setReferralFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="+54 9 11 1234-5678"
+                />
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Contraseña *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showReferralPassword ? 'text' : 'password'}
+                    value={referralFormData.password}
+                    onChange={(e) => setReferralFormData(prev => ({ ...prev, password: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowReferralPassword(!showReferralPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showReferralPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <PasswordValidation password={referralFormData.password} />
+              </div>
+
+              {/* Confirm Password Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Confirmar contraseña *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showReferralConfirmPassword ? 'text' : 'password'}
+                    value={referralFormData.confirmPassword}
+                    onChange={(e) => setReferralFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowReferralConfirmPassword(!showReferralConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showReferralConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddReferralModal(false);
+                    setReferralFormError('');
+                    setReferralFormData({
+                      name: '',
+                      email: '',
+                      phone: '',
+                      password: '',
+                      confirmPassword: '',
+                    });
+                  }}
+                  disabled={isProcessing}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Creando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Crear Usuario</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Referral Detail Modal */}
+      {showReferralDetailModal && selectedReferral && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Detalles del Usuario Referente
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {selectedReferral.name} - {selectedReferral.email}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowReferralDetailModal(false);
+                  setSelectedReferral(null);
+                  setReferredUsers([]);
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Referral Info */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Código de Referido</p>
+                <p className="text-lg font-mono font-semibold text-gray-900 dark:text-white">
+                  {selectedReferral.referralCode || 'N/A'}
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total de Usuarios Referidos</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {referralCounts[selectedReferral.id] || 0}
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">URL de Referido</p>
+                {selectedReferral.referralCode ? (
+                  <button
+                    onClick={() => handleCopyReferralUrl(selectedReferral.referralCode!)}
+                    className="flex items-center space-x-2 mt-1 text-sm text-primary hover:text-secondary"
+                  >
+                    {copiedCode === selectedReferral.referralCode ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copiar URL</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <p className="text-sm text-gray-400">N/A</p>
+                )}
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Fecha de Registro</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {formatDate(selectedReferral.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* Referred Users List */}
+            <div>
+              <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">
+                Usuarios Referidos ({referredUsers.length})
+              </h4>
+
+              {isLoadingReferredUsers ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : referredUsers.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <UserCheck className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Este usuario referente aún no ha referido ningún usuario
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuario</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Email</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Teléfono</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Roles</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Fecha Registro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referredUsers.map((user) => (
+                        <tr
+                          key={user.id}
+                          className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                <span className="text-white font-medium text-xs">
+                                  {user.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="ml-3">
+                                <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {user.phone || 'N/A'}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex flex-wrap gap-1">
+                              {getUserRoles(user.roles).map((role) => (
+                                <span
+                                  key={role}
+                                  className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getRoleColor(role)}`}
+                                >
+                                  {getRoleDisplayName(role)}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {formatDate(user.createdAt)}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

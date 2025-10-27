@@ -46,19 +46,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userStatus = await globalAuthMiddleware.checkGlobalUserStatus(firebaseUser.uid);
           
           if (userStatus) {
+            // Get full user data from Firebase to include all fields like referralCode, phone, etc.
+            const fullUserData = await firebaseDB.users.getById(firebaseUser.uid);
+            
             // Convert userStatus back to User format for compatibility
             const userData: User = {
               id: userStatus.id,
               name: userStatus.name,
               email: userStatus.email,
-              phone: '', // Add phone field if needed
-              avatar: '', // Add avatar field if needed
+              phone: fullUserData?.phone || '',
+              avatar: fullUserData?.avatar || '',
               roles: userStatus.roles,
               isActive: true,
               emailVerified: firebaseUser.emailVerified,
-              createdAt: new Date(), // Add proper dates if needed
-              updatedAt: new Date(),
-              profileCompleted: false, // Add proper profile completion logic if needed
+              createdAt: fullUserData?.createdAt || new Date(),
+              updatedAt: fullUserData?.updatedAt || new Date(),
+              profileCompleted: fullUserData?.profileCompleted || false,
+              referralCode: fullUserData?.referralCode,
+              referredBy: fullUserData?.referredBy,
             };
             setUser(userData);
             console.log('✅ [Auth Context] User status updated:', {
@@ -191,19 +196,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userStatus = await globalAuthMiddleware.forceRefreshUserStatus(user.id);
       
       if (userStatus) {
+        // Get full user data from Firebase to include all fields
+        const fullUserData = await firebaseDB.users.getById(user.id);
+        
         // Convert userStatus back to User format for compatibility
         const updatedUser: User = {
           id: userStatus.id,
           name: userStatus.name,
           email: userStatus.email,
-          phone: user?.phone || '',
-          avatar: user?.avatar || '',
+          phone: fullUserData?.phone || user?.phone || '',
+          avatar: fullUserData?.avatar || user?.avatar || '',
           roles: userStatus.roles,
           isActive: true,
           emailVerified: user?.emailVerified || false,
-          createdAt: user?.createdAt || new Date(),
+          createdAt: fullUserData?.createdAt || user?.createdAt || new Date(),
           updatedAt: new Date(),
-          profileCompleted: user?.profileCompleted || false,
+          profileCompleted: fullUserData?.profileCompleted || user?.profileCompleted || false,
+          referralCode: fullUserData?.referralCode,
+          referredBy: fullUserData?.referredBy,
         };
         setUser(updatedUser);
         console.log('✅ [Auth Context] User status refreshed:', {

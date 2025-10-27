@@ -37,7 +37,7 @@ export type ServiceCategory =
   | 'Fotografía';
 
 // Role and Permission System
-export type UserRole = 'superadmin' | 'publisher' | 'client';
+export type UserRole = 'superadmin' | 'publisher' | 'client' | 'referral';
 
 export interface Permission {
   id: string;
@@ -79,6 +79,8 @@ export interface User {
   updatedAt: Date;
   lastLoginAt?: Date;
   profileCompleted: boolean;
+  referralCode?: string; // Unique 8-character alphanumeric code for referral users
+  referredBy?: string; // User ID of the referral who invited this user
 }
 
 // Cancellation Policy interface

@@ -81,6 +81,18 @@ export const SYSTEM_ROLES: Role[] = [
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+  {
+    id: 'role_referral',
+    name: 'referral',
+    displayName: 'Referral User',
+    description: 'Can invite publishers to register on the platform',
+    permissions: SYSTEM_PERMISSIONS.filter(p => 
+      ['posts:read'].includes(p.id)
+    ),
+    isSystem: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
 ];
 
 // Permission checking utilities

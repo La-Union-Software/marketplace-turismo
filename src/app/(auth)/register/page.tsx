@@ -7,6 +7,8 @@ import { Eye, EyeOff, Mail, Lock, ArrowLeft, User, Phone, AlertCircle, CheckCirc
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import PasswordValidation, { validatePassword, isPasswordValid } from '@/components/ui/PasswordValidation';
+import { getReferralCodeFromUrl } from '@/lib/referralUtils';
+import { firebaseDB } from '@/services/firebaseService';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function RegisterPage() {
     phone: '',
     password: '',
     confirmPassword: '',
+    referralCode: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -26,6 +29,14 @@ export default function RegisterPage() {
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Handle referral code from URL
+  useEffect(() => {
+    const urlReferralCode = getReferralCodeFromUrl();
+    if (urlReferralCode) {
+      setFormData(prev => ({ ...prev, referralCode: urlReferralCode }));
+    }
+  }, []);
 
   // Handle redirect after successful signup
   useEffect(() => {
@@ -60,10 +71,23 @@ export default function RegisterPage() {
     }
 
     try {
+      // Validate referral code if provided
+      let referredBy: string | undefined;
+      if (formData.referralCode) {
+        const referralUser = await firebaseDB.users.getByReferralCode(formData.referralCode);
+        if (!referralUser) {
+          setError('El código de referido no es válido.');
+          setIsLoading(false);
+          return;
+        }
+        referredBy = referralUser.id;
+      }
+
       const userData = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        referredBy,
       };
 
       const success = await signup(formData.email, formData.password, userData);
@@ -509,6 +533,25 @@ export default function RegisterPage() {
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+            </div>
+
+            {/* Referral Code Field */}
+            <div>
+              <label htmlFor="referralCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Código de referido (opcional)
+              </label>
+              <input
+                id="referralCode"
+                type="text"
+                value={formData.referralCode}
+                onChange={(e) => updateFormData('referralCode', e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+                placeholder="ABCD1234"
+                maxLength={8}
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Si tienes un código de referido, ingrésalo aquí
+              </p>
             </div>
 
             {/* Terms and Conditions */}
