@@ -210,19 +210,23 @@ export default function BookingsPage() {
     setShowCancellationModal(true);
   };
 
-  const handleConfirmCancellation = async () => {
+  const handleConfirmCancellation = async (reason: string) => {
     if (!selectedBookingForCancellation || !user) return;
 
     setIsCancelling(true);
 
     try {
+      const cancelledBy =
+        selectedBookingForCancellation.clientId === user.id ? 'client' : 'publisher';
+
       const response = await fetch(`/api/bookings/${selectedBookingForCancellation.id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          cancelledBy: selectedBookingForCancellation.clientId === user.id ? 'client' : 'owner'
+          cancelledBy,
+          cancellationReason: reason.trim()
         }),
       });
 
@@ -246,6 +250,23 @@ export default function BookingsPage() {
     } finally {
       setIsCancelling(false);
     }
+  };
+
+  const isPostUnavailableForClient = (booking: Booking) => {
+    if (viewMode !== 'client') return false;
+
+    const shouldValidateAvailability =
+      booking.status === 'requested' || booking.status === 'pending_payment';
+
+    if (!shouldValidateAvailability) return false;
+
+    const post = booking.post;
+
+    if (!post) return true;
+    if (post.status === 'draft' || post.status === 'pending') return true;
+    if (post.isEnabled === false) return true;
+
+    return false;
   };
 
   const getStatusColor = (status: BookingStatus) => {
@@ -527,8 +548,10 @@ export default function BookingsPage() {
           transition={{ duration: 0.6, delay: 0.7 }}
           className="space-y-6"
         >
-          {filteredBookings.map((booking, index) => (
-            <motion.div
+          {filteredBookings.map((booking, index) => {
+            const isUnavailableForClient = isPostUnavailableForClient(booking);
+            return (
+              <motion.div
               key={booking.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -631,8 +654,14 @@ export default function BookingsPage() {
 
                     {/* Status and Actions */}
                     <div className="flex flex-col items-end space-y-3">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(booking.status)}`}>
-                        {getStatusText(booking.status)}
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
+                          isUnavailableForClient
+                            ? 'bg-gray-200 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                            : getStatusColor(booking.status)
+                        }`}
+                      >
+                        {isUnavailableForClient ? 'Publicación no disponible' : getStatusText(booking.status)}
                       </span>
                       
                       <div className="flex items-center space-x-2">
@@ -647,28 +676,9 @@ export default function BookingsPage() {
                           </button>
                         )}
                         
-                        {/* Owner Actions */}
-                        {viewMode === 'owner' && booking.status === 'requested' && (
-                          <>
-                            <button 
-                              onClick={() => handleAcceptBooking(booking.id)}
-                              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors" 
-                              title="Aceptar reserva"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeclineBooking(booking.id)}
-                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
-                              title="Rechazar reserva"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
                         
                         {/* Client Actions */}
-                        {viewMode === 'client' && booking.status === 'pending_payment' && (
+                        {viewMode === 'client' && booking.status === 'pending_payment' && !isUnavailableForClient && (
                           <button 
                             onClick={() => handlePaymentClick(booking)}
                             className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition-colors" 
@@ -679,7 +689,7 @@ export default function BookingsPage() {
                         )}
 
                         {/* Cancellation Actions - Only show for bookings that can be cancelled */}
-                        {(booking.status === 'requested' || booking.status === 'pending_payment' || booking.status === 'paid') && (
+                        {(booking.status === 'pending_payment' || booking.status === 'paid') && !(viewMode === 'client' && isUnavailableForClient) && (
                           <button 
                             onClick={() => handleCancelBooking(booking)}
                             className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
@@ -702,8 +712,9 @@ export default function BookingsPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
 
           {filteredBookings.length === 0 && (
             <motion.div
@@ -748,6 +759,9 @@ export default function BookingsPage() {
           booking={selectedBookingForCancellation}
           penalty={cancellationPenalty}
           isCancelling={isCancelling}
+          actorType={
+            selectedBookingForCancellation.clientId === user?.id ? 'client' : 'publisher'
+          }
         />
       )}
     </div>

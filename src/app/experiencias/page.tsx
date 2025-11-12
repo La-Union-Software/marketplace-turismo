@@ -160,6 +160,7 @@ function ClasesContent() {
         
         const otrosServiciosPosts = allPosts.filter(post => {
           const matchesCategory = OTROS_SERVICIOS_CATEGORIES.includes(post.category);
+          // Only show published or approved posts - explicitly exclude draft, pending, rejected, and undefined/null
           const matchesStatus = post.status === 'published' || post.status === 'approved';
           const isEnabled = post.isEnabled !== false; // Default to true if undefined
           

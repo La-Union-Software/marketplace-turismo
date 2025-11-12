@@ -319,14 +319,33 @@ class MercadoPagoService {
   private baseUrl: string = 'https://api.mercadopago.com';
 
   constructor(credentials?: MercadoPagoCredentials) {
-    if (credentials) {
+    const envAccessToken = process.env.NEXAR_MARKETPLACE_ACCESS_TOKEN || '';
+    const envPublicKey = process.env.NEXAR_MARKETPLACE_PUBLIC_KEY || '';
+
+    if (credentials?.accessToken && credentials?.publicKey) {
       this.setCredentials(credentials);
+    }
+
+    if (!this.accessToken && envAccessToken) {
+      this.accessToken = envAccessToken;
+    }
+
+    if (!this.publicKey && envPublicKey) {
+      this.publicKey = envPublicKey;
     }
   }
 
   setCredentials(credentials: MercadoPagoCredentials) {
-    this.accessToken = credentials.accessToken;
-    this.publicKey = credentials.publicKey;
+    if (credentials.accessToken) {
+      this.accessToken = credentials.accessToken;
+    }
+    if (credentials.publicKey) {
+      this.publicKey = credentials.publicKey;
+    }
+  }
+
+  getPublicKey() {
+    return this.publicKey;
   }
 
   /**
@@ -408,6 +427,7 @@ class MercadoPagoService {
    */
   async createBookingPreference(bookingData: {
     bookingId: string;
+    ownerId?: string;
     postTitle: string;
     totalAmount: number;
     currency: string;
@@ -415,6 +435,8 @@ class MercadoPagoService {
     clientEmail: string;
     returnUrl?: string;
     webhookUrl?: string;
+    marketplaceFee?: number;
+    marketplaceId?: string;
   }): Promise<MercadoPagoPreferenceResponse> {
     const preferenceData: MercadoPagoPreferenceRequest = {
       items: [
@@ -447,6 +469,20 @@ class MercadoPagoService {
       },
       binary_mode: false,
     };
+
+    preferenceData.metadata = {
+      bookingId: bookingData.bookingId,
+      ...(bookingData.ownerId ? { ownerId: bookingData.ownerId } : {}),
+      postTitle: bookingData.postTitle,
+    };
+
+    if (typeof bookingData.marketplaceFee === 'number') {
+      preferenceData.marketplace_fee = bookingData.marketplaceFee;
+    }
+
+    if (bookingData.marketplaceId) {
+      preferenceData.marketplace = bookingData.marketplaceId;
+    }
 
     return this.createPreference(preferenceData);
   }

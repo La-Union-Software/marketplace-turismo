@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Handle redirect after successful login
@@ -39,10 +40,12 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess(false);
     
     try {
-      const success = await login(email, password);
-      if (success) {
+      const loginResult = await login(email, password);
+      if (loginResult) {
+        setSuccess(true);
         setLoginSuccess(true);
       } else {
         setError('Correo electrónico o contraseña inválidos. Por favor, inténtalo de nuevo.');
@@ -107,6 +110,20 @@ export default function LoginPage() {
               Inicia sesión en tu cuenta para continuar
             </p>
           </div>
+
+          {/* Success Message */}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center space-x-3"
+            >
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <span className="text-sm text-green-700 dark:text-green-300">
+                Login exitoso, redirigiendo hacia tu cuenta
+              </span>
+            </motion.div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -188,7 +205,7 @@ export default function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || success}
               className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-secondary transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
             >
               {isLoading ? (

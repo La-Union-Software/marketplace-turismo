@@ -228,7 +228,8 @@ export default function PostFormWizard({
         } as FixedPricing,
         cancellationPolicies: postData.cancellationPolicies || [], // Populate from postData
         termsAccepted: true,
-        isActive: postData.isActive,
+        // Reflect publish status in the "Publicar inmediatamente" checkbox
+        isActive: (postData.status === 'published' || postData.status === 'approved'),
       };
 
 
@@ -314,10 +315,10 @@ export default function PostFormWizard({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  // Handle main category changes (only in create mode)
+  // Handle main category changes (allowed in edit mode only while post is not published/approved)
   const handleMainCategoryChange = (categoryId: string) => {
-    if (editMode) {
-      return; // Disable category changes in edit mode
+    if (editMode && (postData?.status === 'published' || postData?.status === 'approved')) {
+      return; // Prevent changing main category after publication
     }
     
     // Always update the main category
@@ -624,6 +625,9 @@ export default function PostFormWizard({
         throw new Error('Please configure pricing for your service');
       }
 
+      // Determine publication status based on the "Publicar inmediatamente" checkbox
+      const isPublishingNow = formData.isActive === true;
+
       // Prepare post data for database (without images)
       const postDataToSave = {
         title: formData.title,
@@ -635,7 +639,7 @@ export default function PostFormWizard({
         cancellationPolicies: formData.cancellationPolicies, // Include cancellation policies
         isActive: formData.isActive,
         isEnabled: editMode ? (postData?.isEnabled !== false) : true, // Default to enabled for new posts
-        status: editMode ? (postData?.status || 'published') : 'published' as const,
+        status: (isPublishingNow ? 'published' : 'draft') as BasePost['status'],
         publisherId: user.id,
         userId: user.id,
         // Add pricing information to the post
@@ -643,7 +647,9 @@ export default function PostFormWizard({
         currency: formData.pricing.type === 'fixed' ? formData.pricing.currency : 'ARS',
         pricing: formData.pricing, // Save the complete pricing structure
         // Additional fields for BasePost (only include if they have values)
-        publishedAt: editMode ? postData?.publishedAt : new Date(),
+        publishedAt: isPublishingNow
+          ? (editMode && postData?.publishedAt ? postData.publishedAt : new Date())
+          : undefined,
       };
 
       // Combine main image and additional images
@@ -996,7 +1002,36 @@ export default function PostFormWizard({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
               Información Específica
             </h3>
-            <div className="space-y-6">
+
+
+          {/* Alojamiento-specific fields for Alojamiento categories */}
+          {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
+            <div className="space-y-6 mt-6">
+              <div className="grid grid-cols-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Cantidad máxima de huéspedes *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={Number(formData.specificFields.maxPeople || '')}
+                    onChange={(e) => updateFormData({
+                      specificFields: {
+                        ...formData.specificFields,
+                        maxPeople: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Ej: 4"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+            <div className="space-y-6 mt-6">
               {/* Características y Servicios Checkboxes - Only for Alojamiento */}
               {formData.category && mainCategoryMapping['alojamiento']?.includes(formData.category as ServiceCategory) && (
                 <div>
@@ -1378,7 +1413,7 @@ export default function PostFormWizard({
               {/* Texto para Voucher - Available for all categories (at the end) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Texto para Voucher
+                Texto que aparecerá en el voucher del cliente
                 </label>
                 <textarea
                   value={String(formData.specificFields.voucherText || '')}
@@ -2134,7 +2169,7 @@ export default function PostFormWizard({
               if (typeof value === 'boolean') return null;
               
               // Skip PropertyType fields
-              if (key === 'propertyType') return null;
+              if (key === 'propertyType' || key === 'voucherText') return null;
               
               // Handle special field names
               const getFieldDisplayName = (fieldKey: string) => {
@@ -2589,12 +2624,12 @@ export default function PostFormWizard({
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {editMode ? 'Actualizando...' : 'Publicando...'}
+                    {editMode ? (formData.isActive ? 'Actualizando...' : 'Guardando borrador...') : (formData.isActive ? 'Publicando...' : 'Guardando borrador...')}
                   </>
                 ) : (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    {editMode ? 'Actualizar' : 'Publicar'}
+                    {editMode ? (formData.isActive ? 'Actualizar' : 'Guardar borrador') : (formData.isActive ? 'Publicar' : 'Guardar borrador')}
                   </>
                 )}
               </button>

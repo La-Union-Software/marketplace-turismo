@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -20,9 +20,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
-import { Booking, CancellationPenalty } from '@/types';
-import { calculateCancellationPenalty } from '@/lib/cancellationUtils';
-import { formatAddressForDisplay } from '@/lib/utils';
+import { Booking } from '@/types';
+import { calculateCancellationPenalty, CancellationPenalty } from '@/lib/cancellationUtils';
+import { formatAddressForDisplay, calculateCurrentPrice } from '@/lib/utils';
 import CancellationModal from '@/components/booking/CancellationModal';
 import { voucherService } from '@/services/voucherService';
 
@@ -34,6 +34,9 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
+  const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'accept' | 'decline' | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationPenalty, setCancellationPenalty] = useState<CancellationPenalty | null>(null);
 
@@ -71,10 +74,70 @@ export default function BookingDetailPage() {
     fetchBooking();
   }, [user, bookingId, hasRole]);
 
+  const SERVICE_FEE_RATE = 0.1;
+
+  const priceBreakdown = useMemo(() => {
+    if (!booking || !booking.startDate || !booking.endDate || !booking.post) {
+      return {
+        nights: 0,
+        nightlyBreakdown: [] as { date: Date; price: number }[],
+        subtotal: 0,
+        serviceCharge: 0,
+        totalWithService: booking?.totalAmount ?? 0,
+      };
+    }
+
+    const startDate = new Date(booking.startDate);
+    const endDate = new Date(booking.endDate);
+    const nights = Math.max(
+      0,
+      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    const nightlyBreakdown: { date: Date; price: number }[] = [];
+    let subtotal = 0;
+
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      const pricing = calculateCurrentPrice(booking.post, currentDate);
+      subtotal += pricing.price;
+      nightlyBreakdown.push({
+        date: currentDate,
+        price: pricing.price,
+      });
+    }
+
+    subtotal = Number(subtotal.toFixed(2));
+    const expectedService = Number((subtotal * SERVICE_FEE_RATE).toFixed(2));
+    const recordedTotal = booking.totalAmount
+      ? Number(booking.totalAmount.toFixed(2))
+      : Number((subtotal + expectedService).toFixed(2));
+    const derivedService = Number((recordedTotal - subtotal).toFixed(2));
+    const serviceCharge =
+      derivedService >= 0 && !Number.isNaN(derivedService) ? derivedService : expectedService;
+    const totalWithService = Number((subtotal + serviceCharge).toFixed(2));
+
+    return {
+      nights,
+      nightlyBreakdown,
+      subtotal,
+      serviceCharge,
+      totalWithService,
+    };
+  }, [booking]);
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const handleAcceptBooking = async () => {
     if (!booking) return;
 
     try {
+      setActionLoading('accept');
       console.log('🎯 [BookingDetail] Starting booking acceptance process for booking:', booking.id);
       console.log('🎯 [BookingDetail] Booking data:', {
         id: booking.id,
@@ -115,6 +178,9 @@ export default function BookingDetailPage() {
         stack: err instanceof Error ? err.stack : undefined
       });
       alert('Error al aceptar la reserva: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setActionLoading(null);
+      setShowAcceptConfirm(false);
     }
   };
 
@@ -122,6 +188,7 @@ export default function BookingDetailPage() {
     if (!booking) return;
 
     try {
+      setActionLoading('decline');
       await firebaseDB.bookings.updateStatus(booking.id, 'declined');
 
       // Create notification for client
@@ -142,6 +209,9 @@ export default function BookingDetailPage() {
     } catch (err) {
       console.error('Error declining booking:', err);
       alert('Error al rechazar la reserva');
+    } finally {
+      setActionLoading(null);
+      setShowDeclineConfirm(false);
     }
   };
 
@@ -169,19 +239,22 @@ export default function BookingDetailPage() {
     setShowCancellationModal(true);
   };
 
-  const handleConfirmCancellation = async () => {
+  const handleConfirmCancellation = async (reason: string) => {
     if (!booking || !user) return;
 
     setIsCancelling(true);
 
     try {
+      const cancelledBy = booking.clientId === user.id ? 'client' : 'publisher';
+
       const response = await fetch(`/api/bookings/${booking.id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          cancelledBy: booking.clientId === user.id ? 'client' : 'owner'
+          cancelledBy,
+          cancellationReason: reason.trim()
         }),
       });
 
@@ -334,7 +407,7 @@ export default function BookingDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="max-w-6xl mx-auto p-8">
         {/* Back Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -402,6 +475,59 @@ export default function BookingDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Price Breakdown */}
+            {priceBreakdown.nightlyBreakdown.length > 0 && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Detalle de Fechas y Precios
+                </h2>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {priceBreakdown.nightlyBreakdown.map(({ date, price }, index) => (
+                    <div
+                      key={`${date.toISOString()}-${index}`}
+                      className="flex justify-between items-center py-2 px-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600"
+                    >
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {date.toLocaleDateString('es-AR', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </span>
+                      <span className="text-sm font-medium text-primary">
+                        ${formatCurrency(price)} {booking.currency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                  <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                    <span>
+                      Subtotal hospedaje ({priceBreakdown.nights}{' '}
+                      {priceBreakdown.nights === 1 ? 'noche' : 'noches'})
+                    </span>
+                    <span>
+                      ${formatCurrency(priceBreakdown.subtotal)} {booking.currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                    <span>Cargo de servicio (10%)</span>
+                    <span>
+                      ${formatCurrency(priceBreakdown.serviceCharge)} {booking.currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">
+                      Total con servicio
+                    </span>
+                    <span className="text-base font-bold text-primary">
+                      ${formatCurrency(priceBreakdown.totalWithService)} {booking.currency}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Client Information */}
             <div className="glass rounded-xl p-6">
@@ -506,18 +632,18 @@ export default function BookingDetailPage() {
                 {isOwner && booking.status === 'requested' && (
                   <>
                     <button
-                      onClick={handleAcceptBooking}
+                      onClick={() => setShowAcceptConfirm(true)}
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
                       <Check className="w-4 h-4" />
-                      <span>Aceptar Reserva</span>
+                      <span>Aceptar solicitud de reserva</span>
                     </button>
                     <button
-                      onClick={handleDeclineBooking}
+                      onClick={() => setShowDeclineConfirm(true)}
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
                       <X className="w-4 h-4" />
-                      <span>Rechazar Reserva</span>
+                      <span>Rechazar solicitud de reserva</span>
                     </button>
                   </>
                 )}
@@ -534,7 +660,7 @@ export default function BookingDetailPage() {
                 )}
 
                 {/* Cancellation Actions - Only show for bookings that can be cancelled */}
-                {(booking.status === 'requested' || booking.status === 'pending_payment' || booking.status === 'paid') && (
+                {(booking.status === 'pending_payment' || booking.status === 'paid') && (
                   <button
                     onClick={handleCancelBooking}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -566,7 +692,68 @@ export default function BookingDetailPage() {
           booking={booking}
           penalty={cancellationPenalty}
           isCancelling={isCancelling}
+          actorType={booking.clientId === user?.id ? 'client' : 'publisher'}
         />
+      )}
+
+      {/* Accept Confirmation Modal */}
+      {showAcceptConfirm && booking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="glass max-w-md w-full rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Confirmar aceptación
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+              ¿Seguro que querés aceptar esta solicitud de reserva para <strong>{booking.post.title}</strong>? El huésped recibirá una notificación para completar el pago.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowAcceptConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                disabled={actionLoading === 'accept'}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAcceptBooking}
+                disabled={actionLoading === 'accept'}
+                className="px-5 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {actionLoading === 'accept' ? 'Confirmando...' : 'Confirmar aceptación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Confirmation Modal */}
+      {showDeclineConfirm && booking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="glass max-w-md w-full rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Confirmar rechazo
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+              ¿Seguro que querés rechazar esta solicitud de reserva? El cliente será notificado y la reserva se marcará como rechazada.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeclineConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                disabled={actionLoading === 'decline'}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeclineBooking}
+                disabled={actionLoading === 'decline'}
+                className="px-5 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {actionLoading === 'decline' ? 'Confirmando...' : 'Confirmar rechazo'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

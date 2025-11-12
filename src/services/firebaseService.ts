@@ -1925,6 +1925,36 @@ export const firebaseDB = {
       }
     },
 
+    async getByMercadoPagoUserId(mercadoPagoUserId: string): Promise<any | null> {
+      try {
+        const accountsRef = collection(db, 'mercadoPagoAccounts');
+        const q = query(
+          accountsRef,
+          where('mercadoPagoUserId', '==', mercadoPagoUserId),
+          where('isActive', '==', true),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          return null;
+        }
+
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+          expiresAt: data.expiresAt?.toDate?.() || (data.expiresAt ? new Date(data.expiresAt) : undefined),
+        };
+      } catch (error) {
+        console.error('Error getting MercadoPago account by MercadoPago user ID:', error);
+        return null;
+      }
+    },
+
     async update(accountId: string, updates: any): Promise<void> {
       try {
         const accountRef = doc(db, 'mercadoPagoAccounts', accountId);

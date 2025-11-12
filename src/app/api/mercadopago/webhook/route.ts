@@ -33,22 +33,7 @@ export async function POST(request: NextRequest) {
     // Handle different webhook types
     if (type === 'payment') {
       console.log('💳 [MercadoPago Public Webhook] Processing payment notification');
-      
-      // Get payment details to check operation_type
-      const paymentDetails = await getPaymentDetails(data.id);
-      if (paymentDetails && paymentDetails.operation_type === 'recurring_payment') {
-        console.log('💳 [MercadoPago Public Webhook] Processing recurring payment:', {
-          paymentId: paymentDetails.id,
-          operationType: paymentDetails.operation_type,
-          status: paymentDetails.status
-        });
-        await handlePaymentNotification(data);
-      } else {
-        console.log('⚠️ [MercadoPago Public Webhook] Skipping non-recurring payment:', {
-          paymentId: data.id,
-          operationType: paymentDetails?.operation_type || 'unknown'
-        });
-      }
+    await handlePaymentNotification(body);
     } else if (type === 'preapproval' || type === 'subscription_preapproval') {
       console.log('🔄 [MercadoPago Public Webhook] Processing subscription notification');
       await handleSubscriptionNotification(data, action);
@@ -74,25 +59,53 @@ export async function POST(request: NextRequest) {
 /**
  * Handle payment notifications
  */
-async function handlePaymentNotification(data: any) {
+async function handlePaymentNotification(notification: any) {
   try {
-    const paymentId = data?.id;
+    const paymentId = notification?.data?.id;
     if (!paymentId) {
       console.error('❌ [MercadoPago Public Webhook] No payment ID in payment notification');
       return;
     }
 
-    console.log('💳 [MercadoPago Public Webhook] Processing payment:', paymentId);
+    console.log('💳 [MercadoPago Public Webhook] Processing payment notification:', {
+      paymentId,
+      userId: notification?.user_id,
+      action: notification?.action,
+    });
 
-    // Get payment details from MercadoPago
-    const paymentDetails = await getPaymentDetails(paymentId);
+    const candidateTokens: string[] = [];
+    const mercadoPagoUserId = notification?.user_id ? String(notification.user_id) : undefined;
+
+    if (mercadoPagoUserId) {
+      const publisherAccount = await firebaseDB.mercadoPagoAccounts.getByMercadoPagoUserId(mercadoPagoUserId);
+      if (publisherAccount?.accessToken) {
+        candidateTokens.push(publisherAccount.accessToken);
+      }
+    }
+
+    if (process.env.NEXAR_MARKETPLACE_ACCESS_TOKEN) {
+      candidateTokens.push(process.env.NEXAR_MARKETPLACE_ACCESS_TOKEN);
+    }
+
+    if (process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN) {
+      candidateTokens.push(process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN);
+    }
+
+    const paymentDetails = await getPaymentDetails(paymentId, candidateTokens);
     
     if (paymentDetails) {
-      // Process payment using payment tracking service
-      const { paymentTrackingService } = await import('@/services/paymentTrackingService');
-      await paymentTrackingService.processPaymentWebhook(paymentDetails);
-      
-      await processSubscriptionPayment(paymentDetails);
+      if (paymentDetails.operation_type === 'recurring_payment') {
+        const { paymentTrackingService } = await import('@/services/paymentTrackingService');
+        await paymentTrackingService.processPaymentWebhook(paymentDetails);
+        await processSubscriptionPayment(paymentDetails);
+      } else {
+        await processBookingPayment(paymentDetails);
+      }
+    } else {
+      console.error('❌ [MercadoPago Public Webhook] Could not retrieve payment details for notification', {
+        paymentId,
+        candidateTokens: candidateTokens.length,
+      });
     }
   } catch (error) {
     console.error('❌ [MercadoPago Public Webhook] Error handling payment notification:', error);
@@ -152,37 +165,57 @@ async function handleSubscriptionNotification(data: any, action: string) {
 /**
  * Get payment details from MercadoPago
  */
-async function getPaymentDetails(paymentId: string) {
+async function getPaymentDetails(paymentId: string, accessTokens: string[]) {
   try {
-    const accessToken = process.env.NEXAR_SUSCRIPTIONS_ACCESS_TOKEN;
-    
-    if (!accessToken) {
-      throw new Error('MercadoPago access token not configured');
+    const attempts = accessTokens.filter((token): token is string => Boolean(token));
+    if (!attempts.length) {
+      throw new Error('No MercadoPago access tokens available to fetch payment details');
     }
 
-    const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const errors: Array<{ status?: number; message: string }> = [];
 
-    if (!response.ok) {
-      throw new Error(`Failed to get payment details: ${response.statusText}`);
+    for (const [index, token] of attempts.entries()) {
+      try {
+        const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          errors.push({
+            status: response.status,
+            message: `Attempt ${index + 1} failed: ${response.status} ${response.statusText} - ${errorBody}`,
+          });
+          continue;
+        }
+
+        const payment = await response.json();
+
+        console.log('💳 [MercadoPago Public Webhook] Payment details retrieved:', {
+          id: payment.id,
+          status: payment.status,
+          status_detail: payment.status_detail,
+          operation_type: payment.operation_type,
+          external_reference: payment.external_reference,
+        });
+
+        return payment;
+      } catch (attemptError) {
+        errors.push({
+          message: `Attempt ${index + 1} exception: ${
+            attemptError instanceof Error ? attemptError.message : String(attemptError)
+          }`,
+        });
+      }
     }
 
-    const payment = await response.json();
-    
-    console.log('💳 [MercadoPago Public Webhook] Payment details:', {
-      id: payment.id,
-      status: payment.status,
-      status_detail: payment.status_detail,
-      external_reference: payment.external_reference,
-      transaction_amount: payment.transaction_amount
-    });
+    console.error('❌ [MercadoPago Public Webhook] All attempts to fetch payment details failed:', errors);
+    return null;
 
-    return payment;
   } catch (error) {
     console.error('❌ [MercadoPago Public Webhook] Error getting payment details:', error);
     return null;
@@ -314,6 +347,72 @@ async function processSubscriptionPayment(payment: any) {
 
   } catch (error) {
     console.error('❌ [MercadoPago Public Webhook] Error processing subscription payment:', error);
+  }
+}
+
+/**
+ * Process a one-time booking payment
+ */
+async function processBookingPayment(payment: any) {
+  try {
+    const bookingId =
+      payment.external_reference ||
+      payment.metadata?.bookingId ||
+      (typeof payment.metadata?.external_reference === 'string'
+        ? payment.metadata.external_reference
+        : undefined);
+
+    if (!bookingId) {
+      console.error('❌ [MercadoPago Public Webhook] Booking payment missing external_reference or metadata bookingId');
+      return;
+    }
+
+    console.log('🔄 [MercadoPago Public Webhook] Processing booking payment:', {
+      bookingId,
+      paymentId: payment.id,
+      status: payment.status,
+    });
+
+    const booking = await firebaseDB.bookings.getById(bookingId);
+    if (!booking) {
+      console.error('❌ [MercadoPago Public Webhook] Booking not found for bookingId:', bookingId);
+      return;
+    }
+
+    if (payment.status === 'approved') {
+      if (booking.status === 'paid') {
+        console.log('ℹ️ [MercadoPago Public Webhook] Booking already marked as paid, skipping update:', bookingId);
+        return;
+      }
+
+      await firebaseDB.bookings.updateStatus(bookingId, 'paid', {
+        mercadoPagoPaymentId: payment.id,
+        paymentStatus: payment.status,
+        paymentStatusDetail: payment.status_detail,
+        transactionAmount: payment.transaction_amount,
+        paymentMethod: payment.payment_method_id,
+        paymentReceivedAt: new Date(),
+      });
+
+      console.log('✅ [MercadoPago Public Webhook] Booking marked as paid:', {
+        bookingId,
+        paymentId: payment.id,
+      });
+    } else if (payment.status === 'rejected') {
+      console.warn('⚠️ [MercadoPago Public Webhook] Booking payment rejected:', {
+        bookingId,
+        paymentId: payment.id,
+        status_detail: payment.status_detail,
+      });
+    } else {
+      console.log('ℹ️ [MercadoPago Public Webhook] Booking payment status:', {
+        bookingId,
+        paymentId: payment.id,
+        status: payment.status,
+      });
+    }
+  } catch (error) {
+    console.error('❌ [MercadoPago Public Webhook] Error processing booking payment:', error);
   }
 }
 

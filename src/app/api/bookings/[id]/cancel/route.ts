@@ -8,7 +8,10 @@ export async function POST(
 ) {
   try {
     const bookingId = params.id;
-    const { cancelledBy } = await request.json();
+    const body = await request.json();
+    const rawCancelledBy = body?.cancelledBy;
+    const cancellationReason: string = body?.cancellationReason?.toString() ?? '';
+    const cancelledBy = rawCancelledBy === 'owner' ? 'publisher' : rawCancelledBy;
 
     if (!bookingId) {
       return NextResponse.json(
@@ -17,9 +20,18 @@ export async function POST(
       );
     }
 
-    if (!cancelledBy || !['client', 'owner'].includes(cancelledBy)) {
+    if (!cancelledBy || !['client', 'publisher'].includes(cancelledBy)) {
       return NextResponse.json(
-        { error: 'cancelledBy debe ser "client" u "owner"' },
+        { error: 'cancelledBy debe ser "client" o "publisher"' },
+        { status: 400 }
+      );
+    }
+
+    const normalizedReason = cancellationReason.trim();
+
+    if (!normalizedReason) {
+      return NextResponse.json(
+        { error: 'El motivo de cancelación es obligatorio' },
         { status: 400 }
       );
     }
@@ -78,6 +90,7 @@ export async function POST(
     await firebaseDB.bookings.updateStatus(bookingId, 'cancelled', {
       cancelledAt: new Date(),
       cancelledBy,
+      cancellationReason: normalizedReason,
       penaltyAmount
     });
 
@@ -88,19 +101,20 @@ export async function POST(
 
     // Notify the other party
     const otherPartyId = cancelledBy === 'client' ? booking.ownerId : booking.clientId;
-    const otherPartyName = cancelledBy === 'client' ? booking.owner.name : booking.client.name;
+    const otherPartyName = cancelledBy === 'client' ? booking.client.name : booking.owner.name;
     
     await firebaseDB.notifications.create({
       userId: otherPartyId,
       type: notificationType,
       title: 'Reserva Cancelada',
-      message: `${otherPartyName} ha cancelado la reserva para "${booking.post.title}"`,
+      message: `${otherPartyName} ha cancelado la reserva para "${booking.post.title}". Motivo: ${normalizedReason}.${penaltyAmount > 0 ? ` Penalización aplicada: ${penaltyAmount} ${booking.currency}.` : ''}`,
       isRead: false,
       data: {
         bookingId,
         postId: booking.postId,
         cancelledBy,
-        penaltyAmount
+        penaltyAmount,
+        cancellationReason: normalizedReason
       }
     });
 
@@ -112,13 +126,14 @@ export async function POST(
       userId: cancellerId,
       type: notificationType,
       title: 'Cancelación Confirmada',
-      message: `Has cancelado exitosamente la reserva para "${booking.post.title}"${penaltyAmount > 0 ? ` (Penalización: ${penaltyAmount} ${booking.currency})` : ''}`,
+      message: `Has cancelado exitosamente la reserva para "${booking.post.title}". Motivo: ${normalizedReason}.${penaltyAmount > 0 ? ` Penalización aplicada: ${penaltyAmount} ${booking.currency}.` : ''}`,
       isRead: false,
       data: {
         bookingId,
         postId: booking.postId,
         cancelledBy,
-        penaltyAmount
+        penaltyAmount,
+        cancellationReason: normalizedReason
       }
     });
 

@@ -41,7 +41,7 @@ export default function SuscribirseLayout({
 }) {
   const router = useRouter();
   const { logout, user, hasRole } = useAuth();
-  const { userPlan } = useUserPlan();
+  const { userPlan, currentPostsCount, remainingPosts } = useUserPlan();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
@@ -183,6 +183,21 @@ export default function SuscribirseLayout({
                           </span>
                         ))}
                     </div>
+                    {hasRole('publisher') && (
+                      <div className="mt-3 space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Plan actual
+                        </p>
+                        <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {userPlan?.name || 'Sin plan activo'}
+                        </span>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">
+                          Publicaciones usadas: {currentPostsCount ?? '—'}
+                          {userPlan?.maxPosts != null ? ` / ${userPlan.maxPosts}` : ''}
+                          {typeof remainingPosts === 'number' ? ` (${remainingPosts} disponibles)` : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -313,6 +328,21 @@ export default function SuscribirseLayout({
                           </span>
                         ))}
                     </div>
+                    {hasRole('publisher') && (
+                      <div className="mt-3 space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Plan actual
+                        </p>
+                        <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {userPlan?.name || 'Sin plan activo'}
+                        </span>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">
+                          Publicaciones usadas: {currentPostsCount ?? '—'}
+                          {userPlan?.maxPosts != null ? ` / ${userPlan.maxPosts}` : ''}
+                          {typeof remainingPosts === 'number' ? ` (${remainingPosts} disponibles)` : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

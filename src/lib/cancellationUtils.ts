@@ -84,13 +84,17 @@ export function formatPenaltyAmount(penalty: CancellationPenalty, currency: stri
  */
 export function generatePenaltyDescription(penalty: CancellationPenalty, currency: string): string {
   if (penalty.penaltyAmount === 0) {
-    return `Cancelación sin penalización (más de ${penalty.daysBeforeBooking} días de anticipación)`;
+    const moreThanText =
+      penalty.daysBeforeBooking >= 9999
+        ? 'en cualquier momento'
+        : `más de ${penalty.daysBeforeBooking} días de anticipación`;
+    return `Cancelación sin penalización (${moreThanText})`;
   }
 
   const formattedAmount = formatPenaltyAmount(penalty, currency);
   
   if (penalty.applicablePolicy) {
-    return `Cancelación con ${penalty.applicablePolicy.days_quantity} días o menos de anticipación: ${formattedAmount} de penalización`;
+    return `Cancelación ${penalty.applicablePolicy.days_quantity >= 9999 ? 'en cualquier momento' : `con ${penalty.applicablePolicy.days_quantity} días o menos de anticipación`}: ${formattedAmount} de penalización`;
   }
 
   return `Penalización de cancelación: ${formattedAmount}`;

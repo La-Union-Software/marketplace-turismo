@@ -55,6 +55,7 @@ export default function PostDetailPage() {
   const [isFavourited, setIsFavourited] = useState(false);
   const [favouriteLoading, setFavouriteLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [hasPendingBookingRequest, setHasPendingBookingRequest] = useState(false);
 
   const postId = params.id as string;
 
@@ -112,6 +113,9 @@ export default function PostDetailPage() {
   }, [postId, user, hasRole]);
 
   const handleBookingClick = () => {
+    if (hasPendingBookingRequest) {
+      return;
+    }
     if (!user) {
       router.push('/login');
       return;
@@ -163,6 +167,30 @@ export default function PostDetailPage() {
 
     checkFavouriteStatus();
   }, [user, post]);
+
+  useEffect(() => {
+    const checkPendingRequest = async () => {
+      if (!user || !post || !hasRole('client')) {
+        setHasPendingBookingRequest(false);
+        return;
+      }
+
+      try {
+        const bookings = await firebaseDB.bookings.getByUserId(user.id);
+        const hasPending = bookings.some(
+          (booking) =>
+            booking.postId === post.id &&
+            (booking.status === 'requested' || booking.status === 'pending_payment')
+        );
+        setHasPendingBookingRequest(hasPending);
+      } catch (error) {
+        console.error('Error checking booking requests:', error);
+        setHasPendingBookingRequest(false);
+      }
+    };
+
+    checkPendingRequest();
+  }, [user, post, hasRole]);
 
   // Handle favourite toggle
   const handleFavouriteToggle = async () => {
@@ -625,9 +653,14 @@ export default function PostDetailPage() {
                 ) : (
                   <button
                     onClick={handleBookingClick}
-                    className="w-full py-3 px-4 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 font-semibold"
+                    disabled={hasPendingBookingRequest}
+                    className={`w-full py-3 px-4 rounded-lg transition-all duration-300 font-semibold ${
+                      hasPendingBookingRequest
+                        ? 'bg-gray-300 text-gray-600 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+                        : 'bg-primary text-white hover:bg-secondary'
+                    }`}
                   >
-                    Solicitar Reserva
+                    {hasPendingBookingRequest ? 'Reserva solicitada' : 'Solicitar Reserva'}
                   </button>
                 )}
               </div>
@@ -643,6 +676,7 @@ export default function PostDetailPage() {
           onClose={() => setShowBookingForm(false)}
           onSuccess={() => {
             setShowBookingForm(false);
+            setHasPendingBookingRequest(true);
             // Show success message or redirect
           }}
         />

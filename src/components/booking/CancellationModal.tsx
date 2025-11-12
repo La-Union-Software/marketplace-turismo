@@ -1,18 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, DollarSign, Calendar, Info } from 'lucide-react';
-import { Booking, CancellationPenalty } from '@/types';
-import { formatPenaltyAmount, generatePenaltyDescription } from '@/lib/cancellationUtils';
+import { Booking } from '@/types';
+import { CancellationPenalty, formatPenaltyAmount, generatePenaltyDescription } from '@/lib/cancellationUtils';
 
 interface CancellationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (reason: string) => void;
   booking: Booking;
   penalty: CancellationPenalty;
   isCancelling?: boolean;
+  actorType: 'client' | 'publisher';
 }
 
 export default function CancellationModal({
@@ -21,18 +22,39 @@ export default function CancellationModal({
   onConfirm,
   booking,
   penalty,
-  isCancelling = false
+  isCancelling = false,
+  actorType
 }: CancellationModalProps) {
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [reason, setReason] = useState('');
+  const [isReasonTouched, setIsReasonTouched] = useState(false);
+  const postTitle = booking.post?.title || 'Publicación no disponible';
+  const isClientActor = actorType === 'client';
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsConfirmed(false);
+      setReason('');
+      setIsReasonTouched(false);
+    }
+  }, [isOpen]);
 
   const handleConfirm = () => {
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      setIsReasonTouched(true);
+      return;
+    }
+
     if (isConfirmed) {
-      onConfirm();
+      onConfirm(trimmedReason);
     }
   };
 
   const handleClose = () => {
     setIsConfirmed(false);
+    setReason('');
+    setIsReasonTouched(false);
     onClose();
   };
 
@@ -45,7 +67,7 @@ export default function CancellationModal({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -72,11 +94,11 @@ export default function CancellationModal({
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
             {/* Booking Info */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                {booking.post.title}
+                {postTitle}
               </h3>
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center space-x-2">
@@ -97,64 +119,98 @@ export default function CancellationModal({
               </div>
             </div>
 
-            {/* Penalty Information */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900 dark:text-white">
-                Penalización de Cancelación
-              </h3>
-              
-              {penalty.penaltyAmount === 0 ? (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-1 bg-green-100 dark:bg-green-900/40 rounded-full">
-                      <Info className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                        Sin Penalización
-                      </p>
-                      <p className="text-sm text-green-700 dark:text-green-400">
-                        Cancelación sin costo adicional
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-1 bg-red-100 dark:bg-red-900/40 rounded-full">
-                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                        Penalización Aplicable
-                      </p>
-                      <p className="text-sm text-red-700 dark:text-red-400">
-                        {generatePenaltyDescription(penalty, booking.currency)}
-                      </p>
-                      <p className="text-lg font-bold text-red-800 dark:text-red-300 mt-2">
-                        {formatPenaltyAmount(penalty, booking.currency)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {!isClientActor && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
+                🚨 Aviso: Nexar Turismo exige el cumplimiento total de los acuerdos con los clientes. Si un negocio no efectúa un reembolso pendiente o cancela una estadía, podrá ser suspendido de la plataforma de forma inmediata. Nuestro compromiso es proteger la confianza de todos los usuarios.
+              </div>
+            )}
 
-              {/* Days Information */}
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p>
-                  Días antes de la reserva: <span className="font-medium">{penalty.daysBeforeBooking}</span>
-                </p>
-                {penalty.applicablePolicy && (
-                  <p>
-                    Política aplicable: Cancelación con {penalty.applicablePolicy.days_quantity} días o menos
+            {isClientActor && booking.status === 'paid' && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="p-1 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                    <Info className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                  </div>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">
+                    Esta cancelación está sujeta a las políticas de cancelación del servicio. Revisá la información detallada para conocer posibles cargos o reembolsos.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Penalty Information */}
+            {isClientActor && (
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  Penalización de Cancelación
+                </h3>
+                
+                {penalty.penaltyAmount === 0 ? (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-1 bg-green-100 dark:bg-green-900/40 rounded-full">
+                        <Info className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                          Sin Penalización
+                        </p>
+                        <p className="text-sm text-green-700 dark:text-green-400">
+                          Cancelación sin costo adicional
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-1 bg-red-100 dark:bg-red-900/40 rounded-full">
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                          Penalización Aplicable
+                        </p>
+                        <p className="text-sm text-red-700 dark:text-red-400">
+                          {generatePenaltyDescription(penalty, booking.currency)}
+                        </p>
+                        <p className="text-lg font-bold text-red-800 dark:text-red-300 mt-2">
+                          {formatPenaltyAmount(penalty, booking.currency)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Confirmation Checkbox */}
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="cancellation-reason"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Motivo de cancelación <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="cancellation-reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  onBlur={() => setIsReasonTouched(true)}
+                  disabled={isCancelling}
+                  required
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-60"
+                  placeholder="Explicá brevemente el motivo de la cancelación"
+                />
+                {isReasonTouched && !reason.trim() && (
+                  <p className="mt-1 text-sm text-red-500">
+                    El motivo de cancelación es obligatorio.
                   </p>
                 )}
               </div>
-            </div>
 
-            {/* Confirmation Checkbox */}
-            <div className="space-y-3">
               <label className="flex items-start space-x-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                 <input
                   type="checkbox"
@@ -167,12 +223,18 @@ export default function CancellationModal({
                   <p className="font-medium mb-1">
                     Confirmo que deseo cancelar esta reserva
                   </p>
-                  <p>
-                    Entiendo que {penalty.penaltyAmount === 0 
-                      ? 'no habrá penalización por esta cancelación'
-                      : `se aplicará una penalización de ${formatPenaltyAmount(penalty, booking.currency)}`
-                    } y que esta acción no se puede deshacer.
-                  </p>
+                  {isClientActor ? (
+                    <p>
+                      Entiendo que {penalty.penaltyAmount === 0 
+                        ? 'no habrá penalización por esta cancelación'
+                        : `se aplicará una penalización de ${formatPenaltyAmount(penalty, booking.currency)}`
+                      } y que esta acción no se puede deshacer.
+                    </p>
+                  ) : (
+                    <p>
+                      Entiendo que esta acción no se puede deshacer.
+                    </p>
+                  )}
                 </div>
               </label>
             </div>
@@ -189,9 +251,9 @@ export default function CancellationModal({
             </button>
             <button
               onClick={handleConfirm}
-              disabled={!isConfirmed || isCancelling}
+              disabled={!isConfirmed || isCancelling || !reason.trim()}
               className={`px-6 py-2 rounded-lg transition-all duration-300 ${
-                !isConfirmed || isCancelling
+                !isConfirmed || isCancelling || !reason.trim()
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-red-600 text-white hover:bg-red-700'
               }`}

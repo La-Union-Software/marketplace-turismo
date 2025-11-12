@@ -4,30 +4,21 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Shield, Globe, Link } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { usePermissions } from '@/services/permissionsService';
-import MarketplaceConnectionForm from '@/components/forms/MarketplaceConnectionForm';
+import MarketplaceAccountModal from '@/components/modals/MarketplaceAccountModal';
 import PublisherStatus from '@/components/publisher/PublisherStatus';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const permissions = usePermissions(user?.roles || []);
-  const [showMarketplaceForm, setShowMarketplaceForm] = useState(false);
+  const { user, hasRole } = useAuth();
+  const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
+  const isSuperadmin = hasRole('superadmin');
 
-  const settingsSections = [
+  const baseSections = [
     {
       title: 'Perfil',
       description: 'Gestiona tu información personal y preferencias',
       icon: User,
       href: '/settings/profile',
       color: 'from-blue-500 to-blue-600'
-    },
-    {
-      title: 'MercadoPago Marketplace',
-      description: 'Conecta tu cuenta de MercadoPago para recibir pagos',
-      icon: Link,
-      href: '#',
-      color: 'from-yellow-500 to-yellow-600',
-      onClick: () => setShowMarketplaceForm(true)
     },
     {
       title: 'Notificaciones',
@@ -50,6 +41,22 @@ export default function SettingsPage() {
       href: '/settings/locale',
       color: 'from-purple-500 to-purple-600'
     }
+  ];
+
+  const settingsSections = [
+    ...baseSections,
+    ...(isSuperadmin
+      ? [
+          {
+            title: 'MercadoPago Marketplace',
+            description: 'Consulta las credenciales principales del marketplace de Nexar',
+            icon: Link,
+            href: '#',
+            color: 'from-yellow-500 to-yellow-600',
+            onClick: () => setShowMarketplaceModal(true),
+          },
+        ]
+      : []),
   ];
 
   // MercadoPago credentials are now configured via environment variables
@@ -106,16 +113,12 @@ export default function SettingsPage() {
         </div>
 
         {/* Publisher Status */}
-        <PublisherStatus showDetails={true} />
+        {!isSuperadmin && <PublisherStatus showDetails={true} />}
 
-        {/* Marketplace Connection Form */}
-        <MarketplaceConnectionForm
-          isOpen={showMarketplaceForm}
-          onSuccess={() => {
-            setShowMarketplaceForm(false);
-            // Optionally refresh the page or show a success message
-          }}
-          onCancel={() => setShowMarketplaceForm(false)}
+        {/* Marketplace Account Modal */}
+        <MarketplaceAccountModal
+          isOpen={showMarketplaceModal}
+          onClose={() => setShowMarketplaceModal(false)}
         />
 
         {/* Account Info */}

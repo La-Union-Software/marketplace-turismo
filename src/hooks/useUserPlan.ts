@@ -8,9 +8,15 @@ export function useUserPlan() {
   const [userPlan, setUserPlan] = useState<SubscriptionPlan | null>(null);
   const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPostsCount, setCurrentPostsCount] = useState<number | null>(null);
+  const [remainingPosts, setRemainingPosts] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
+      setUserPlan(null);
+      setUserSubscription(null);
+      setCurrentPostsCount(null);
+      setRemainingPosts(null);
       setIsLoading(false);
       return;
     }
@@ -24,6 +30,10 @@ export function useUserPlan() {
 
       // Only check for plans if user has publisher role
       if (!hasRole('publisher')) {
+        setUserPlan(null);
+        setUserSubscription(null);
+        setCurrentPostsCount(null);
+        setRemainingPosts(null);
         setIsLoading(false);
         return;
       }
@@ -50,8 +60,25 @@ export function useUserPlan() {
 
       setUserPlan(mockPlan);
       setUserSubscription(null);
+
+      // Calculate current posts usage
+      if (user?.id) {
+        const userPosts = await firebaseDB.posts.getByUserId(user.id);
+        const relevantPosts = userPosts.filter(post => 
+          post.status ? ['published', 'draft'].includes(post.status) : true
+        );
+
+        const currentCount = relevantPosts.length;
+        setCurrentPostsCount(currentCount);
+        setRemainingPosts(Math.max(0, mockPlan.maxPosts - currentCount));
+      } else {
+        setCurrentPostsCount(null);
+        setRemainingPosts(null);
+      }
     } catch (error) {
       console.error('Error loading user plan:', error);
+      setCurrentPostsCount(null);
+      setRemainingPosts(null);
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +92,8 @@ export function useUserPlan() {
     userPlan,
     userSubscription,
     isLoading,
+    currentPostsCount,
+    remainingPosts,
     refreshPlan
   };
 }

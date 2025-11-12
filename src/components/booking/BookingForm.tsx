@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Calendar, User, Mail, Phone, MessageSquare, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, Booking } from '@/types';
 import { formatAddressForDisplay, calculateCurrentPrice } from '@/lib/utils';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 
 interface BookingFormProps {
   post: BasePost;
@@ -30,32 +31,40 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
     }
   });
 
-  // Calculate total price for a date range considering dynamic pricing
-  const calculateTotalPrice = (startDate: string, endDate: string) => {
-    if (!startDate || !endDate) return { total: 0, breakdown: [] };
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    
-    let total = 0;
-    const breakdown: Array<{ date: string; price: number; currency: string }> = [];
-    
-    for (let i = 0; i < nights; i++) {
-      const currentDate = new Date(start);
-      currentDate.setDate(start.getDate() + i);
-      
-      const pricing = calculateCurrentPrice(post, currentDate);
-      total += pricing.price;
-      breakdown.push({
-        date: currentDate.toISOString().split('T')[0],
-        price: pricing.price,
-        currency: pricing.currency
-      });
-    }
-    
-    return { total, breakdown, nights };
-  };
+  const maxGuests = Number((post?.specificFields as any)?.maxPeople || 0) || null;
+  
+  const [selectedRange, setSelectedRange] = useState<{
+    startDate: Date;
+    endDate: Date;
+    nights: number;
+    totalPrice: number;
+  } | null>(null);
+
+  const SERVICE_FEE_RATE = 0.1;
+
+  const serviceCharge = selectedRange
+    ? Number((selectedRange.totalPrice * SERVICE_FEE_RATE).toFixed(2))
+    : 0;
+
+  const totalWithServiceCharge = selectedRange
+    ? Number((selectedRange.totalPrice + serviceCharge).toFixed(2))
+    : 0;
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  // Handle date range selection
+  const handleRangeChange = useCallback((range: { startDate: Date; endDate: Date; nights: number; totalPrice: number }) => {
+    setSelectedRange(range);
+    setFormData(prev => ({
+      ...prev,
+      startDate: range.startDate.toISOString().split('T')[0],
+      endDate: range.endDate.toISOString().split('T')[0]
+    }));
+  }, []);
 
   useEffect(() => {
     // Pre-fill form with user data if available
@@ -86,18 +95,18 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
       return;
     }
 
-    if (!formData.startDate || !formData.endDate) {
-      setError('Por favor selecciona las fechas de inicio y fin');
+    if (!selectedRange) {
+      setError('Por favor selecciona las fechas de la reserva');
       return;
     }
 
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      setError('La fecha de fin debe ser posterior a la fecha de inicio');
+    if (maxGuests && formData.guestCount > maxGuests) {
+      setError(`El número de viajeros no puede exceder ${maxGuests}`);
       return;
     }
 
-    if (new Date(formData.startDate) < new Date()) {
-      setError('La fecha de inicio no puede ser anterior a hoy');
+    if (selectedRange.nights <= 0) {
+      setError('Debes seleccionar al menos una noche');
       return;
     }
 
@@ -105,9 +114,9 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
     setError(null);
 
     try {
-      // Calculate total amount using dynamic pricing
-      const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
-      const totalAmount = priceCalculation.total;
+      // Use the calculated price plus service charge
+      const serviceFeeAmount = Number((selectedRange.totalPrice * SERVICE_FEE_RATE).toFixed(2));
+      const totalAmount = Number((selectedRange.totalPrice + serviceFeeAmount).toFixed(2));
 
       // Create booking
       const bookingData = {
@@ -115,10 +124,10 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
         clientId: user.id,
         ownerId: post.userId,
         status: 'requested' as const,
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
+        startDate: selectedRange.startDate,
+        endDate: selectedRange.endDate,
         totalAmount,
-        currency: priceCalculation.breakdown[0]?.currency || post.currency,
+        currency: post.currency,
         guestCount: formData.guestCount,
         clientData: formData.clientData
       };
@@ -150,13 +159,20 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
   const handleInputChange = (field: string, value: string | number) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof prev],
-          [child]: value
-        }
-      }));
+      if (parent === 'clientData') {
+        setFormData(prev => ({
+          ...prev,
+          clientData: {
+            ...prev.clientData,
+            [child]: value
+          }
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [parent]: value
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -195,41 +211,83 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
                 {post.title}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                {post.address ? formatAddressForDisplay(post.address) : 'Ubicación no disponible'} • ${post.price} por noche
+                {post.address ? formatAddressForDisplay(post.address) : 'Ubicación no disponible'}
+                {selectedRange && (
+                  <span className="block mt-1 font-medium text-primary">
+                    ${formatCurrency(selectedRange.totalPrice)} total por {selectedRange.nights} noches
+                  </span>
+                )}
               </p>
             </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Fecha de Inicio *
-                </label>
-                <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => handleInputChange('startDate', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Fecha de Fin *
-                </label>
-                <input
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => handleInputChange('endDate', e.target.value)}
-                  min={formData.startDate || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                  required
-                />
-              </div>
+            {/* Date Range Picker */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Seleccionar Fechas *
+              </label>
+              <DateRangePicker 
+                post={post} 
+                onRangeChange={handleRangeChange}
+                className="w-full"
+              />
             </div>
+
+            {/* Detailed Date and Price Breakdown */}
+            {selectedRange && selectedRange.nights > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                  Detalle de Fechas y Precios
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {Array.from({ length: selectedRange.nights }, (_, i) => {
+                    const currentDate = new Date(selectedRange.startDate);
+                    currentDate.setDate(selectedRange.startDate.getDate() + i);
+                    const pricing = calculateCurrentPrice(post, currentDate);
+                    
+                    return (
+                      <div 
+                        key={i}
+                        className="flex justify-between items-center py-2 px-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600"
+                      >
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {currentDate.toLocaleDateString('es-AR', { 
+                            weekday: 'short', 
+                            day: 'numeric', 
+                            month: 'short' 
+                          })}
+                        </span>
+                        <span className="text-sm font-medium text-primary">
+                          ${formatCurrency(pricing.price)} {post.currency}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Subtotal hospedaje ({selectedRange.nights} {selectedRange.nights === 1 ? 'noche' : 'noches'}):
+                    </span>
+                    <span className="text-sm font-semibold text-primary">
+                      ${formatCurrency(selectedRange.totalPrice)} {post.currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
+                    <span>Cargo de servicio (10%)</span>
+                    <span>${formatCurrency(serviceCharge)} {post.currency}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">
+                      Total con servicio:
+                    </span>
+                    <span className="text-base font-bold text-primary">
+                      ${formatCurrency(totalWithServiceCharge)} {post.currency}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Guest Count */}
             <div>
@@ -240,9 +298,13 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
               <input
                 type="number"
                 min="1"
-                max="20"
+                max={maxGuests || 20}
                 value={formData.guestCount}
-                onChange={(e) => handleInputChange('guestCount', parseInt(e.target.value) || 1)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  const bounded = Math.max(1, Math.min(val, maxGuests || 20));
+                  handleInputChange('guestCount', bounded);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               />
@@ -320,31 +382,29 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
             )}
 
             {/* Total Amount */}
-            {formData.startDate && formData.endDate && (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <div className="flex justify-between items-center">
+            {selectedRange && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                  <span>Subtotal hospedaje</span>
+                  <span>${formatCurrency(selectedRange.totalPrice)} {post.currency}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                  <span>Cargo de servicio (10%)</span>
+                  <span>${formatCurrency(serviceCharge)} {post.currency}</span>
+                </div>
+                <div className="border-t border-primary/20 pt-3 flex justify-between items-center">
                   <span className="font-medium text-gray-900 dark:text-white">
                     Total Estimado:
                   </span>
                   <span className="text-lg font-bold text-primary">
-                    {(() => {
-                      const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
-                      return `${priceCalculation.total.toLocaleString()} ${priceCalculation.breakdown[0]?.currency || post.currency}`;
-                    })()}
+                    ${formatCurrency(totalWithServiceCharge)} {post.currency}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                  {(() => {
-                    const priceCalculation = calculateTotalPrice(formData.startDate, formData.endDate);
-                    if (priceCalculation.breakdown.length === 0) return '';
-                    
-                    const uniquePrices = [...new Set(priceCalculation.breakdown.map(b => b.price))];
-                    if (uniquePrices.length === 1) {
-                      return `${priceCalculation.nights} noches × $${uniquePrices[0].toLocaleString()}`;
-                    } else {
-                      return `${priceCalculation.nights} noches (precios variables)`;
-                    }
-                  })()}
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  El cargo de servicio ayuda a mantener nuestra plataforma segura y funcionando correctamente.
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {selectedRange.nights} noches - Fechas: {selectedRange.startDate.toLocaleDateString('es-AR')} a {selectedRange.endDate.toLocaleDateString('es-AR')}
                 </p>
               </div>
             )}

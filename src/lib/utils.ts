@@ -240,7 +240,8 @@ export function calculateCurrentPrice(post: BasePost, targetDate?: Date): {
 
   // Handle dynamic pricing
   if (post.pricing.type === 'dynamic') {
-    const currentDateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Use local date format to avoid timezone issues
+    const currentDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const currentWeekday = getWeekdayFromDate(date);
     
     // Find applicable season
@@ -300,10 +301,13 @@ export function calculateCurrentPrice(post: BasePost, targetDate?: Date): {
 
 /**
  * Get weekday from a date
+ * Fixed to handle local time properly and avoid timezone offset issues
  */
 function getWeekdayFromDate(date: Date): Weekday {
+  // Use local date methods to avoid timezone issues
+  const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const weekdays: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  return weekdays[date.getDay()];
+  return weekdays[localDate.getDay()];
 }
 
 /**
@@ -352,4 +356,79 @@ export function getMaxPriceFromDynamicPricing(post: BasePost): number {
   }
 
   return post.price;
+}
+
+/**
+ * Get available dates for a post based on dynamic pricing
+ * Returns an array of available dates where the post has pricing configured
+ */
+export function getAvailableDates(post: BasePost, startDate?: Date, endDate?: Date): Date[] {
+  if (!post.pricing || post.pricing.type === 'fixed') {
+    // If fixed pricing, all dates are available
+    return [];
+  }
+
+  const availableDates: Date[] = [];
+  const start = startDate || new Date();
+  const end = endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year from now
+
+  // Iterate through each day in the range
+  const current = new Date(start);
+  while (current <= end) {
+    const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+    const weekday = getWeekdayFromDate(current);
+
+    // Check if there's a season that covers this date
+    const applicableSeason = post.pricing.seasons.find(season => {
+      return dateStr >= season.startDate && dateStr <= season.endDate;
+    });
+
+    // If there's a season and it has a price for this weekday, the date is available
+    if (applicableSeason && applicableSeason.weekdayPrices[weekday] !== undefined) {
+      availableDates.push(new Date(current));
+    }
+
+    // Move to next day
+    current.setDate(current.getDate() + 1);
+  }
+
+  return availableDates;
+}
+
+/**
+ * Check if a specific date is available for booking
+ */
+export function isDateAvailable(post: BasePost, date: Date): boolean {
+  if (!post.pricing || post.pricing.type === 'fixed') {
+    return true; // Fixed pricing means all dates are available
+  }
+
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const weekday = getWeekdayFromDate(date);
+
+  // Check if there's a season that covers this date
+  const applicableSeason = post.pricing.seasons.find(season => {
+    return dateStr >= season.startDate && dateStr <= season.endDate;
+  });
+
+  // Return true if there's a season and it has a price for this weekday
+  return !!(applicableSeason && applicableSeason.weekdayPrices[weekday] !== undefined);
+}
+
+/**
+ * Get the next available date for a post
+ */
+export function getNextAvailableDate(post: BasePost, fromDate?: Date): Date | null {
+  const start = fromDate || new Date();
+  const maxDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Check up to 1 year ahead
+  
+  const current = new Date(start);
+  while (current <= maxDate) {
+    if (isDateAvailable(post, current)) {
+      return new Date(current);
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return null; // No available dates found
 } 

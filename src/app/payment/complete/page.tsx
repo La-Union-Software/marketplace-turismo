@@ -11,10 +11,17 @@ type PaymentStatus = 'approved' | 'rejected' | 'pending' | 'loading';
 function PaymentCompleteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const [status, setStatus] = useState<PaymentStatus>('loading');
   const [message, setMessage] = useState('');
-  const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);
+  const contextParam = searchParams.get('context');
+  const paymentStatus = searchParams.get('status');
+  const paymentId = searchParams.get('payment_id');
+  const preapprovalId = searchParams.get('preapproval_id');
+  const externalReference = searchParams.get('external_reference');
+  const bookingQueryParam = searchParams.get('bookingId') || searchParams.get('booking');
+  const resolvedBookingId = bookingQueryParam || (!preapprovalId ? externalReference : null);
+  const isSubscriptionFlow = contextParam === 'subscription' || !!preapprovalId;
 
   // Function to verify subscription status and trigger webhook
   const verifySubscriptionStatus = async (preapprovalId: string) => {
@@ -65,50 +72,47 @@ function PaymentCompleteContent() {
   };
 
   useEffect(() => {
-    const paymentStatus = searchParams.get('status');
-    const paymentId = searchParams.get('payment_id');
-    const preapprovalId = searchParams.get('preapproval_id');
-    const externalReference = searchParams.get('external_reference');
+    if (!isSubscriptionFlow) {
+      return;
+    }
 
-    console.log('🔍 [Payment Complete] URL params:', {
+    console.log('🔍 [Payment Complete] Subscription flow params:', {
       status: paymentStatus,
       paymentId,
       preapprovalId,
-      externalReference
+      externalReference,
     });
 
-    console.log('🔍 [Payment Complete] Complete URL:', window.location.href);
-    console.log('🔍 [Payment Complete] Search params:', window.location.search);
-    console.log('🔍 [Payment Complete] All search params:', Object.fromEntries(new URLSearchParams(window.location.search)));
+    if (typeof window !== 'undefined') {
+      console.log('🔍 [Payment Complete] Complete URL:', window.location.href);
+      console.log('🔍 [Payment Complete] Search params:', window.location.search);
+      console.log(
+        '🔍 [Payment Complete] All search params:',
+        Object.fromEntries(new URLSearchParams(window.location.search))
+      );
+    }
 
-    // Handle subscription completion (PreApprovalPlan)
     if (preapprovalId) {
       console.log('✅ [Payment Complete] Subscription completion detected:', preapprovalId);
-      
-      // First set as pending while we verify
       setStatus('pending');
       setMessage('Verificando tu suscripción...');
-      
-      // Verify subscription status and update accordingly
+
       verifySubscriptionStatus(preapprovalId).then((isVerified) => {
         if (isVerified) {
           setStatus('approved');
           setMessage('¡Suscripción exitosa! Tu plan ha sido activado y puedes comenzar a publicar.');
-          
-          // Refresh user data to get updated roles
+
           setTimeout(() => {
             refreshUser?.();
           }, 2000);
-          
-          // Redirect to dashboard after 5 seconds
+
           setTimeout(() => {
             router.push('/dashboard');
           }, 5000);
         } else {
           setStatus('pending');
           setMessage('Tu suscripción está siendo procesada. Te notificaremos cuando esté confirmada.');
-          
-          // Try again in 10 seconds
+
           setTimeout(() => {
             verifySubscriptionStatus(preapprovalId).then((retryVerified) => {
               if (retryVerified) {
@@ -121,18 +125,14 @@ function PaymentCompleteContent() {
           }, 10000);
         }
       });
-    }
-    // Handle regular payment completion
-    else if (paymentStatus === 'approved') {
+    } else if (paymentStatus === 'approved') {
       setStatus('approved');
       setMessage('¡Pago exitoso! Tu suscripción ha sido activada.');
-      
-      // Refresh user data to get updated roles
+
       setTimeout(() => {
         refreshUser?.();
       }, 2000);
-      
-      // Redirect to dashboard after 5 seconds
+
       setTimeout(() => {
         router.push('/dashboard');
       }, 5000);
@@ -142,17 +142,74 @@ function PaymentCompleteContent() {
     } else if (paymentStatus === 'pending') {
       setStatus('pending');
       setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
+    } else if (paymentId || externalReference) {
+      setStatus('pending');
+      setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
     } else {
-      // If no status or preapproval_id, check if we can determine success from other params
-      if (paymentId || externalReference) {
-        setStatus('pending');
-        setMessage('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
-      } else {
-        setStatus('rejected');
-        setMessage('Error en el procesamiento del pago. Por favor, contacta soporte.');
-      }
+      setStatus('rejected');
+      setMessage('Error en el procesamiento del pago. Por favor, contacta soporte.');
     }
-  }, [searchParams, router, refreshUser]);
+  }, [
+    isSubscriptionFlow,
+    paymentStatus,
+    paymentId,
+    preapprovalId,
+    externalReference,
+    refreshUser,
+    router,
+    verifySubscriptionStatus,
+  ]);
+
+  useEffect(() => {
+    if (isSubscriptionFlow) {
+      return;
+    }
+
+    console.log('🔍 [Payment Complete] Booking flow params:', {
+      status: paymentStatus,
+      paymentId,
+      bookingId: resolvedBookingId,
+      externalReference,
+    });
+
+    if (typeof window !== 'undefined') {
+      console.log('🔍 [Payment Complete] Complete URL:', window.location.href);
+      console.log('🔍 [Payment Complete] Search params:', window.location.search);
+      console.log(
+        '🔍 [Payment Complete] All search params:',
+        Object.fromEntries(new URLSearchParams(window.location.search))
+      );
+    }
+
+    if (paymentStatus === 'approved') {
+      setStatus('approved');
+      setMessage('¡Pago de tu reserva registrado! Estamos notificando al proveedor.');
+    } else if (paymentStatus === 'rejected') {
+      setStatus('rejected');
+      setMessage('El pago fue rechazado o cancelado. Podés intentar nuevamente desde tu reserva.');
+    } else if (paymentStatus === 'pending') {
+      setStatus('pending');
+      setMessage('Tu pago está siendo procesado. Verificá el estado en Mis Reservas en unos minutos.');
+    } else if (paymentId || resolvedBookingId) {
+      setStatus('pending');
+      setMessage('Estamos confirmando tu pago. Actualizaremos tu reserva automáticamente.');
+    } else {
+      setStatus('rejected');
+      setMessage('No pudimos procesar el pago. Volvé a intentarlo desde la sección Mis Reservas.');
+    }
+  }, [isSubscriptionFlow, paymentStatus, paymentId, resolvedBookingId, externalReference]);
+
+  useEffect(() => {
+    if (isSubscriptionFlow || status !== 'approved') {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      router.push('/bookings');
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isSubscriptionFlow, status, router]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -181,10 +238,42 @@ function PaymentCompleteContent() {
   };
 
   const handleContinue = () => {
+    if (isSubscriptionFlow) {
+      if (status === 'approved') {
+        router.push('/dashboard');
+      } else {
+        router.push('/suscribirse');
+      }
+      return;
+    }
+
     if (status === 'approved') {
-      router.push('/dashboard');
+      router.push('/bookings');
+    } else if (resolvedBookingId) {
+      router.push(`/checkout/${resolvedBookingId}`);
     } else {
-      router.push('/suscribirse');
+      router.push('/bookings');
+    }
+  };
+
+  const actionButtonText = isSubscriptionFlow
+    ? status === 'approved'
+      ? 'Ir al Dashboard'
+      : 'Intentar de Nuevo'
+    : status === 'approved'
+      ? 'Ir a Mis Reservas'
+      : 'Volver al Pago';
+
+  const getStatusHeading = () => {
+    switch (status) {
+      case 'approved':
+        return isSubscriptionFlow ? '¡Pago Exitoso!' : '¡Reserva Pagada!';
+      case 'rejected':
+        return isSubscriptionFlow ? 'Pago Rechazado' : 'Pago no completado';
+      case 'pending':
+        return 'Pago Pendiente';
+      default:
+        return 'Procesando...';
     }
   };
 
@@ -214,10 +303,7 @@ function PaymentCompleteContent() {
           className="mb-6"
         >
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {status === 'approved' && '¡Pago Exitoso!'}
-            {status === 'rejected' && 'Pago Rechazado'}
-            {status === 'pending' && 'Pago Pendiente'}
-            {status === 'loading' && 'Procesando...'}
+            {getStatusHeading()}
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             {message}
@@ -225,7 +311,7 @@ function PaymentCompleteContent() {
         </motion.div>
 
         {/* Subscription Details */}
-        {status === 'approved' && (
+        {status === 'approved' && isSubscriptionFlow && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -238,6 +324,27 @@ function PaymentCompleteContent() {
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Ahora puedes crear publicaciones y acceder a todas las funcionalidades de editor.
             </p>
+          </motion.div>
+        )}
+
+        {status === 'approved' && !isSubscriptionFlow && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+          >
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+              Reserva confirmada
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Ya notificamos al proveedor y actualizaremos el estado de tu reserva en los próximos minutos.
+            </p>
+            {resolvedBookingId && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                ID de reserva: {resolvedBookingId}
+              </p>
+            )}
           </motion.div>
         )}
 
@@ -255,15 +362,13 @@ function PaymentCompleteContent() {
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            <span>
-              {status === 'approved' ? 'Ir al Dashboard' : 'Intentar de Nuevo'}
-            </span>
+            <span>{actionButtonText}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </motion.div>
 
         {/* Auto-redirect notice */}
-        {status === 'approved' && (
+        {status === 'approved' && isSubscriptionFlow && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -271,6 +376,17 @@ function PaymentCompleteContent() {
             className="mt-4 text-sm text-gray-500 dark:text-gray-400"
           >
             Te redirigiremos automáticamente en unos segundos...
+          </motion.div>
+        )}
+
+        {status === 'approved' && !isSubscriptionFlow && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-4 text-sm text-gray-500 dark:text-gray-400"
+          >
+            Te llevaremos a Mis Reservas para que veas el estado actualizado.
           </motion.div>
         )}
 

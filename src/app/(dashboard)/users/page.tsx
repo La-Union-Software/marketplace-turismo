@@ -12,6 +12,7 @@ import {
   Trash2, 
   Shield,
   Eye,
+  EyeOff,
   Mail,
   Phone,
   Calendar,
@@ -25,10 +26,11 @@ import { User, UserRole } from '@/types';
 import { SYSTEM_ROLES } from '@/services/permissionsService';
 import RequireSuperadmin from '@/components/auth/ProtectedRoute';
 import { useRouter } from 'next/navigation';
-import { UserCheck, Share2, Copy, Check, X } from 'lucide-react';
+import { UserCheck, Share2, Copy, Check, X, Download } from 'lucide-react';
 import { generateReferralUrl, generateReferralCode } from '@/lib/referralUtils';
 import PasswordValidation, { validatePassword, isPasswordValid } from '@/components/ui/PasswordValidation';
 import { firebaseAuth } from '@/services/firebaseService';
+import * as XLSX from 'xlsx';
 
 export default function UsersPage() {
   return (
@@ -56,6 +58,7 @@ function UsersManagement() {
   const [activeTab, setActiveTab] = useState<'users' | 'referrals'>('users');
   const [referralUsers, setReferralUsers] = useState<User[]>([]);
   const [referralCounts, setReferralCounts] = useState<Record<string, number>>({});
+  const [publisherCounts, setPublisherCounts] = useState<Record<string, number>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showAddReferralModal, setShowAddReferralModal] = useState(false);
   const [showReferralDetailModal, setShowReferralDetailModal] = useState(false);
@@ -83,18 +86,27 @@ function UsersManagement() {
       const referrals = await firebaseDB.users.getByRole('referral');
       setReferralUsers(referrals);
       
-      // Load referral counts for each referral user
+      // Load referral counts and publisher counts for each referral user
       const counts: Record<string, number> = {};
+      const publisherCountsMap: Record<string, number> = {};
       for (const referral of referrals) {
         try {
           const referredUsers = await firebaseDB.users.getReferredUsers(referral.id);
           counts[referral.id] = referredUsers.length;
+          
+          // Count users with publisher role
+          const publisherCount = referredUsers.filter(user => 
+            user.roles.some(role => role.roleName === 'publisher' && role.isActive)
+          ).length;
+          publisherCountsMap[referral.id] = publisherCount;
         } catch (error) {
           console.error(`Error getting count for referral ${referral.id}:`, error);
           counts[referral.id] = 0;
+          publisherCountsMap[referral.id] = 0;
         }
       }
       setReferralCounts(counts);
+      setPublisherCounts(publisherCountsMap);
     } catch (error) {
       console.error('Error loading referral users:', error);
     }
@@ -124,6 +136,155 @@ function UsersManagement() {
       setReferredUsers([]);
     } finally {
       setIsLoadingReferredUsers(false);
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      setIsProcessing(true);
+      
+      // Get all referral users and their referred users with subscriptions
+      const allReferralData: Array<{
+        referral: User;
+        referredUsers: User[];
+        publisherUsers: User[];
+      }> = [];
+
+      for (const referral of referralUsers) {
+        const referredUsers = await firebaseDB.users.getReferredUsers(referral.id);
+        const publisherUsers = referredUsers.filter(user => 
+          user.roles.some(role => role.roleName === 'publisher' && role.isActive)
+        );
+        
+        allReferralData.push({
+          referral,
+          referredUsers,
+          publisherUsers,
+        });
+      }
+
+      // Prepare Resumen sheet data
+      const resumenData = await Promise.all(
+        allReferralData.map(async ({ referral, referredUsers, publisherUsers }) => {
+          // Get subscriptions for all publisher users and calculate total
+          let totalPlanAmount = 0;
+          const publisherDetails: Array<{ userId: string; planName: string; amount: number }> = [];
+
+          for (const publisher of publisherUsers) {
+            try {
+              const subscriptions = await firebaseDB.subscriptions.getByUserId(publisher.id);
+              // Get active subscriptions
+              const activeSubscriptions = subscriptions.filter(sub => 
+                sub.status === 'active' && sub.plan
+              );
+              
+              for (const subscription of activeSubscriptions) {
+                const amount = subscription.plan.price || 0;
+                totalPlanAmount += amount;
+                publisherDetails.push({
+                  userId: publisher.id,
+                  planName: subscription.plan.name || 'N/A',
+                  amount,
+                });
+              }
+            } catch (error) {
+              console.error(`Error getting subscriptions for user ${publisher.id}:`, error);
+            }
+          }
+
+          const transferAmount = totalPlanAmount * 0.05; // 5% of total
+
+          return {
+            'Usuario Referente': referral.name,
+            'Email Referente': referral.email,
+            'Código de Referido': referral.referralCode || 'N/A',
+            'Total Usuarios Referidos': referredUsers.length,
+            'Usuarios Publisher': publisherUsers.length,
+            'Cantidad a transferir': transferAmount.toFixed(2),
+          };
+        })
+      );
+
+      // Prepare Referidos sheet data
+      const referidosData: Array<{
+        'Usuario Referido': string;
+        'Email Referido': string;
+        'Plan Actual': string;
+        'Monto del Plan': string;
+        'Usuario Referente': string;
+      }> = [];
+
+      for (const { referral, referredUsers } of allReferralData) {
+        for (const referredUser of referredUsers) {
+          try {
+            const subscriptions = await firebaseDB.subscriptions.getByUserId(referredUser.id);
+            const activeSubscriptions = subscriptions.filter(sub => 
+              sub.status === 'active' && sub.plan
+            );
+
+            if (activeSubscriptions.length > 0) {
+              // Use the first active subscription
+              const subscription = activeSubscriptions[0];
+              referidosData.push({
+                'Usuario Referido': referredUser.name,
+                'Email Referido': referredUser.email,
+                'Plan Actual': subscription.plan.name || 'N/A',
+                'Monto del Plan': `${subscription.plan.currency || ''} ${subscription.plan.price || 0}`,
+                'Usuario Referente': referral.name,
+              });
+            } else {
+              // No active subscription
+              referidosData.push({
+                'Usuario Referido': referredUser.name,
+                'Email Referido': referredUser.email,
+                'Plan Actual': 'Sin plan activo',
+                'Monto del Plan': '0',
+                'Usuario Referente': referral.name,
+              });
+            }
+          } catch (error) {
+            console.error(`Error getting subscription for user ${referredUser.id}:`, error);
+            referidosData.push({
+              'Usuario Referido': referredUser.name,
+              'Email Referido': referredUser.email,
+              'Plan Actual': 'Error al obtener',
+              'Monto del Plan': '0',
+              'Usuario Referente': referral.name,
+            });
+          }
+        }
+      }
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Create Resumen sheet
+      const resumenSheet = XLSX.utils.json_to_sheet(resumenData);
+      XLSX.utils.book_append_sheet(workbook, resumenSheet, 'Resumen');
+
+      // Create Referidos sheet
+      const referidosSheet = XLSX.utils.json_to_sheet(referidosData);
+      XLSX.utils.book_append_sheet(workbook, referidosSheet, 'Referidos');
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `usuarios_referentes_${date}.xlsx`;
+
+      // Write file
+      XLSX.writeFile(workbook, filename);
+
+      setMessage({ 
+        type: 'success', 
+        text: 'Excel exportado exitosamente' 
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Error al exportar a Excel. Por favor, inténtalo de nuevo.' 
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -592,13 +753,21 @@ function UsersManagement() {
         {/* Referrals Section */}
         {activeTab === 'referrals' && (
           <>
-            {/* Add Referral User Button */}
+            {/* Add Referral User Button and Export Button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="flex justify-end"
+              className="flex justify-end gap-3"
             >
+              <button
+                onClick={handleExportToExcel}
+                disabled={isProcessing || referralUsers.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                <span>Exportar a Excel</span>
+              </button>
               <button
                 onClick={() => setShowAddReferralModal(true)}
                 className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all duration-300 flex items-center space-x-2"
@@ -658,6 +827,11 @@ function UsersManagement() {
                             <UserCheck className="w-4 h-4 text-gray-500" />
                             <span className="text-sm font-medium text-gray-900 dark:text-white">
                               {referralCounts[referral.id] || 0}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center space-x-1">
+                              <span>(</span>
+                              <CheckCircle className="w-3 h-3 text-green-500" />
+                              <span>{publisherCounts[referral.id] || 0})</span>
                             </span>
                           </div>
                         </td>

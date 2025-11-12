@@ -400,6 +400,9 @@ export interface Booking {
     phone: string;
     notes?: string;
   };
+  cancelledBy?: 'client' | 'publisher';
+  cancellationReason?: string;
+  penaltyAmount?: number;
   paymentData?: {
     method: string;
     installments: number;

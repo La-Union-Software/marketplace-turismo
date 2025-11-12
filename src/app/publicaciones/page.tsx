@@ -28,7 +28,7 @@ function PublicacionesContent() {
         setLoading(true);
         setError(null);
         
-        // Get all published and enabled posts
+        // Get all published and enabled posts (explicitly exclude drafts, pending, rejected, and undefined/null)
         const allPosts = await firebaseDB.posts.getAll();
         const availablePosts = allPosts.filter(post => 
           (post.status === 'published' || post.status === 'approved') &&

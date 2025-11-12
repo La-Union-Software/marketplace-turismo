@@ -16,8 +16,12 @@ import {
   Shield,
   Calendar,
   Upload,
-  X
+  X,
+  Ban,
+  Trash2,
+  LogOut
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import RequireClient from '@/components/auth/ProtectedRoute';
 import { firebaseDB, firebaseAuth } from '@/services/firebaseService';
@@ -45,11 +49,14 @@ interface PasswordFormData {
 }
 
 function ProfileManagement() {
+  const router = useRouter();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'security'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState<ProfileFormData>({
@@ -537,6 +544,57 @@ function ProfileManagement() {
                       )}
                     </button>
                   </div>
+
+                  {/* Danger Zone */}
+                  <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Zona de Peligro
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {/* Suspend Account */}
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-200 mb-1">
+                              Suspender cuenta
+                            </h4>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                              Desactiva tu cuenta temporalmente. Si eres publisher, todas tus publicaciones se deshabilitarán.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowSuspendModal(true)}
+                            className="ml-4 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2"
+                          >
+                            <Ban className="w-4 h-4" />
+                            <span>Suspender</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Delete Account */}
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-red-900 dark:text-red-200 mb-1">
+                              Darse de baja
+                            </h4>
+                            <p className="text-xs text-red-700 dark:text-red-300">
+                              Elimina permanentemente tu cuenta y todos tus datos. Esta acción no se puede deshacer.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowDeleteModal(true)}
+                            className="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Eliminar cuenta</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </motion.form>
               )}
 
@@ -698,12 +756,157 @@ function ProfileManagement() {
                       </div>
                     </div>
                   </div>
+
+                
                 </motion.div>
               )}
             </motion.div>
           </div>
         </div>
       </div>
+
+      {/* Suspend Account Modal */}
+      {showSuspendModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass rounded-xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mr-4">
+                <Ban className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Suspender Cuenta
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Esta acción puede revertirse
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                ¿Estás seguro de que deseas suspender tu cuenta?
+              </p>
+              
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <h4 className="font-medium text-yellow-800 dark:text-yellow-300 mb-2">
+                  Lo que sucederá:
+                </h4>
+                <ul className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
+                  <li>• Tu cuenta se desactivará</li>
+                  {user?.roles.some(r => r.roleName === 'publisher' && r.isActive) && (
+                    <li>• Todas tus publicaciones se deshabilitarán</li>
+                  )}
+                  <li>• No podrás iniciar sesión hasta que un administrador reactive tu cuenta</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowSuspendModal(false)}
+                disabled={isLoading}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSuspendAccount}
+                disabled={isLoading}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Suspendiendo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="w-4 h-4" />
+                    <span>Suspender cuenta</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass rounded-xl p-6 max-w-lg w-full"
+          >
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mr-4">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Eliminar Cuenta Permanentemente
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Esta acción no se puede deshacer
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                ¿Estás absolutamente seguro de que deseas eliminar tu cuenta?
+              </p>
+              
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <h4 className="font-medium text-red-800 dark:text-red-300 mb-2">
+                  Se eliminará permanentemente:
+                </h4>
+                <ul className="text-sm text-red-700 dark:text-red-400 space-y-1">
+                  <li>• Tu cuenta y perfil</li>
+                  <li>• Todas tus suscripciones (canceladas en MercadoPago)</li>
+                  <li>• Todas tus publicaciones</li>
+                  <li>• Todas tus reservas</li>
+                  <li>• Cuentas de MercadoPago conectadas</li>
+                  <li>• Notificaciones y favoritos</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isLoading}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar cuenta</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -64,14 +64,43 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Get New Subscription ----------------------------------------------
-    const newSubscriptionDoc = await firebaseDB.subscriptions.getById(newSubscriptionId);
+    // Try to find by Firebase document ID first, then by MercadoPago ID
+    // Also add retry logic in case there's a slight delay in Firebase propagation
+    let newSubscriptionDoc = await firebaseDB.subscriptions.getById(newSubscriptionId);
     
     if (!newSubscriptionDoc) {
+      // If not found by document ID, try to find by MercadoPago subscription ID
+      console.log('🔄 [Change Plan] Subscription not found by document ID, trying MercadoPago ID:', newSubscriptionId);
+      newSubscriptionDoc = await firebaseDB.subscriptions.getByMercadoPagoId(newSubscriptionId);
+    }
+    
+    // If still not found, wait a bit and retry (in case of Firebase propagation delay)
+    if (!newSubscriptionDoc) {
+      console.log('⏳ [Change Plan] Subscription not found, waiting 1 second and retrying...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Retry both methods
+      newSubscriptionDoc = await firebaseDB.subscriptions.getById(newSubscriptionId);
+      if (!newSubscriptionDoc) {
+        newSubscriptionDoc = await firebaseDB.subscriptions.getByMercadoPagoId(newSubscriptionId);
+      }
+    }
+    
+    if (!newSubscriptionDoc) {
+      console.error('❌ [Change Plan] New subscription not found by either ID after retry:', newSubscriptionId);
       return NextResponse.json(
-        { error: 'New subscription not found' },
+        { error: 'New subscription not found. Please wait a moment and try again, or contact support if the issue persists.' },
         { status: 404 },
       );
     }
+    
+    // If we found it by MercadoPago ID, use the Firebase document ID for updates
+    const newSubscriptionFirebaseId = newSubscriptionDoc.id;
+    console.log('✅ [Change Plan] Found new subscription:', {
+      mercadoPagoId: newSubscriptionDoc.mercadoPagoSubscriptionId,
+      firebaseId: newSubscriptionFirebaseId,
+      searchedWith: newSubscriptionId,
+    });
 
     if (newSubscriptionDoc.userId !== userId) {
       return NextResponse.json(
@@ -109,7 +138,7 @@ export async function POST(request: NextRequest) {
           ...oldSubscriptionDoc.metadata,
           cancelledAt: new Date(),
           cancelReason: 'Plan changed',
-          newSubscriptionId: newSubscriptionId,
+          newSubscriptionId: newSubscriptionFirebaseId,
         },
       });
 
@@ -124,7 +153,7 @@ export async function POST(request: NextRequest) {
 
     // ---- Activate New Subscription in Firebase -----------------------------
     try {
-      await firebaseDB.subscriptions.update(newSubscriptionId, {
+      await firebaseDB.subscriptions.update(newSubscriptionFirebaseId, {
         status: 'active',
         updatedAt: new Date(),
         startDate: new Date(),
@@ -150,7 +179,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Plan changed successfully',
       oldSubscriptionId,
-      newSubscriptionId,
+      newSubscriptionId: newSubscriptionFirebaseId,
       newPlanName: newSubscriptionDoc.planName,
     });
 
