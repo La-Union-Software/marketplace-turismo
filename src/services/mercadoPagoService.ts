@@ -476,8 +476,15 @@ class MercadoPagoService {
       postTitle: bookingData.postTitle,
     };
 
+    // Always set marketplace_fee to the service charge amount
+    // If not provided, calculate it: marketplace_fee = totalAmount - (totalAmount / 1.1)
     if (typeof bookingData.marketplaceFee === 'number') {
       preferenceData.marketplace_fee = bookingData.marketplaceFee;
+    } else {
+      // Calculate service charge (10%): totalAmount - (totalAmount / 1.1)
+      preferenceData.marketplace_fee = Number(
+        (bookingData.totalAmount - bookingData.totalAmount / 1.1).toFixed(2)
+      );
     }
 
     if (bookingData.marketplaceId) {
