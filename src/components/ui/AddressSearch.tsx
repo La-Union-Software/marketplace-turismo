@@ -23,6 +23,7 @@ interface AddressSearchProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  showSearchIcon?: boolean;
 }
 
 export default function AddressSearch({
@@ -31,7 +32,8 @@ export default function AddressSearch({
   onSelect,
   placeholder = "Buscar ubicación...",
   className = "",
-  disabled = false
+  disabled = false,
+  showSearchIcon = true
 }: AddressSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<AddressResult[]>([]);
@@ -155,9 +157,11 @@ export default function AddressSearch({
   return (
     <div className={`relative ${className}`}>
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-400" />
-        </div>
+        {showSearchIcon && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
+          </div>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -167,7 +171,7 @@ export default function AddressSearch({
           onFocus={() => value.length >= 3 && setIsOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full pl-10 pr-10 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full ${showSearchIcon ? 'pl-10' : 'pl-4'} pr-10 py-3 rounded-xl border-0 bg-transparent text-gray-900 dark:text-white focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed`}
         />
         {value && (
           <button

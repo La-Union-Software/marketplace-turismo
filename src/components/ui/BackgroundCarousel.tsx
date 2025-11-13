@@ -54,8 +54,6 @@ export default function BackgroundCarousel({
             priority={index === 0}
             quality={90}
           />
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/30" />
         </div>
       ))}
       

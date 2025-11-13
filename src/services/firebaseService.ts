@@ -2011,4 +2011,46 @@ export const firebaseDB = {
     },
   },
 
+  // Newsletter Subscribers Collection
+  newsletterSubscribers: {
+    async create(email: string): Promise<string> {
+      try {
+        // Check if email already exists
+        const subscribersRef = collection(db, 'newsletter_subscribers');
+        const q = query(subscribersRef, where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          throw new Error('Email already subscribed');
+        }
+
+        const docRef = await addDoc(subscribersRef, {
+          email,
+          subscribedAt: serverTimestamp(),
+          isActive: true,
+        });
+        console.log('✅ [Firebase] Newsletter subscriber added:', docRef.id);
+        return docRef.id;
+      } catch (error) {
+        console.error('Error adding newsletter subscriber:', error);
+        throw error instanceof Error ? error : new Error('Failed to add newsletter subscriber');
+      }
+    },
+
+    async getAll(): Promise<Array<{ id: string; email: string; subscribedAt: any; isActive: boolean }>> {
+      try {
+        const subscribersRef = collection(db, 'newsletter_subscribers');
+        const querySnapshot = await getDocs(subscribersRef);
+        
+        return querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Array<{ id: string; email: string; subscribedAt: any; isActive: boolean }>;
+      } catch (error) {
+        console.error('Error fetching newsletter subscribers:', error);
+        throw new Error('Failed to fetch newsletter subscribers');
+      }
+    },
+  },
+
 };

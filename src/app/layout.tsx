@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 
 const montserrat = Montserrat({ 
   subsets: ["latin"],
@@ -31,11 +32,12 @@ export default function RootLayout({
     <html lang="es" className={`scroll-smooth ${montserrat.variable}`}>
       <body className={`${montserrat.className} antialiased`}>
         <AuthProvider>
-          <div className="min-h-screen bg-background-light dark:bg-background-dark">
+          <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
             <Header />
-            <main>
+            <main className="flex-1">
               {children}
             </main>
+            <Footer />
           </div>
         </AuthProvider>
       </body>

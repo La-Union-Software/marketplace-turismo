@@ -30,7 +30,7 @@
   }
 
   body {
-    color: rgb(var(--foreground-rgb));
+    color: #4d4d4d;
     background: linear-gradient(135deg, var(--background-light) 0%, #F0F8F0 100%);
   }
 
