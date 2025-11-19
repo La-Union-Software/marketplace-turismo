@@ -171,42 +171,22 @@ export default function DashboardLayout({
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {user?.name || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {user?.email || 'user@example.com'}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {user?.roles
-                        .filter(role => role.isActive)
-                        .map((role) => (
-                          <span
-                            key={role.roleId}
-                            className={`px-1.5 py-0.5 text-xs font-medium rounded-full border ${
-                              role.roleName === 'superadmin' 
-                                ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                                : role.roleName === 'publisher'
-                                ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800'
-                                : 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                            }`}
-                          >
-                            {role.roleName}
-                          </span>
-                        ))}
-                    </div>
-                    {hasRole('publisher') && (
-                      <div className="mt-3 space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Plan actual
-                        </p>
-                        <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
-                          {userPlan?.name || 'Sin plan activo'}
+                    {hasRole('publisher') && userPlan ? (
+                      <div className="mt-1 space-y-1">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {userPlan.name}
                         </span>
-                        <p className="text-xs text-gray-600 dark:text-gray-300">
-                          Publicaciones usadas: {currentPostsCount ?? '—'}
-                          {userPlan?.maxPosts != null ? ` / ${userPlan.maxPosts}` : ''}
-                          {typeof remainingPosts === 'number' ? ` (${remainingPosts} disponibles)` : ''}
-                        </p>
+                        {userPlan.maxPosts != null && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {currentPostsCount ?? 0} / {userPlan.maxPosts} publicaciones
+                          </p>
+                        )}
                       </div>
-                    )}
+                    ) : hasRole('client') && !hasRole('publisher') && !hasRole('superadmin') ? (
+                      <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
+                        Cliente
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -297,73 +277,24 @@ export default function DashboardLayout({
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {user?.name || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {user?.email || 'user@example.com'}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {user?.roles
-                        .filter(role => role.isActive)
-                        .map((role) => (
-                          <span
-                            key={role.roleId}
-                            className={`px-1.5 py-0.5 text-xs font-medium rounded-full border ${
-                              role.roleName === 'superadmin' 
-                                ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                                : role.roleName === 'publisher'
-                                ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800'
-                                : 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                            }`}
-                          >
-                            {role.roleName}
-                          </span>
-                        ))}
-                    </div>
-                    {hasRole('publisher') && (
-                      <div className="mt-3 space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Plan actual
-                        </p>
-                        <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
-                          {userPlan?.name || 'Sin plan activo'}
-                        </span>
-                        <p className="text-xs text-gray-600 dark:text-gray-300">
-                          Publicaciones usadas: {currentPostsCount ?? '—'}
-                          {userPlan?.maxPosts != null ? ` / ${userPlan.maxPosts}` : ''}
-                          {typeof remainingPosts === 'number' ? ` (${remainingPosts} disponibles)` : ''}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* User Plan Information */}
-                {userPlan && (hasRole('client') || hasRole('publisher')) && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {userPlan.name.toLowerCase().includes('basic') && <Zap className="w-4 h-4 text-blue-600" />}
-                        {userPlan.name.toLowerCase().includes('premium') && <Star className="w-4 h-4 text-yellow-600" />}
-                        {userPlan.name.toLowerCase().includes('enterprise') && <Crown className="w-4 h-4 text-purple-600" />}
-                        <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+                    {hasRole('publisher') && userPlan ? (
+                      <div className="mt-1 space-y-1">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
                           {userPlan.name}
                         </span>
+                        {userPlan.maxPosts != null && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {currentPostsCount ?? 0} / {userPlan.maxPosts} publicaciones
+                          </p>
+                        )}
                       </div>
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                        ${userPlan.price}
+                    ) : hasRole('client') && !hasRole('publisher') && !hasRole('superadmin') ? (
+                      <span className="mt-1 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary border border-primary/20">
+                        Cliente
                       </span>
-                    </div>
-                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Publicaciones:</span>
-                        <span className="font-medium">0 / {userPlan.maxPosts}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Reservas:</span>
-                        <span className="font-medium">0 / {userPlan.maxBookings}</span>
-                      </div>
-                    </div>
+                    ) : null}
                   </div>
-                )}
+                </div>
 
                 <button 
                   onClick={handleLogout}

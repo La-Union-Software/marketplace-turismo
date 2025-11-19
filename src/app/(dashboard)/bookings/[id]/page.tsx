@@ -16,7 +16,8 @@ import {
   X,
   CreditCard,
   AlertCircle,
-  Download
+  Download,
+  Info
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
@@ -39,6 +40,8 @@ export default function BookingDetailPage() {
   const [actionLoading, setActionLoading] = useState<'accept' | 'decline' | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationPenalty, setCancellationPenalty] = useState<CancellationPenalty | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejectionReasonTouched, setIsRejectionReasonTouched] = useState(false);
 
   const bookingId = params.id as string;
 
@@ -187,23 +190,36 @@ export default function BookingDetailPage() {
   const handleDeclineBooking = async () => {
     if (!booking) return;
 
+    const trimmedReason = rejectionReason.trim();
+    if (!trimmedReason) {
+      setIsRejectionReasonTouched(true);
+      return;
+    }
+
     try {
       setActionLoading('decline');
-      await firebaseDB.bookings.updateStatus(booking.id, 'declined');
+      await firebaseDB.bookings.updateStatus(booking.id, 'declined', {
+        rejectionReason: trimmedReason
+      });
 
       // Create notification for client
       await firebaseDB.notifications.create({
         userId: booking.clientId,
         type: 'booking_declined',
         title: 'Reserva rechazada',
-        message: `Tu reserva para "${booking.post.title}" ha sido rechazada`,
+        message: `Tu reserva para "${booking.post.title}" ha sido rechazada. Motivo: ${trimmedReason}`,
         isRead: false,
         data: {
           bookingId: booking.id,
-          postId: booking.postId
+          postId: booking.postId,
+          rejectionReason: trimmedReason
         }
       });
 
+      // Reset form state
+      setRejectionReason('');
+      setIsRejectionReasonTouched(false);
+      
       // Refresh booking data
       window.location.reload();
     } catch (err) {
@@ -476,6 +492,20 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
+            {/* Rejection Reason - Show if booking is declined */}
+            {booking.status === 'declined' && booking.rejectionReason && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Motivo de Rechazo
+                </h2>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="text-sm text-red-800 dark:text-red-300">
+                    {booking.rejectionReason}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Price Breakdown */}
             {priceBreakdown.nightlyBreakdown.length > 0 && (
               <div className="glass rounded-xl p-6">
@@ -529,41 +559,94 @@ export default function BookingDetailPage() {
               </div>
             )}
 
-            {/* Client Information */}
-            <div className="glass rounded-xl p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                Información del Cliente
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600 dark:text-gray-300">{booking.client.name}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600 dark:text-gray-300">{booking.client.email}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600 dark:text-gray-300">{booking.clientData.phone}</span>
-                </div>
-              </div>
-              {booking.clientData.notes && (
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex items-start space-x-2">
-                    <MessageSquare className="w-4 h-4 text-gray-400 mt-1" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Notas:
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {booking.clientData.notes}
+            {/* Cancellation Policies */}
+            {booking.post?.cancellationPolicies && booking.post.cancellationPolicies.length > 0 && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Políticas de Cancelación
+                </h2>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className="p-1 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                      <Info className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="space-y-2">
+                        {booking.post.cancellationPolicies
+                          .sort((a, b) => a.days_quantity - b.days_quantity)
+                          .map((policy) => (
+                            <div
+                              key={policy.id}
+                              className="text-sm text-blue-800 dark:text-blue-300 bg-white dark:bg-gray-800 rounded p-2 border border-blue-200 dark:border-blue-700"
+                            >
+                              <p>
+                                <strong>
+                                  {policy.days_quantity >= 9999
+                                    ? 'Cancelación en cualquier momento'
+                                    : `Cancelación con ${policy.days_quantity} días o menos de anticipación`}
+                                </strong>
+                                : Se cobrará{' '}
+                                {policy.cancellation_type === 'Porcentaje' ? (
+                                  <strong>{policy.cancellation_amount}% del total</strong>
+                                ) : (
+                                  <strong>
+                                    {new Intl.NumberFormat('es-ES', {
+                                      style: 'currency',
+                                      currency: booking.currency
+                                    }).format(policy.cancellation_amount)}
+                                  </strong>
+                                )}{' '}
+                                como penalización.
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-3">
+                        Estas políticas se aplicarán según la fecha de cancelación en relación con la fecha de inicio de tu reserva.
                       </p>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Client Information - Only show when booking is paid */}
+            {booking.status === 'paid' && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Información del Cliente
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-300">{booking.client.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-300">{booking.client.email}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600 dark:text-gray-300">{booking.clientData.phone}</span>
+                  </div>
+                </div>
+                {booking.clientData.notes && (
+                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <MessageSquare className="w-4 h-4 text-gray-400 mt-1" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Notas:
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {booking.clientData.notes}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Publisher Information - Only show to clients when booking is paid */}
             {isClient && booking.status === 'paid' && booking.owner && (
@@ -729,24 +812,55 @@ export default function BookingDetailPage() {
       {/* Decline Confirmation Modal */}
       {showDeclineConfirm && booking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="glass max-w-md w-full rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <div className="bg-white dark:bg-white max-w-md w-full rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Confirmar rechazo
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
               ¿Seguro que querés rechazar esta solicitud de reserva? El cliente será notificado y la reserva se marcará como rechazada.
             </p>
+            
+            {/* Rejection Reason Textarea */}
+            <div className="mb-6">
+              <label
+                htmlFor="rejection-reason"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Motivo de rechazo <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="rejection-reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                onBlur={() => setIsRejectionReasonTouched(true)}
+                disabled={actionLoading === 'decline'}
+                required
+                rows={4}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:opacity-60"
+                placeholder="Explicá brevemente el motivo del rechazo"
+              />
+              {isRejectionReasonTouched && !rejectionReason.trim() && (
+                <p className="mt-1 text-sm text-red-500">
+                  El motivo de rechazo es obligatorio.
+                </p>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowDeclineConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                onClick={() => {
+                  setShowDeclineConfirm(false);
+                  setRejectionReason('');
+                  setIsRejectionReasonTouched(false);
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 disabled={actionLoading === 'decline'}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeclineBooking}
-                disabled={actionLoading === 'decline'}
+                disabled={actionLoading === 'decline' || !rejectionReason.trim()}
                 className="px-5 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {actionLoading === 'decline' ? 'Confirmando...' : 'Confirmar rechazo'}

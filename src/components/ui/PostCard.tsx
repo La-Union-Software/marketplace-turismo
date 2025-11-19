@@ -20,6 +20,21 @@ function getWeekdayLabel(weekday: Weekday): string {
   return labels[weekday];
 }
 
+// Function to mask phone numbers and email addresses
+const maskContactInfo = (text: string): string => {
+  if (!text) return text;
+  
+  // Mask phone numbers (various formats)
+  // Matches: +54 9 11 1234-5678, (011) 1234-5678, 11-1234-5678, 1234567890, etc.
+  let maskedText = text.replace(/(\+?\d{1,4}[\s\-\(\)]?)?(\d{2,4}[\s\-\(\)]?)?(\d{3,4}[\s\-]?\d{3,4})/g, '*****');
+  
+  // Mask email addresses
+  // Matches: user@domain.com, user.name@domain.co.uk, etc.
+  maskedText = maskedText.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '*****');
+  
+  return maskedText;
+};
+
 interface PostCardProps {
   post: BasePost;
   className?: string;
@@ -75,7 +90,7 @@ export default function PostCard({
             {post.title}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-            {post.description}
+            {maskContactInfo(post.description)}
           </p>
         </div>
 

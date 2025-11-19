@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { X, Calendar, User, Mail, Phone, MessageSquare, Users } from 'lucide-react';
+import { X, Calendar, MessageSquare, Users, Info } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { firebaseDB } from '@/services/firebaseService';
 import { BasePost, Booking } from '@/types';
@@ -310,69 +310,69 @@ export default function BookingForm({ post, onClose, onSuccess }: BookingFormPro
               />
             </div>
 
-            {/* Personal Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Información de Contacto
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <User className="w-4 h-4 inline mr-1" />
-                    Nombre Completo *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.clientData.name}
-                    onChange={(e) => handleInputChange('clientData.name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <Phone className="w-4 h-4 inline mr-1" />
-                    Teléfono *
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.clientData.phone}
-                    onChange={(e) => handleInputChange('clientData.phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Mail className="w-4 h-4 inline mr-1" />
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.clientData.email}
-                  onChange={(e) => handleInputChange('clientData.email', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <MessageSquare className="w-4 h-4 inline mr-1" />
-                  Notas Adicionales (Opcional)
-                </label>
-                <textarea
-                  value={formData.clientData.notes}
-                  onChange={(e) => handleInputChange('clientData.notes', e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Información adicional sobre tu reserva..."
-                />
-              </div>
+            {/* Additional Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <MessageSquare className="w-4 h-4 inline mr-1" />
+                Notas Adicionales (Opcional)
+              </label>
+              <textarea
+                value={formData.clientData.notes}
+                onChange={(e) => handleInputChange('clientData.notes', e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Información adicional sobre tu reserva..."
+              />
             </div>
+
+            {/* Cancellation Policies */}
+            {post.cancellationPolicies && post.cancellationPolicies.length > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start space-x-3 mb-3">
+                  <div className="p-1 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                    <Info className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">
+                      Políticas de Cancelación
+                    </h3>
+                    <div className="space-y-2">
+                      {post.cancellationPolicies
+                        .sort((a, b) => a.days_quantity - b.days_quantity)
+                        .map((policy) => (
+                          <div
+                            key={policy.id}
+                            className="text-sm text-blue-800 dark:text-blue-300 bg-white dark:bg-gray-800 rounded p-2 border border-blue-200 dark:border-blue-700"
+                          >
+                            <p>
+                              <strong>
+                                {policy.days_quantity >= 9999
+                                  ? 'Cancelación en cualquier momento'
+                                  : `Cancelación con ${policy.days_quantity} días o menos de anticipación`}
+                              </strong>
+                              : Se cobrará{' '}
+                              {policy.cancellation_type === 'Porcentaje' ? (
+                                <strong>{policy.cancellation_amount}% del total</strong>
+                              ) : (
+                                <strong>
+                                  {new Intl.NumberFormat('es-ES', {
+                                    style: 'currency',
+                                    currency: post.currency
+                                  }).format(policy.cancellation_amount)}
+                                </strong>
+                              )}{' '}
+                              como penalización.
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                    <p className="text-xs text-blue-700 dark:text-blue-400 mt-3">
+                      Estas políticas se aplicarán según la fecha de cancelación en relación con la fecha de inicio de tu reserva.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (

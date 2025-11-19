@@ -1428,8 +1428,7 @@ export default function PostFormWizard({
                   placeholder="Texto que aparecerá en el voucher del cliente..."
                 />
                 <small>
-                Introduzca la información específica que su cliente debe tener en cuenta sobre su servicio luego de reservar, por ejemplo “en caso de alquileres con mascotas, excepcionalmente no incluiremos uso de ropa de cama, debe traer sus sabanas”. La información general de reserva se contempla por defecto, solo debe introducir aquí ACLARACIONES ESPECIFICAS.
-                </small>
+                Introduzca la información específica que el cliente debe tener en cuenta sobre su servicio luego de reservar. Ejemplo “En caso de alquileres con mascotas, no incluye ropa de cama, debe traerla usted”. Solo debe introducir aquí ACLARACIONES ESPECIFICAS.                </small>
               </div>
             </div>
           </div>
@@ -1981,10 +1980,15 @@ export default function PostFormWizard({
 
                 <section>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Políticas de Cancelación</h4>
-                  <p>
+                  <p className="mb-2">
                     Las políticas de cancelación que establezca deben ser claras y cumplibles. 
                     Usted es responsable de cumplir con las políticas publicadas y de comunicar 
                     cualquier cambio a los clientes con la debida antelación.
+                  </p>
+                  <p>
+                    <u>
+                      Nexar Turismo exige el cumplimiento total de los acuerdos con los clientes.Si un negocio no efectúa un reembolso pendiente o cancela una estadía, podrá ser suspendido de la plataforma de forma inmediata. Nuestro compromiso es proteger la confianza de todos los usuarios.
+                    </u>
                   </p>
                 </section>
 
@@ -2446,9 +2450,15 @@ export default function PostFormWizard({
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Cancelación con {policy.days_quantity} días o menos: {policy.cancellation_type === 'Porcentaje' 
-                      ? `${policy.cancellation_amount}% del total` 
-                      : `$${policy.cancellation_amount}`} de penalización
+                    {policy.days_quantity === 9999 ? (
+                      'La cancelacion de esta reserva implica el 100 % de penalización'
+                    ) : (
+                      <>
+                        Cancelación con {policy.days_quantity} días o menos: {policy.cancellation_type === 'Porcentaje' 
+                          ? `${policy.cancellation_amount}% del total` 
+                          : `$${policy.cancellation_amount}`} de penalización
+                      </>
+                    )}
                   </p>
                 </div>
               ))}

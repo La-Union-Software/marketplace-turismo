@@ -6,7 +6,6 @@ import { gsap } from 'gsap';
 import { 
   Search, 
   MapPin, 
-  Calendar, 
   Users,
   Star,
   Rocket,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import AddressSearch from '@/components/ui/AddressSearch';
 import BackgroundCarousel from '@/components/ui/BackgroundCarousel';
 import { firebaseDB } from '@/services/firebaseService';
@@ -625,9 +625,9 @@ function IconCard({ card, index }: { card: { icon: string; title: string; descri
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [searchForm, setSearchForm] = useState({
     location: '',
-    checkIn: '',
     guests: 0
   });
 
@@ -691,7 +691,13 @@ export default function HomePage() {
   ];
 
   const handleLocationSelect = (address: any) => {
-    setLocationData(address);
+    setLocationData({
+      ...address,
+      state: address.state,
+      city: address.city,
+      stateId: address.stateId,
+      cityId: address.cityId
+    });
     setSearchForm(prev => ({
       ...prev,
       location: address.display_name
@@ -699,8 +705,30 @@ export default function HomePage() {
   };
 
   const handleSearch = () => {
-    // TODO: Implement search functionality
-    console.log('Searching for:', { ...searchForm, locationData });
+    const params = new URLSearchParams();
+    
+    // Add location data if available
+    if (locationData) {
+      // Use stateId (code) if available, otherwise use state name
+      if (locationData.stateId) {
+        params.set('state', locationData.stateId);
+      } else if (locationData.state) {
+        params.set('state', locationData.state);
+      }
+      // Use city name for city parameter
+      if (locationData.city) {
+        params.set('city', locationData.city);
+      }
+    }
+    
+    // Add guests if selected
+    if (searchForm.guests > 0) {
+      params.set('guests', searchForm.guests.toString());
+    }
+    
+    // Redirect to buscar page with query parameters
+    const queryString = params.toString();
+    router.push(`/buscar${queryString ? `?${queryString}` : ''}`);
   };
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
@@ -750,14 +778,14 @@ export default function HomePage() {
         </div>
         
         {/* Search Form - Centered */}
-        <div className="relative z-10 max-w-4xl mx-auto w-full">
+        <div className="relative z-50 max-w-4xl mx-auto w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             className="max-w-4xl mx-auto"
           >
-            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-[2rem] p-2 flex flex-col lg:flex-row items-stretch lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 shadow-xl border border-white/20">
+            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-[2rem] p-2 flex flex-col lg:flex-row items-stretch lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 shadow-xl border border-white/20 relative z-50">
               <div className="flex-1">
                 <AddressSearch
                   value={searchForm.location}
@@ -766,16 +794,6 @@ export default function HomePage() {
                   placeholder="ELEGÍ TU DESTINO"
                   className="w-full"
                   showSearchIcon={false}
-                />
-              </div>
-              <div className="flex-1 relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="date"
-                  value={searchForm.checkIn}
-                  onChange={(e) => setSearchForm(prev => ({ ...prev, checkIn: e.target.value }))}
-                  className="w-full pl-10 pr-4 py-3 border-0 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-0 rounded-xl"
-                  placeholder="FECHA"
                 />
               </div>
               <div className="flex-1 relative" ref={guestsDropdownRef}>
@@ -791,7 +809,7 @@ export default function HomePage() {
                 </button>
                 
                 {guestsDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4">
+                  <div className="absolute z-[100] w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Cantidad de viajeros

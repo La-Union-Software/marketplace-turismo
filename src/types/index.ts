@@ -402,6 +402,7 @@ export interface Booking {
   };
   cancelledBy?: 'client' | 'publisher';
   cancellationReason?: string;
+  rejectionReason?: string;
   penaltyAmount?: number;
   paymentData?: {
     method: string;
